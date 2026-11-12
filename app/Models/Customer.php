@@ -1,0 +1,44 @@
+<?php
+
+namespace App\Models;
+
+use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\HasMany;
+
+class Customer extends Model
+{
+    protected $fillable = [
+        'name', 'phone', 'city', 'address', 'price_tier',
+        'credit_limit', 'opening_balance', 'notes',
+    ];
+
+    protected function casts(): array
+    {
+        return [
+            'credit_limit' => 'decimal:2',
+            'opening_balance' => 'decimal:2',
+        ];
+    }
+
+    public function invoices(): HasMany
+    {
+        return $this->hasMany(Invoice::class);
+    }
+
+    public function payments(): HasMany
+    {
+        return $this->hasMany(Payment::class);
+    }
+
+    /** مديونية التاجر = افتتاحي + مبيعات - مرتجعات - تحصيلات */
+    public function balance(): float
+    {
+        $confirmed = $this->invoices()->where('status', Invoice::STATUS_CONFIRMED);
+
+        $sales = (clone $confirmed)->where('type', Invoice::TYPE_SALE)->sum('total');
+        $returns = (clone $confirmed)->where('type', Invoice::TYPE_SALE_RETURN)->sum('total');
+        $paid = $this->payments()->sum('amount');
+
+        return (float) $this->opening_balance + $sales - $returns - $paid;
+    }
+}
