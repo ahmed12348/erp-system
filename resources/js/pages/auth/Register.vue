@@ -31,7 +31,7 @@ defineOptions({
     <TeamInvitationAlert
         v-if="teamInvitation"
         :invitation="teamInvitation"
-        action="Register"
+        action="register"
     />
 
     <Form

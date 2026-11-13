@@ -35,7 +35,7 @@ const currentTeam = computed(() => page.props.currentTeam as Team | null);
                         data-test="sidebar-menu-button"
                     >
                         <UserInfo :user="user" :team="currentTeam" />
-                        <ChevronsUpDown class="ml-auto size-4" />
+                        <ChevronsUpDown class="ms-auto size-4" />
                     </SidebarMenuButton>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent

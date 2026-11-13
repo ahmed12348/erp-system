@@ -18,4 +18,5 @@ Route::middleware(['auth'])->group(function () {
     Route::delete('invitations/{invitation}', [TeamInvitationController::class, 'decline'])->name('invitations.decline');
 });
 
+require __DIR__.'/erp.php';
 require __DIR__.'/settings.php';

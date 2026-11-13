@@ -1,12 +1,18 @@
 <script setup lang="ts">
-import { Link, usePage } from '@inertiajs/vue3';
-import { BookOpen, FolderGit2, LayoutGrid } from '@lucide/vue';
-import { computed } from 'vue';
+import { Link } from '@inertiajs/vue3';
+import {
+    ChartNoAxesCombined,
+    LayoutDashboard,
+    Package,
+    ReceiptText,
+    ShoppingCart,
+    Truck,
+    Users,
+    Wallet,
+} from '@lucide/vue';
 import AppLogo from '@/components/AppLogo.vue';
-import NavFooter from '@/components/NavFooter.vue';
 import NavMain from '@/components/NavMain.vue';
 import NavUser from '@/components/NavUser.vue';
-import TeamSwitcher from '@/components/TeamSwitcher.vue';
 import {
     Sidebar,
     SidebarContent,
@@ -16,62 +22,59 @@ import {
     SidebarMenuButton,
     SidebarMenuItem,
 } from '@/components/ui/sidebar';
-import { dashboard } from '@/routes';
-import type { NavItem } from '@/types';
+import type { NavGroup } from '@/types';
 
-const page = usePage();
-
-const dashboardUrl = computed(() =>
-    page.props.currentTeam ? dashboard(page.props.currentTeam.slug).url : '/',
-);
-
-const mainNavItems = computed<NavItem[]>(() => [
+/**
+ * القائمة الجانبية مقسّمة لمجموعتين: الحركة اليومية، ثم البيانات والتقارير.
+ * التقسيم بيخلي القائمة أسهل في القراءة من ٨ عناصر ورا بعض.
+ */
+const navGroups: NavGroup[] = [
     {
-        title: 'Dashboard',
-        href: dashboardUrl.value,
-        icon: LayoutGrid,
-    },
-]);
-
-const footerNavItems: NavItem[] = [
-    {
-        title: 'Repository',
-        href: 'https://github.com/laravel/vue-starter-kit',
-        icon: FolderGit2,
+        label: 'الحركة اليومية',
+        items: [
+            { title: 'لوحة التحكم', href: '/dashboard', icon: LayoutDashboard },
+            { title: 'المبيعات', href: '/sales', icon: ReceiptText },
+            { title: 'المشتريات', href: '/purchases', icon: ShoppingCart },
+            { title: 'المخزون', href: '/inventory', icon: Package },
+        ],
     },
     {
-        title: 'Documentation',
-        href: 'https://laravel.com/docs/starter-kits#vue',
-        icon: BookOpen,
+        label: 'البيانات والتقارير',
+        items: [
+            { title: 'التجار', href: '/customers', icon: Users },
+            { title: 'الموردون', href: '/suppliers', icon: Truck },
+            { title: 'الخزينة', href: '/treasury', icon: Wallet },
+            { title: 'التقارير', href: '/reports', icon: ChartNoAxesCombined },
+        ],
     },
 ];
 </script>
 
 <template>
-    <Sidebar collapsible="icon" variant="inset">
+    <!-- side="right" هو اللي بيحط القائمة على يمين الشاشة في الواجهة العربية -->
+    <Sidebar collapsible="icon" side="right" variant="inset">
         <SidebarHeader>
             <SidebarMenu>
                 <SidebarMenuItem>
                     <SidebarMenuButton size="lg" as-child>
-                        <Link :href="dashboardUrl">
+                        <Link href="/dashboard">
                             <AppLogo />
                         </Link>
                     </SidebarMenuButton>
                 </SidebarMenuItem>
             </SidebarMenu>
-            <SidebarMenu>
-                <SidebarMenuItem>
-                    <TeamSwitcher />
-                </SidebarMenuItem>
-            </SidebarMenu>
         </SidebarHeader>
 
-        <SidebarContent>
-            <NavMain :items="mainNavItems" />
+        <SidebarContent class="scrollbar-thin">
+            <NavMain
+                v-for="group in navGroups"
+                :key="group.label"
+                :label="group.label"
+                :items="group.items"
+            />
         </SidebarContent>
 
         <SidebarFooter>
-            <NavFooter :items="footerNavItems" />
             <NavUser />
         </SidebarFooter>
     </Sidebar>

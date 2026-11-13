@@ -30,7 +30,7 @@ const showAvatar = computed(
         </AvatarFallback>
     </Avatar>
 
-    <div class="grid flex-1 text-left text-sm leading-tight">
+    <div class="grid flex-1 text-start text-sm leading-tight">
         <span class="truncate font-medium">{{ user.name }}</span>
         <span v-if="team" class="truncate text-xs text-muted-foreground">{{
             team.name

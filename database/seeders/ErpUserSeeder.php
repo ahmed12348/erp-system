@@ -14,6 +14,8 @@ class ErpUserSeeder extends Seeder
 {
     public const ADMIN_EMAIL = 'admin@erp.test';
 
+    public const COMPANY_NAME = 'شركة النيل للاستيراد والتوزيع';
+
     public function run(): void
     {
         foreach (['admin', 'accountant', 'sales'] as $role) {
@@ -27,14 +29,16 @@ class ErpUserSeeder extends Seeder
         ];
 
         foreach ($users as [$name, $email, $role]) {
-            // الـ factory بينشئ الفريق الشخصي تلقائياً (starter kit)
-            User::factory()
-                ->create([
-                    'name' => $name,
-                    'email' => $email,
-                    'password' => Hash::make('password'),
-                ])
-                ->assignRole($role);
+            // الـ factory بينشئ الفريق الشخصي تلقائياً (starter kit) باسم إنجليزي،
+            // فبنسميه باسم الشركة عشان ما يظهرش "'s Team" في الواجهة العربية
+            $user = User::factory()->create([
+                'name' => $name,
+                'email' => $email,
+                'password' => Hash::make('password'),
+            ]);
+
+            $user->assignRole($role);
+            $user->currentTeam?->update(['name' => self::COMPANY_NAME]);
         }
     }
 }

@@ -12,9 +12,11 @@ trait RedirectsToCurrentTeam
     {
         $team = $this->currentTeam($request);
 
+        // لسه بنثبّت الفريق الحالي عشان مسارات {current_team} تتولّد صح،
+        // لكن شاشات النظام نفسها مش متداخلة تحت الفريق — بنرجّع المسار زي ما هو.
         URL::defaults(['current_team' => $team->slug]);
 
-        return "/{$team->slug}{$redirect}";
+        return $redirect;
     }
 
     protected function currentTeam(Request $request): Team

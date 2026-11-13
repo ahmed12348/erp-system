@@ -44,7 +44,7 @@ const teamItemClass = computed(() =>
     props.inHeader ? 'cursor-pointer gap-2' : 'cursor-pointer gap-2 p-2',
 );
 const checkIconClass = computed(() =>
-    props.inHeader ? 'ml-auto size-4' : 'ml-auto h-4 w-4',
+    props.inHeader ? 'ms-auto size-4' : 'ms-auto h-4 w-4',
 );
 const plusIconClass = computed(() => (props.inHeader ? 'size-4' : 'h-4 w-4'));
 
@@ -108,8 +108,8 @@ onUnmounted(() => {
                 <div
                     :class="
                         props.inHeader
-                            ? 'grid flex-1 text-left text-sm leading-tight'
-                            : 'grid flex-1 text-left text-sm leading-tight group-data-[collapsible=icon]:hidden'
+                            ? 'grid flex-1 text-start text-sm leading-tight'
+                            : 'grid flex-1 text-start text-sm leading-tight group-data-[collapsible=icon]:hidden'
                     "
                 >
                     <span
@@ -126,7 +126,7 @@ onUnmounted(() => {
                     :class="
                         props.inHeader
                             ? 'size-4 opacity-50'
-                            : 'ml-auto group-data-[collapsible=icon]:hidden'
+                            : 'ms-auto group-data-[collapsible=icon]:hidden'
                     "
                 />
             </Button>
