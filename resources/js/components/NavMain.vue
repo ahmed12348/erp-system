@@ -7,24 +7,21 @@ import {
     SidebarMenuButton,
     SidebarMenuItem,
 } from '@/components/ui/sidebar';
-import { useCurrentUrl } from '@/composables/useCurrentUrl';
+import { toUrl } from '@/lib/utils';
 import type { NavItem } from '@/types';
 
-defineProps<{
+const props = defineProps<{
     items: NavItem[];
     label?: string;
+    /** المسار المفعّل الوحيد في القائمة كلها — محسوب في AppSidebar */
+    activeHref?: string | null;
 }>();
 
-const { isCurrentUrl, isCurrentOrParentUrl } = useCurrentUrl();
-
-/**
- * /sales يفضل مفعّل وإحنا جوه /sales/123 كمان،
- * لكن /dashboard لازم تطابق تامة عشان ما تفضلش مفعّلة على طول.
- */
 function isActive(item: NavItem): boolean {
-    return item.href === '/dashboard'
-        ? isCurrentUrl(item.href)
-        : isCurrentOrParentUrl(item.href);
+    return (
+        props.activeHref != null &&
+        (toUrl(item.href) ?? '').replace(/\/+$/, '') === props.activeHref
+    );
 }
 </script>
 

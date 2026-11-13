@@ -5,7 +5,9 @@ use App\Http\Controllers\Teams\TeamInvitationController;
 use App\Http\Middleware\EnsureTeamMembership;
 use Illuminate\Support\Facades\Route;
 
-Route::inertia('/', 'Welcome')->name('home');
+// مفيش صفحة هبوط عامة — النظام داخلي، فالجذر بيودّي على لوحة التحكم
+// (والضيف بيتحوّل تلقائياً لتسجيل الدخول عن طريق middleware auth)
+Route::redirect('/', '/dashboard')->name('home');
 
 Route::prefix('{current_team}')
     ->middleware(['auth', 'verified', EnsureTeamMembership::class])

@@ -22,6 +22,7 @@ import {
     SidebarMenuButton,
     SidebarMenuItem,
 } from '@/components/ui/sidebar';
+import { useActiveNav } from '@/composables/useActiveNav';
 import type { NavGroup } from '@/types';
 
 /**
@@ -48,6 +49,8 @@ const navGroups: NavGroup[] = [
         ],
     },
 ];
+
+const { activeHref } = useActiveNav(navGroups);
 </script>
 
 <template>
@@ -71,6 +74,7 @@ const navGroups: NavGroup[] = [
                 :key="group.label"
                 :label="group.label"
                 :items="group.items"
+                :active-href="activeHref"
             />
         </SidebarContent>
 

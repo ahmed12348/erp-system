@@ -10,7 +10,6 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Spinner } from '@/components/ui/spinner';
-import { register } from '@/routes';
 import { store } from '@/routes/login';
 import { request } from '@/routes/password';
 import type { TeamInvitationContext } from '@/types';
@@ -111,21 +110,10 @@ defineProps<{
             </Button>
         </div>
 
-        <div class="text-center text-sm text-muted-foreground">
-            ليس لديك حساب؟
-            <TextLink
-                :href="
-                    register({
-                        query: {
-                            invitation: teamInvitation?.code,
-                        },
-                    })
-                "
-                :tabindex="5"
-                data-test="register-link"
-            >
-                إنشاء حساب
-            </TextLink>
-        </div>
+        <!-- التسجيل الذاتي مقفول — الحسابات بتتعمل من الإدارة -->
+        <p class="text-center text-sm text-muted-foreground">
+            الحسابات بتتعمل عن طريق إدارة النظام. لو محتاج صلاحية دخول كلّم
+            المسؤول.
+        </p>
     </Form>
 </template>
