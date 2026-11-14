@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { CircleCheck, CircleDashed, CircleX, Clock } from '@lucide/vue';
+import { CircleCheck, CircleDashed, CircleX, Clock, Send } from '@lucide/vue';
 import { computed } from 'vue';
 
 /**
@@ -15,6 +15,17 @@ const STATES = {
         label: 'مقبولة',
         icon: CircleCheck,
         classes: 'bg-status-good/10 text-status-good ring-status-good/25',
+    },
+    sent: {
+        label: 'مُرسلة',
+        icon: Send,
+        classes: 'bg-chart-1/10 text-chart-1 ring-chart-1/25',
+    },
+    pending: {
+        label: 'في انتظار الإرسال',
+        icon: Clock,
+        classes:
+            'bg-status-warning/10 text-status-warning ring-status-warning/25',
     },
     submitted: {
         label: 'قيد المراجعة',

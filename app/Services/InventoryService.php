@@ -52,6 +52,49 @@ class InventoryService
         return (float) DB::table('stock_movements')->sum('quantity');
     }
 
+    /** رصيد صنف في مخزن معيّن (أو كل المخازن لو warehouseId = null) */
+    public function stockFor(int $productId, ?int $warehouseId = null): float
+    {
+        return (float) DB::table('stock_movements')
+            ->where('product_id', $productId)
+            ->when($warehouseId, fn ($query) => $query->where('warehouse_id', $warehouseId))
+            ->sum('quantity');
+    }
+
+    /**
+     * كتالوج الأصناف مع الرصيد في كل مخزن — بيغذّي شاشة إنشاء الفاتورة.
+     *
+     * @return Collection<int, array<string, mixed>>
+     */
+    public function catalogueWithStock(): Collection
+    {
+        $balances = DB::table('stock_movements')
+            ->selectRaw('product_id, warehouse_id, sum(quantity) as qty')
+            ->groupBy('product_id', 'warehouse_id')
+            ->get()
+            ->groupBy('product_id');
+
+        return Product::query()
+            ->where('is_active', true)
+            ->with('category:id,name')
+            ->orderBy('name')
+            ->get()
+            ->map(fn (Product $product) => [
+                'id' => $product->id,
+                'sku' => $product->sku,
+                'name' => $product->name,
+                'unit' => $product->unit,
+                'category' => $product->category?->name,
+                'salePrice' => (float) $product->sale_price,
+                'wholesalePrice' => $product->wholesale_price ? (float) $product->wholesale_price : null,
+                'purchasePrice' => (float) $product->purchase_price,
+                'minStock' => (float) $product->min_stock,
+                // الرصيد مفهرس بالمخزن عشان الواجهة تعرف المتاح فوراً
+                'stock' => $balances->get($product->id, collect())
+                    ->mapWithKeys(fn ($row) => [(string) $row->warehouse_id => (float) $row->qty]),
+            ]);
+    }
+
     /** @return Builder<Product> */
     private function lowStockQuery(): Builder
     {

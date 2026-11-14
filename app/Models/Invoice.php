@@ -24,6 +24,10 @@ class Invoice extends Model
     public const STATUS_CANCELLED = 'cancelled';
 
     /** حالات منظومة الفاتورة الإلكترونية (ETA) — null يعني الفاتورة لسه مااتبعتتش */
+    public const ETA_PENDING = 'pending';
+
+    public const ETA_SENT = 'sent';
+
     public const ETA_SUBMITTED = 'submitted';
 
     public const ETA_VALID = 'valid';
