@@ -78,7 +78,9 @@ class PaymentService
                 'reference' => $data['reference'] ?? null,
                 'user_id' => $user->id,
                 'notes' => $data['notes'] ?? null,
-                // currency / exchange_rate بيتضافوا في المرحلة ٦
+                // الدفع بعملة المورد، وسعر الصرف بيتخزّن عشان نقدر نحوّل للجنيه بعدين
+                'currency' => $data['currency'] ?? $invoice?->currency ?? $supplier->currency,
+                'exchange_rate' => $data['exchange_rate'] ?? $invoice?->exchange_rate ?? 1,
             ]);
 
             if ($invoice) {

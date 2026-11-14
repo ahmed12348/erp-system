@@ -12,14 +12,15 @@ class Payment extends Model
     public const TYPE_DISBURSEMENT = 'disbursement'; // دفع لمورد
 
     protected $fillable = [
-        'type', 'customer_id', 'supplier_id', 'invoice_id', 'amount',
-        'method', 'date', 'reference', 'user_id', 'notes',
+        'type', 'customer_id', 'supplier_id', 'invoice_id', 'amount', 'currency',
+        'exchange_rate', 'method', 'date', 'reference', 'user_id', 'notes',
     ];
 
     protected function casts(): array
     {
         return [
             'amount' => 'decimal:2',
+            'exchange_rate' => 'decimal:4',
             'date' => 'date',
         ];
     }

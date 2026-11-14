@@ -179,6 +179,13 @@ class TransactionSeeder extends Seeder
         $discount = round($subtotal * (mt_rand(0, 30) / 1000), 2);
         $total = round($subtotal - $discount, 2);
 
+        // مصاريف الاستيراد بالجنيه — نسبة من قيمة الشحنة زي الواقع
+        $valueEgp = $total * $rate;
+        $shipping = round($valueEgp * (mt_rand(25, 45) / 1000), 2);
+        $customs = round($valueEgp * (mt_rand(40, 90) / 1000), 2);
+        $clearance = round($valueEgp * (mt_rand(5, 15) / 1000), 2);
+        $landedTotal = $shipping + $customs + $clearance;
+
         $invoice = Invoice::create([
             'type' => Invoice::TYPE_PURCHASE,
             'number' => $this->nextNumber('purchase'),
@@ -192,6 +199,9 @@ class TransactionSeeder extends Seeder
             'subtotal' => $subtotal,
             'discount' => $discount,
             'tax' => 0,
+            'shipping_cost' => $shipping,
+            'customs_cost' => $customs,
+            'clearance_cost' => $clearance,
             'total' => $total,
             'paid' => 0,
             'status' => Invoice::STATUS_CONFIRMED,
@@ -200,12 +210,24 @@ class TransactionSeeder extends Seeder
             'updated_at' => $date->copy()->addHours(mt_rand(9, 16)),
         ]);
 
-        foreach ($items as $item) {
+        // المصاريف بتتوزّع على البنود بالتناسب مع قيمتها، وآخر بند بياخد الباقي
+        $allocated = 0.0;
+        $lastIndex = count($items) - 1;
+
+        foreach ($items as $index => $item) {
             $this->addItem($invoice, $item);
-            $this->addMovement($invoice, $item['product']->id, $warehouseId, StockMovement::TYPE_IN, $item['qty'], round($item['unit_price'] * $rate, 2), $date, 'وارد بفاتورة مشتريات '.$invoice->number);
+
+            $share = $index === $lastIndex
+                ? round($landedTotal - $allocated, 2)
+                : round($landedTotal * ($subtotal > 0 ? $item['total'] / $subtotal : 0), 2);
+            $allocated += $share;
+
+            $unitCost = round(($item['unit_price'] * $rate) + ($share / $item['qty']), 2);
+
+            $this->addMovement($invoice, $item['product']->id, $warehouseId, StockMovement::TYPE_IN, $item['qty'], $unitCost, $date, 'وارد بفاتورة مشتريات '.$invoice->number);
         }
 
-        $this->schedulePayments($invoice, Payment::TYPE_DISBURSEMENT, $supplier->id, $total, $date);
+        $this->schedulePayments($invoice, Payment::TYPE_DISBURSEMENT, $supplier->id, $total, $date, $supplier->currency, $rate);
     }
 
     /** فاتورة مبيعات بالجنيه المصري — لا تتجاوز الرصيد المتاح */
@@ -386,7 +408,7 @@ class TransactionSeeder extends Seeder
     }
 
     /** يوزّع مبلغ الفاتورة على دفعة أو دفعتين، وجزء من الفواتير يفضل مفتوحاً */
-    private function schedulePayments(Invoice $invoice, string $type, int $partyId, float $total, CarbonInterface $date): void
+    private function schedulePayments(Invoice $invoice, string $type, int $partyId, float $total, CarbonInterface $date, string $currency = 'EGP', float $rate = 1.0): void
     {
         $roll = mt_rand(1, 100);
         $methods = ['cash', 'bank', 'check'];
@@ -411,6 +433,8 @@ class TransactionSeeder extends Seeder
                 'supplier_id' => $type === Payment::TYPE_DISBURSEMENT ? $partyId : null,
                 'invoice_id' => $invoice->id,
                 'amount' => round($total * $portion, 2),
+                'currency' => $currency,
+                'exchange_rate' => $rate,
                 'method' => $methods[array_rand($methods)],
                 'date' => $paidAt->toDateString(),
                 'reference' => null,

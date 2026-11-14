@@ -37,7 +37,8 @@ class Invoice extends Model
     protected $fillable = [
         'type', 'number', 'customer_id', 'supplier_id', 'warehouse_id', 'user_id',
         'date', 'due_date', 'currency', 'exchange_rate', 'subtotal', 'discount',
-        'tax', 'total', 'paid', 'status', 'eta_status', 'eta_uuid', 'notes',
+        'tax', 'shipping_cost', 'customs_cost', 'clearance_cost',
+        'total', 'paid', 'status', 'eta_status', 'eta_uuid', 'notes',
     ];
 
     protected function casts(): array
@@ -49,6 +50,9 @@ class Invoice extends Model
             'subtotal' => 'decimal:2',
             'discount' => 'decimal:2',
             'tax' => 'decimal:2',
+            'shipping_cost' => 'decimal:2',
+            'customs_cost' => 'decimal:2',
+            'clearance_cost' => 'decimal:2',
             'total' => 'decimal:2',
             'paid' => 'decimal:2',
         ];

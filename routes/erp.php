@@ -5,7 +5,9 @@ use App\Http\Controllers\Erp\CustomerController;
 use App\Http\Controllers\Erp\CustomerPaymentController;
 use App\Http\Controllers\Erp\DashboardController;
 use App\Http\Controllers\Erp\EtaController;
+use App\Http\Controllers\Erp\PurchaseInvoiceController;
 use App\Http\Controllers\Erp\SaleInvoiceController;
+use App\Http\Controllers\Erp\SupplierController;
 use Illuminate\Support\Facades\Route;
 
 /*
@@ -29,10 +31,19 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::get('sales/{sale}/print', [SaleInvoiceController::class, 'print'])->name('sales.print');
     Route::post('sales/{sale}/eta', [EtaController::class, 'store'])->name('sales.eta.store');
 
+    // المشتريات
+    Route::get('purchases', [PurchaseInvoiceController::class, 'index'])->name('purchases.index');
+    Route::get('purchases/create', [PurchaseInvoiceController::class, 'create'])->name('purchases.create');
+    Route::post('purchases', [PurchaseInvoiceController::class, 'store'])->name('purchases.store');
+    Route::get('purchases/{purchase}', [PurchaseInvoiceController::class, 'show'])->name('purchases.show');
+
+    // الموردون
+    Route::get('suppliers', [SupplierController::class, 'index'])->name('suppliers.index');
+    Route::get('suppliers/{supplier}', [SupplierController::class, 'show'])->name('suppliers.show');
+    Route::post('suppliers/{supplier}/payments', [SupplierController::class, 'storePayment'])->name('suppliers.payments.store');
+
     // أقسام لسه تحت التنفيذ
-    Route::get('purchases', ComingSoonController::class)->name('purchases.index');
     Route::get('inventory', ComingSoonController::class)->name('inventory.index');
-    Route::get('suppliers', ComingSoonController::class)->name('suppliers.index');
     Route::get('treasury', ComingSoonController::class)->name('treasury.index');
     Route::get('reports', ComingSoonController::class)->name('reports.index');
 });
