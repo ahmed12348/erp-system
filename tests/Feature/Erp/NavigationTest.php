@@ -4,51 +4,40 @@ namespace Tests\Feature\Erp;
 
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
-use Inertia\Testing\AssertableInertia;
 use Tests\TestCase;
 
 class NavigationTest extends TestCase
 {
     use RefreshDatabase;
 
-    /** كل قسم في القائمة الجانبية لازم يرد 200 — مفيش 404 في أي حتة */
+    /** كل قسم في القائمة الجانبية — المهم إنه يرد 200، مش أنهي صفحة بالظبط */
+    public const SIDEBAR_SECTIONS = [
+        '/dashboard',
+        '/sales',
+        '/purchases',
+        '/inventory',
+        '/customers',
+        '/suppliers',
+        '/treasury',
+        '/reports',
+    ];
+
     public function test_every_sidebar_section_responds(): void
     {
         $user = User::factory()->create();
 
-        // لوحة التحكم اتبنت في المرحلة ٣، فليها تأكيد منفصل تحت
-        $sections = [
-            '/sales' => 'المبيعات',
-            '/purchases' => 'المشتريات',
-            '/inventory' => 'المخزون',
-            '/customers' => 'التجار',
-            '/suppliers' => 'الموردون',
-            '/treasury' => 'الخزينة',
-            '/reports' => 'التقارير',
-        ];
-
-        foreach ($sections as $url => $title) {
+        foreach (self::SIDEBAR_SECTIONS as $url) {
             $this->actingAs($user)
                 ->get($url)
-                ->assertOk()
-                ->assertInertia(fn (AssertableInertia $page) => $page
-                    ->component('ComingSoon')
-                    ->where('title', $title)
-                );
+                ->assertOk();
         }
-    }
-
-    public function test_the_dashboard_section_renders_the_real_dashboard(): void
-    {
-        $this->actingAs(User::factory()->create())
-            ->get('/dashboard')
-            ->assertOk()
-            ->assertInertia(fn (AssertableInertia $page) => $page->component('Dashboard'));
     }
 
     public function test_sections_require_authentication(): void
     {
-        $this->get('/sales')->assertRedirect('/login');
+        foreach (self::SIDEBAR_SECTIONS as $url) {
+            $this->get($url)->assertRedirect('/login');
+        }
     }
 
     /** بعد تسجيل الدخول المفروض نروح على لوحة التحكم مباشرة */

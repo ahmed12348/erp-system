@@ -1,0 +1,97 @@
+<script setup lang="ts">
+import { Head } from '@inertiajs/vue3';
+import { Printer, X } from '@lucide/vue';
+import { onMounted } from 'vue';
+import AppLogoIcon from '@/components/AppLogoIcon.vue';
+import { Button } from '@/components/ui/button';
+import { formatDate } from '@/lib/format';
+
+const props = defineProps<{
+    /** اسم الشركة في ترويسة الورقة */
+    company: string;
+    title: string;
+    subtitle?: string;
+    printedAt: string;
+    /** يفتح نافذة الطباعة أول ما الصفحة تحمّل */
+    autoPrint?: boolean;
+}>();
+
+onMounted(() => {
+    if (props.autoPrint) {
+        setTimeout(() => window.print(), 400);
+    }
+});
+
+// الـ template ماعندوش وصول لـ window مباشرة
+function print() {
+    window.print();
+}
+
+function close() {
+    window.close();
+}
+</script>
+
+<template>
+    <Head :title="title" />
+
+    <!-- الورقة دايماً فاتحة حتى لو المستخدم على الوضع الداكن -->
+    <!-- الورقة عرضها A4 ثابت، فعلى الموبايل بتتزحلق جوه الحاوية مش بتكسر الصفحة -->
+    <div
+        class="min-h-svh overflow-x-auto bg-neutral-100 py-6 print:overflow-visible print:bg-white print:py-0"
+    >
+        <!-- شريط الإجراءات — بيختفي وقت الطباعة -->
+        <div
+            class="no-print mx-auto mb-4 flex max-w-[210mm] items-center justify-between gap-3 px-4"
+        >
+            <Button variant="outline" size="sm" @click="close">
+                <X class="size-4" />
+                إغلاق
+            </Button>
+            <Button size="sm" data-test="print-button" @click="print">
+                <Printer class="size-4" />
+                طباعة / حفظ PDF
+            </Button>
+        </div>
+
+        <article
+            class="print-sheet mx-auto max-w-[210mm] bg-white p-10 text-neutral-900 shadow-soft-lg"
+        >
+            <header
+                class="flex items-start justify-between gap-6 border-b-2 border-neutral-800 pb-5"
+            >
+                <div class="flex items-center gap-3">
+                    <span
+                        class="flex size-11 items-center justify-center rounded-lg bg-neutral-900 text-white"
+                    >
+                        <AppLogoIcon class="size-6" />
+                    </span>
+                    <div>
+                        <p class="text-lg font-bold">{{ company }}</p>
+                        <p class="text-xs text-neutral-500">
+                            استيراد وتوزيع — جمهورية مصر العربية
+                        </p>
+                    </div>
+                </div>
+
+                <div class="text-end">
+                    <h1 class="text-xl font-bold">{{ title }}</h1>
+                    <p v-if="subtitle" class="mt-0.5 text-xs text-neutral-600">
+                        {{ subtitle }}
+                    </p>
+                    <p class="mt-1 text-xs text-neutral-500">
+                        تاريخ الطباعة: {{ formatDate(printedAt) }}
+                    </p>
+                </div>
+            </header>
+
+            <slot />
+
+            <footer
+                class="mt-8 border-t border-neutral-300 pt-4 text-center text-[11px] text-neutral-500"
+            >
+                هذا المستند صادر من {{ company }} — {{ formatDate(printedAt) }}
+            </footer>
+        </article>
+    </div>
+</template>

@@ -11,6 +11,9 @@ void createInertiaApp({
     title: (title) => (title ? `${title} - ${appName}` : appName),
     layout: (name) => {
         switch (true) {
+            // صفحات الطباعة بتتعرض لوحدها من غير قائمة جانبية أو شريط علوي
+            case name.startsWith('print/'):
+                return null;
             case name.startsWith('auth/'):
                 return AuthLayout;
             case name.startsWith('settings/'):

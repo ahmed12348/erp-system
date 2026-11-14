@@ -187,6 +187,45 @@
     }
 }
 
+/*
+ * صفحات الطباعة (كشف حساب / فاتورة). بنجبر الوضع الفاتح وقت الطباعة
+ * عشان ما نطبعش خلفية سودا، وبنخفي كل حاجة مالهاش لازمة على الورق.
+ */
+@media print {
+    @page {
+        size: A4;
+        margin: 14mm 12mm;
+    }
+
+    html,
+    body {
+        background: #fff !important;
+        color: #000 !important;
+    }
+
+    .no-print {
+        display: none !important;
+    }
+
+    .print-sheet {
+        box-shadow: none !important;
+        border: 0 !important;
+        margin: 0 !important;
+        padding: 0 !important;
+        max-width: none !important;
+    }
+
+    /* الجداول ما تتقطعش في نص السطر */
+    tr,
+    img {
+        break-inside: avoid;
+    }
+
+    thead {
+        display: table-header-group;
+    }
+}
+
 @layer utilities {
     /* سكرول بار رفيع متناسق مع الثيم */
     .scrollbar-thin {
