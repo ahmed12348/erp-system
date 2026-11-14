@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Controllers\Erp\AttachmentController;
 use App\Http\Controllers\Erp\CustomerController;
 use App\Http\Controllers\Erp\CustomerPaymentController;
 use App\Http\Controllers\Erp\DashboardController;
@@ -48,6 +49,13 @@ Route::middleware(['auth', 'verified'])->group(function () {
     // المخزون
     Route::get('inventory', [InventoryController::class, 'index'])->name('inventory.index');
     Route::get('inventory/{product}', [InventoryController::class, 'show'])->name('inventory.show');
+
+    // المرفقات (صور وPDF على الفواتير والسندات)
+    Route::post('invoices/{invoice}/attachments', [AttachmentController::class, 'storeForInvoice'])->name('invoices.attachments.store');
+    Route::post('payments/{payment}/attachments', [AttachmentController::class, 'storeForPayment'])->name('payments.attachments.store');
+    Route::get('attachments/{attachment}', [AttachmentController::class, 'show'])->name('attachments.show');
+    Route::get('attachments/{attachment}/download', [AttachmentController::class, 'download'])->name('attachments.download');
+    Route::delete('attachments/{attachment}', [AttachmentController::class, 'destroy'])->name('attachments.destroy');
 
     // المندوبين
     Route::get('reps', [SalesRepController::class, 'index'])->name('reps.index');

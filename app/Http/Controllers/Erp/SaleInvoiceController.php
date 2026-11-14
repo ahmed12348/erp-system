@@ -4,10 +4,12 @@ namespace App\Http\Controllers\Erp;
 
 use App\Http\Controllers\Controller;
 use App\Http\Requests\StoreSaleInvoiceRequest;
+use App\Models\Attachment;
 use App\Models\Customer;
 use App\Models\Invoice;
 use App\Models\InvoiceItem;
 use App\Models\Warehouse;
+use App\Services\AttachmentService;
 use App\Services\CustomerService;
 use App\Services\InventoryService;
 use App\Services\InvoiceService;
@@ -24,6 +26,7 @@ class SaleInvoiceController extends Controller
         private readonly SalesQueryService $sales,
         private readonly InventoryService $inventory,
         private readonly CustomerService $customers,
+        private readonly AttachmentService $attachments,
     ) {}
 
     public function index(Request $request): Response
@@ -121,7 +124,10 @@ class SaleInvoiceController extends Controller
      */
     private function present(Invoice $invoice): array
     {
-        $invoice->load(['items.product:id,sku,name,unit', 'customer', 'warehouse:id,name', 'user:id,name', 'payments']);
+        $invoice->load([
+            'items.product:id,sku,name,unit', 'customer', 'warehouse:id,name',
+            'user:id,name', 'payments', 'attachments.user:id,name',
+        ]);
 
         return [
             'id' => $invoice->id,
@@ -166,6 +172,9 @@ class SaleInvoiceController extends Controller
                 'method' => $payment->method,
                 'reference' => $payment->reference,
             ]),
+            'attachments' => $invoice->attachments->map(
+                fn (Attachment $attachment) => $this->attachments->present($attachment)
+            ),
         ];
     }
 }

@@ -19,6 +19,7 @@ class DatabaseSeeder extends Seeder
             CustomerSeeder::class,
             TransactionSeeder::class,
             SalesRepSeeder::class,
+            AttachmentSeeder::class,
         ]);
     }
 }

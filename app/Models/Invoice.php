@@ -90,6 +90,11 @@ class Invoice extends Model
         return $this->hasMany(Payment::class);
     }
 
+    public function attachments(): MorphMany
+    {
+        return $this->morphMany(Attachment::class, 'attachable');
+    }
+
     public function movements(): MorphMany
     {
         return $this->morphMany(StockMovement::class, 'reference');

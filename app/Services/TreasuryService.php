@@ -2,6 +2,7 @@
 
 namespace App\Services;
 
+use App\Models\Attachment;
 use App\Models\Payment;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Carbon;
@@ -17,6 +18,8 @@ use Illuminate\Support\Facades\DB;
  */
 class TreasuryService
 {
+    public function __construct(private readonly AttachmentService $attachments) {}
+
     /**
      * @param  array<string, mixed>  $filters
      * @return array{rows: Collection<int, array<string, mixed>>, totals: array<string, float>}
@@ -24,7 +27,10 @@ class TreasuryService
     public function ledger(array $filters = []): array
     {
         $payments = Payment::query()
-            ->with(['customer:id,name', 'supplier:id,name', 'invoice:id,number,type'])
+            ->with([
+                'customer:id,name', 'supplier:id,name', 'invoice:id,number,type',
+                'attachments.user:id,name',
+            ])
             ->when(
                 filled($filters['type'] ?? null),
                 fn (Builder $query) => $query->where('type', $filters['type'])
@@ -66,6 +72,9 @@ class TreasuryService
                 'exchangeRate' => (float) $payment->exchange_rate,
                 'amountEgp' => $egp,
                 'signedEgp' => $payment->type === Payment::TYPE_RECEIPT ? $egp : -$egp,
+                'attachments' => $payment->attachments->map(
+                    fn (Attachment $attachment) => $this->attachments->present($attachment)
+                )->all(),
             ];
         });
 

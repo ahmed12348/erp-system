@@ -4,11 +4,13 @@ namespace App\Http\Controllers\Erp;
 
 use App\Http\Controllers\Controller;
 use App\Http\Requests\StorePurchaseInvoiceRequest;
+use App\Models\Attachment;
 use App\Models\Invoice;
 use App\Models\InvoiceItem;
 use App\Models\Product;
 use App\Models\Supplier;
 use App\Models\Warehouse;
+use App\Services\AttachmentService;
 use App\Services\PurchaseService;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\RedirectResponse;
@@ -22,7 +24,10 @@ class PurchaseInvoiceController extends Controller
     /** أسعار صرف تقريبية بتتقترح في الفورم، والمستخدم يقدر يعدّلها */
     private const SUGGESTED_RATES = ['EGP' => 1, 'USD' => 49.4, 'EUR' => 53.8, 'TRY' => 1.46];
 
-    public function __construct(private readonly PurchaseService $purchases) {}
+    public function __construct(
+        private readonly PurchaseService $purchases,
+        private readonly AttachmentService $attachments,
+    ) {}
 
     public function index(Request $request): Response
     {
@@ -122,7 +127,10 @@ class PurchaseInvoiceController extends Controller
      */
     private function present(Invoice $invoice): array
     {
-        $invoice->load(['items.product:id,sku,name,unit', 'supplier', 'warehouse:id,name', 'user:id,name', 'payments', 'movements']);
+        $invoice->load([
+            'items.product:id,sku,name,unit', 'supplier', 'warehouse:id,name',
+            'user:id,name', 'payments', 'movements', 'attachments.user:id,name',
+        ]);
 
         $rate = (float) $invoice->exchange_rate;
         $costByProduct = $invoice->movements->keyBy('product_id');
@@ -173,6 +181,9 @@ class PurchaseInvoiceController extends Controller
                 'method' => $payment->method,
                 'reference' => $payment->reference,
             ]),
+            'attachments' => $invoice->attachments->map(
+                fn (Attachment $attachment) => $this->attachments->present($attachment)
+            ),
         ];
     }
 }

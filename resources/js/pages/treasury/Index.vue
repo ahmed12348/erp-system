@@ -1,10 +1,19 @@
 <script setup lang="ts">
 import { Head, Link, router } from '@inertiajs/vue3';
-import { Wallet } from '@lucide/vue';
-import { reactive } from 'vue';
+import { Paperclip, Wallet } from '@lucide/vue';
+import { computed, reactive, ref } from 'vue';
+import type { AttachmentItem } from '@/components/AttachmentPanel.vue';
+import AttachmentPanel from '@/components/AttachmentPanel.vue';
 import EmptyState from '@/components/EmptyState.vue';
 import PageHeader from '@/components/PageHeader.vue';
 import SectionCard from '@/components/SectionCard.vue';
+import {
+    Dialog,
+    DialogContent,
+    DialogDescription,
+    DialogHeader,
+    DialogTitle,
+} from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { formatDateShort, formatMoney, formatNumber } from '@/lib/format';
 import type { BreadcrumbItem } from '@/types';
@@ -22,6 +31,7 @@ type Row = {
     currency: string;
     exchangeRate: number;
     amountEgp: number;
+    attachments: AttachmentItem[];
 };
 
 const props = defineProps<{
@@ -63,6 +73,20 @@ function apply() {
 
 const SELECT_CLASS =
     'h-9 rounded-md border border-input bg-transparent px-3 text-sm';
+
+/*
+ * بنمسك رقم السند مش الصف نفسه، عشان بعد رفع أو حذف مرفق الصفحة بتتحدّث
+ * وقائمة المرفقات في الحوار تفضل متزامنة مع البيانات الجديدة.
+ */
+const openPaymentId = ref<number | null>(null);
+
+const openRow = computed(
+    () => props.rows.find((row) => row.id === openPaymentId.value) ?? null,
+);
+
+function openAttachments(row: Row) {
+    openPaymentId.value = row.id;
+}
 </script>
 
 <template>
@@ -217,6 +241,9 @@ const SELECT_CLASS =
                             <th class="px-5 py-2.5 text-start font-medium">
                                 بالجنيه
                             </th>
+                            <th class="px-5 py-2.5 text-start font-medium">
+                                مرفقات
+                            </th>
                         </tr>
                     </thead>
                     <tbody class="divide-y divide-border">
@@ -282,6 +309,26 @@ const SELECT_CLASS =
                                     }}{{ formatMoney(row.amountEgp) }}
                                 </span>
                             </td>
+                            <td class="px-5 py-3">
+                                <button
+                                    type="button"
+                                    class="inline-flex items-center gap-1.5 rounded-md px-2 py-1 text-xs transition-colors hover:bg-accent"
+                                    :class="
+                                        row.attachments.length
+                                            ? 'text-foreground'
+                                            : 'text-muted-foreground'
+                                    "
+                                    :aria-label="`مرفقات السند رقم ${row.id}`"
+                                    @click="openAttachments(row)"
+                                >
+                                    <Paperclip class="size-3.5" />
+                                    <span class="tabular-nums">
+                                        {{
+                                            formatNumber(row.attachments.length)
+                                        }}
+                                    </span>
+                                </button>
+                            </td>
                         </tr>
                     </tbody>
                 </table>
@@ -293,5 +340,35 @@ const SELECT_CLASS =
                 title="مفيش حركة خزينة في الفترة دي"
             />
         </SectionCard>
+
+        <Dialog :open="openRow !== null" @update:open="openPaymentId = null">
+            <DialogContent class="max-w-2xl">
+                <DialogHeader>
+                    <DialogTitle>
+                        مرفقات سند
+                        {{ openRow?.type === 'receipt' ? 'التحصيل' : 'الدفع' }}
+                    </DialogTitle>
+                    <DialogDescription>
+                        {{ openRow?.party ?? '—' }} ·
+                        {{ formatDateShort(openRow?.date) }} ·
+                        {{
+                            formatMoney(
+                                openRow?.amount ?? 0,
+                                openRow?.currency,
+                                2,
+                            )
+                        }}
+                    </DialogDescription>
+                </DialogHeader>
+
+                <AttachmentPanel
+                    v-if="openRow"
+                    :attachments="openRow.attachments"
+                    :upload-url="`/payments/${openRow.id}/attachments`"
+                    :heading="null"
+                    :subheading="null"
+                />
+            </DialogContent>
+        </Dialog>
     </div>
 </template>

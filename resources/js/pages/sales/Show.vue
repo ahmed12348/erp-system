@@ -2,6 +2,8 @@
 import { Head, Link, router } from '@inertiajs/vue3';
 import { Printer, Send } from '@lucide/vue';
 import { computed, ref } from 'vue';
+import type { AttachmentItem } from '@/components/AttachmentPanel.vue';
+import AttachmentPanel from '@/components/AttachmentPanel.vue';
 import EtaBadge from '@/components/EtaBadge.vue';
 import PageHeader from '@/components/PageHeader.vue';
 import SectionCard from '@/components/SectionCard.vue';
@@ -58,6 +60,7 @@ type Invoice = {
         method: string;
         reference: string | null;
     }[];
+    attachments: AttachmentItem[];
 };
 
 const props = defineProps<{
@@ -401,6 +404,11 @@ const METHOD_LABELS: Record<string, string> = {
                 </table>
             </div>
         </SectionCard>
+
+        <AttachmentPanel
+            :attachments="invoice.attachments"
+            :upload-url="`/invoices/${invoice.id}/attachments`"
+        />
 
         <SectionCard v-if="invoice.notes" title="ملاحظات">
             <p class="text-sm text-muted-foreground">{{ invoice.notes }}</p>
