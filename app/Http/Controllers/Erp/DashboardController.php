@@ -13,6 +13,8 @@ class DashboardController extends Controller
     public function __invoke(DashboardService $dashboard): Response
     {
         return Inertia::render('Dashboard', [
+            // لو مفيش حركة، الشاشة بتعرض خطوات التشغيل بدل الأصفار والرسم الفاضي
+            'setup' => $dashboard->setup(),
             'kpis' => $dashboard->kpis(),
             'series' => $dashboard->salesSeries(),
             'topProducts' => $dashboard->topProducts(),

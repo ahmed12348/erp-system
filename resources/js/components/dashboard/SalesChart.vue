@@ -190,7 +190,7 @@ const total = computed(() =>
             :height="HEIGHT"
             class="w-full overflow-visible"
             role="img"
-            :aria-label="`مبيعات آخر ٣ شهور، إجمالي ${formatMoney(total)}`"
+            :aria-label="`مبيعات آخر 3 شهور، إجمالي ${formatMoney(total)}`"
         >
             <defs>
                 <linearGradient id="salesFill" x1="0" y1="0" x2="0" y2="1">
@@ -313,7 +313,7 @@ const total = computed(() =>
         <div class="sr-only">
             <table>
                 <caption>
-                    مبيعات آخر ٣ شهور
+                    مبيعات آخر 3 شهور
                     {{
                         granularity === 'daily' ? 'باليوم' : 'بالأسبوع'
                     }}

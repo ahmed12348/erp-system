@@ -36,6 +36,8 @@ type Row = {
 
 const props = defineProps<{
     rows: Row[];
+    /** في سندات أصلاً؟ بيفرّق بين «لسه مافيش» و«الفلتر مش جايب نتيجة» */
+    hasAny: boolean;
     totals: { in: number; out: number; net: number };
     byMethod: {
         method: string;
@@ -335,9 +337,20 @@ function openAttachments(row: Row) {
             </div>
 
             <EmptyState
-                v-else
+                v-else-if="hasAny"
                 :icon="Wallet"
                 title="مفيش حركة خزينة في الفترة دي"
+                description="جرّب توسّع الفترة أو تشيل الفلاتر."
+                :secondary="{ label: 'امسح الفلاتر', href: '/treasury' }"
+            />
+
+            <EmptyState
+                v-else
+                large
+                :icon="Wallet"
+                title="لسه مافيش حركة خزينة"
+                description="كل تحصيل من تاجر أو دفعة لمورد بتظهر هنا بالجنيه، حتى لو السند بعملة تانية."
+                :action="{ label: 'سجّل تحصيل من تاجر', href: '/customers' }"
             />
         </SectionCard>
 

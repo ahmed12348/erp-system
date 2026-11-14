@@ -4,6 +4,8 @@ namespace App\Services;
 
 use App\Models\Customer;
 use App\Models\Invoice;
+use App\Models\Product;
+use App\Models\Supplier;
 use Illuminate\Database\Query\Builder;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Collection;
@@ -21,6 +23,41 @@ class DashboardService
     private const CHART_DAYS = 90;
 
     public function __construct(private readonly InventoryService $inventory) {}
+
+    /**
+     * حالة تجهيز النظام — بتغذّي الشاشة الفاضية بدل ما نعرض أصفار ورسم فاضي.
+     *
+     * hasData = في حركة فعلية (فاتورة بيع أو شراء). الخطوات بترتيب التشغيل
+     * الطبيعي: أصناف وموردين وتجار، بعدين شراء يدخّل بضاعة، بعدين بيع.
+     *
+     * @return array<string, mixed>
+     */
+    public function setup(): array
+    {
+        $counts = [
+            'products' => Product::count(),
+            'suppliers' => Supplier::count(),
+            'customers' => Customer::count(),
+            'purchases' => Invoice::query()->purchases()->count(),
+            'sales' => Invoice::query()->sales()->count(),
+        ];
+
+        $steps = [
+            ['key' => 'products', 'label' => 'سجّل أصنافك', 'href' => '/inventory', 'cta' => 'شاشة المخزون'],
+            ['key' => 'suppliers', 'label' => 'سجّل موردينك', 'href' => '/suppliers', 'cta' => 'شاشة الموردين'],
+            ['key' => 'customers', 'label' => 'سجّل تجارك', 'href' => '/customers', 'cta' => 'شاشة التجار'],
+            ['key' => 'purchases', 'label' => 'أول فاتورة شراء تدخّل البضاعة المخزن', 'href' => '/purchases/create', 'cta' => 'فاتورة شراء جديدة'],
+            ['key' => 'sales', 'label' => 'أول فاتورة بيع لتاجر', 'href' => '/sales/create', 'cta' => 'فاتورة بيع جديدة'],
+        ];
+
+        return [
+            'hasData' => $counts['purchases'] > 0 || $counts['sales'] > 0,
+            'steps' => array_map(
+                fn (array $step) => $step + ['done' => $counts[$step['key']] > 0],
+                $steps,
+            ),
+        ];
+    }
 
     /**
      * كروت المؤشرات. مقارنة الشهر بتتعمل على نفس عدد الأيام من الشهر اللي فات

@@ -21,6 +21,7 @@ class CustomerController extends Controller
         return Inertia::render('customers/Index', [
             'customers' => $this->customers->paginate($filters),
             'governorates' => $this->customers->governorates(),
+            'hasAny' => Customer::query()->exists(),
             'filters' => $filters,
             'breadcrumbs' => [
                 ['title' => 'لوحة التحكم', 'href' => route('erp.dashboard')],

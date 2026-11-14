@@ -1,7 +1,8 @@
 <script setup lang="ts">
 import { Head, router } from '@inertiajs/vue3';
-import { Printer } from '@lucide/vue';
-import { reactive } from 'vue';
+import { FileChartColumn, Printer, Warehouse } from '@lucide/vue';
+import { computed, reactive } from 'vue';
+import EmptyState from '@/components/EmptyState.vue';
 import PageHeader from '@/components/PageHeader.vue';
 import ReportTable from '@/components/reports/ReportTable.vue';
 import SectionCard from '@/components/SectionCard.vue';
@@ -51,6 +52,9 @@ function openPrint() {
 
     window.open(`/reports/print?${params.toString()}`, '_blank');
 }
+
+/** كل التقارير بترجع المفتاح rows — لو فاضي نعرض حالة فاضية بدل جدول بعناوين بس */
+const rowCount = computed(() => ((props.data.rows as unknown[]) ?? []).length);
 
 const SELECT_CLASS =
     'h-9 rounded-md border border-input bg-transparent px-3 text-sm';
@@ -124,13 +128,34 @@ const SELECT_CLASS =
                 </div>
             </template>
 
-            <div class="scrollbar-thin overflow-x-auto">
+            <div v-if="rowCount > 0" class="scrollbar-thin overflow-x-auto">
                 <ReportTable
                     :report="report"
                     :data="data"
                     :group-by="filters.groupBy"
                 />
             </div>
+
+            <EmptyState
+                v-else-if="report === 'inventory'"
+                large
+                :icon="Warehouse"
+                title="مفيش أصناف في المخزن"
+                description="تقييم المخزون بيحسب الكميات بالتكلفة وبسعر البيع — سجّل أول فاتورة شراء الأول."
+                :action="{
+                    label: 'فاتورة شراء جديدة',
+                    href: '/purchases/create',
+                }"
+            />
+
+            <EmptyState
+                v-else
+                large
+                :icon="FileChartColumn"
+                title="مفيش مبيعات في الفترة دي"
+                description="وسّع الفترة أو سجّل أول فاتورة بيع، والتقرير هيتملى لوحده."
+                :action="{ label: 'فاتورة بيع جديدة', href: '/sales/create' }"
+            />
         </SectionCard>
     </div>
 </template>

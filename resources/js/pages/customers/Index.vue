@@ -24,6 +24,8 @@ type Row = {
 
 const props = defineProps<{
     customers: { data: Row[] } & PaginatorMeta;
+    /** في تجار أصلاً؟ بيفرّق بين «لسه مافيش» و«البحث مش جايب نتيجة» */
+    hasAny: boolean;
     governorates: string[];
     filters: { search?: string; city?: string; status?: string };
     breadcrumbs: BreadcrumbItem[];
@@ -213,10 +215,19 @@ function usage(row: Row): number | null {
             </div>
 
             <EmptyState
-                v-else
+                v-else-if="hasAny"
                 :icon="Users"
                 title="مفيش تجار مطابقين للبحث"
                 description="جرّب تغيّر كلمة البحث أو تشيل الفلاتر."
+                :secondary="{ label: 'امسح الفلاتر', href: '/customers' }"
+            />
+
+            <EmptyState
+                v-else
+                large
+                :icon="Users"
+                title="لسه مافيش تجار"
+                description="التجار بيتسجّلوا بحد ائتمان وشريحة سعر، وكل فاتورة بيع بتتقيّد على حسابهم أول بأول."
             />
 
             <Pagination :meta="customers" />

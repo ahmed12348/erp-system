@@ -22,6 +22,7 @@ class InventoryController extends Controller
         return Inertia::render('inventory/Index', [
             'rows' => $rows,
             'warehouses' => Warehouse::orderBy('name')->get(['id', 'name']),
+            'hasAny' => Product::query()->exists(),
             'filters' => $filters,
             'summary' => [
                 'items' => $rows->count(),

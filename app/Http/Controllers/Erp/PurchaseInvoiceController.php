@@ -63,6 +63,7 @@ class PurchaseInvoiceController extends Controller
                 'landed' => (float) $invoice->shipping_cost + (float) $invoice->customs_cost + (float) $invoice->clearance_cost,
                 'remaining' => $invoice->remaining,
             ]),
+            'hasAny' => Invoice::query()->purchases()->exists(),
             'filters' => $filters,
             'suppliers' => Supplier::orderBy('name')->get(['id', 'name']),
             'breadcrumbs' => [

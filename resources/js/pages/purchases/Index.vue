@@ -30,6 +30,7 @@ type Row = {
 
 const props = defineProps<{
     invoices: { data: Row[] } & PaginatorMeta;
+    hasAny: boolean;
     filters: Record<string, string | undefined>;
     suppliers: { id: number; name: string }[];
     breadcrumbs: BreadcrumbItem[];
@@ -258,10 +259,23 @@ const SELECT_CLASS =
             </div>
 
             <EmptyState
-                v-else
+                v-else-if="hasAny"
                 :icon="ShoppingCart"
-                title="مفيش فواتير شراء مطابقة"
-                description="جرّب تغيّر الفلاتر أو سجّل فاتورة استيراد جديدة."
+                title="مفيش فواتير شراء مطابقة للفلاتر"
+                description="جرّب توسّع الفترة أو تشيل الفلاتر."
+                :secondary="{ label: 'امسح الفلاتر', href: '/purchases' }"
+            />
+
+            <EmptyState
+                v-else
+                large
+                :icon="ShoppingCart"
+                title="لسه مافيش فواتير شراء"
+                description="سجّل فاتورة الاستيراد بعملتها وسعر الصرف ومصاريف الشحن والجمارك، والنظام هيوزّعها على الأصناف ويحدّث التكلفة والمخزون."
+                :action="{
+                    label: 'فاتورة شراء جديدة',
+                    href: '/purchases/create',
+                }"
             />
 
             <Pagination :meta="invoices" />

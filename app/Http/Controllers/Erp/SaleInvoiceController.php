@@ -47,6 +47,7 @@ class SaleInvoiceController extends Controller
                 'etaStatus' => $invoice->eta_status,
             ]),
             'totals' => $this->sales->totals($filters),
+            'hasAny' => Invoice::query()->sales()->exists(),
             'filters' => $filters,
             'customers' => Customer::orderBy('name')->get(['id', 'name']),
             'warehouses' => Warehouse::orderBy('name')->get(['id', 'name']),

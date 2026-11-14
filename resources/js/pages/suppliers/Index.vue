@@ -135,7 +135,13 @@ defineOptions({
                 </table>
             </div>
 
-            <EmptyState v-else :icon="Truck" title="مفيش موردين مسجّلين" />
+            <EmptyState
+                v-else
+                large
+                :icon="Truck"
+                title="لسه مافيش موردين"
+                description="كل مورد بيتسجّل بعملة تعامله، وأرصدته بتفضل بعملته — التحويل للجنيه بيحصل في الفواتير بسعر الصرف."
+            />
         </SectionCard>
     </div>
 </template>

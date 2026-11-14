@@ -220,7 +220,13 @@ const totals = computed(() => ({
                 </table>
             </div>
 
-            <EmptyState v-else :icon="UserRound" title="مفيش مندوبين مسجّلين" />
+            <EmptyState
+                v-else
+                large
+                :icon="UserRound"
+                title="لسه مافيش مندوبين"
+                description="أول ما تضيف مندوبين وتربطهم بالتجار، هتشوف هنا مبيعات كل مندوب وتحصيلاته وعمولته — العمولة بتتحسب على المحصّل مش على المبيعات."
+            />
         </SectionCard>
     </div>
 </template>

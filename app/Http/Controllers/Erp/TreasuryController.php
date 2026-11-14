@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Erp;
 
 use App\Http\Controllers\Controller;
+use App\Models\Payment;
 use App\Services\TreasuryService;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
@@ -21,6 +22,7 @@ class TreasuryController extends Controller
             'rows' => $ledger['rows'],
             'totals' => $ledger['totals'],
             'byMethod' => $this->treasury->byMethod($filters),
+            'hasAny' => Payment::query()->exists(),
             'filters' => $filters,
             'breadcrumbs' => [
                 ['title' => 'لوحة التحكم', 'href' => route('erp.dashboard')],

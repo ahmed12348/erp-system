@@ -26,6 +26,8 @@ type Row = {
 
 const props = defineProps<{
     rows: Row[];
+    /** في أصناف أصلاً؟ بيفرّق بين «لسه مافيش» و«الفلتر مش جايب نتيجة» */
+    hasAny: boolean;
     warehouses: { id: number; name: string }[];
     filters: { search?: string; warehouse_id?: string; low?: string };
     summary: { items: number; units: number; value: number; low: number };
@@ -245,10 +247,23 @@ watchDebounced(() => filters.search, apply, { debounce: 350 });
             </div>
 
             <EmptyState
-                v-else
+                v-else-if="hasAny"
                 :icon="Package"
                 title="مفيش أصناف مطابقة"
                 description="جرّب تغيّر البحث أو تشيل الفلاتر."
+                :secondary="{ label: 'امسح الفلاتر', href: '/inventory' }"
+            />
+
+            <EmptyState
+                v-else
+                large
+                :icon="Package"
+                title="لسه مافيش أصناف"
+                description="رصيد المخزن بيتكوّن من حركات الشراء والبيع — سجّل أول فاتورة شراء والأصناف هتظهر هنا برصيدها وتكلفتها."
+                :action="{
+                    label: 'فاتورة شراء جديدة',
+                    href: '/purchases/create',
+                }"
             />
         </SectionCard>
     </div>

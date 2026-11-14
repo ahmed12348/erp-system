@@ -29,6 +29,11 @@ class ErpUserSeeder extends Seeder
         ];
 
         foreach ($users as [$name, $email, $role]) {
+            // لو السيدر اتشغّل قبل كده (مثلاً db:seed بعدين DemoSeeder) ما نكرّرش
+            if (User::where('email', $email)->exists()) {
+                continue;
+            }
+
             // الـ factory بينشئ الفريق الشخصي تلقائياً (starter kit) باسم إنجليزي،
             // فبنسميه باسم الشركة عشان ما يظهرش "'s Team" في الواجهة العربية
             $user = User::factory()->create([

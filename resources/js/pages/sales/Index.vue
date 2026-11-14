@@ -30,6 +30,8 @@ type Row = {
 const props = defineProps<{
     invoices: { data: Row[] } & PaginatorMeta;
     totals: { count: number; total: number; paid: number; outstanding: number };
+    /** في فواتير بيع أصلاً؟ بيفرّق بين «لسه مابدأتش» و«الفلتر مش جايب نتيجة» */
+    hasAny: boolean;
     filters: Record<string, string | undefined>;
     customers: { id: number; name: string }[];
     warehouses: { id: number; name: string }[];
@@ -305,10 +307,20 @@ const SELECT_CLASS =
             </div>
 
             <EmptyState
-                v-else
+                v-else-if="hasAny"
                 :icon="Receipt"
-                title="مفيش فواتير مطابقة"
-                description="جرّب تغيّر الفلاتر أو اعمل فاتورة جديدة."
+                title="مفيش فواتير مطابقة للفلاتر"
+                description="جرّب توسّع الفترة أو تشيل الفلاتر."
+                :secondary="{ label: 'امسح الفلاتر', href: '/sales' }"
+            />
+
+            <EmptyState
+                v-else
+                large
+                :icon="Receipt"
+                title="لسه مافيش فواتير بيع"
+                description="أول ما تعمل فاتورة بيع، الكميات هتتخصم من المخزن ورصيد التاجر هيتحدّث تلقائيًا."
+                :action="{ label: 'فاتورة بيع جديدة', href: '/sales/create' }"
             />
 
             <Pagination :meta="invoices" />
