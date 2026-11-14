@@ -1,13 +1,15 @@
 <?php
 
-use App\Http\Controllers\Erp\ComingSoonController;
 use App\Http\Controllers\Erp\CustomerController;
 use App\Http\Controllers\Erp\CustomerPaymentController;
 use App\Http\Controllers\Erp\DashboardController;
 use App\Http\Controllers\Erp\EtaController;
+use App\Http\Controllers\Erp\InventoryController;
 use App\Http\Controllers\Erp\PurchaseInvoiceController;
+use App\Http\Controllers\Erp\ReportController;
 use App\Http\Controllers\Erp\SaleInvoiceController;
 use App\Http\Controllers\Erp\SupplierController;
+use App\Http\Controllers\Erp\TreasuryController;
 use Illuminate\Support\Facades\Route;
 
 /*
@@ -42,8 +44,14 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::get('suppliers/{supplier}', [SupplierController::class, 'show'])->name('suppliers.show');
     Route::post('suppliers/{supplier}/payments', [SupplierController::class, 'storePayment'])->name('suppliers.payments.store');
 
-    // أقسام لسه تحت التنفيذ
-    Route::get('inventory', ComingSoonController::class)->name('inventory.index');
-    Route::get('treasury', ComingSoonController::class)->name('treasury.index');
-    Route::get('reports', ComingSoonController::class)->name('reports.index');
+    // المخزون
+    Route::get('inventory', [InventoryController::class, 'index'])->name('inventory.index');
+    Route::get('inventory/{product}', [InventoryController::class, 'show'])->name('inventory.show');
+
+    // الخزينة
+    Route::get('treasury', [TreasuryController::class, 'index'])->name('treasury.index');
+
+    // التقارير
+    Route::get('reports', [ReportController::class, 'index'])->name('reports.index');
+    Route::get('reports/print', [ReportController::class, 'print'])->name('reports.print');
 });
