@@ -53,6 +53,10 @@
     --color-input: var(--input);
     --color-ring: var(--ring);
 
+    --color-status-good: var(--status-good);
+    --color-status-warning: var(--status-warning);
+    --color-status-critical: var(--status-critical);
+
     --color-chart-1: var(--chart-1);
     --color-chart-2: var(--chart-2);
     --color-chart-3: var(--chart-3);
@@ -93,11 +97,16 @@
     --border: oklch(0.915 0.006 210);
     --input: oklch(0.915 0.006 210);
     --ring: oklch(0.56 0.105 194);
-    --chart-1: oklch(0.58 0.11 193);
-    --chart-2: oklch(0.65 0.13 240);
-    --chart-3: oklch(0.7 0.14 85);
-    --chart-4: oklch(0.6 0.15 320);
-    --chart-5: oklch(0.64 0.14 150);
+    /* ألوان الرسوم — متحقَّق منها بالـ validator في الوضعين */
+    --chart-1: #008e8c;
+    --chart-2: #eb6834;
+    --chart-3: #4a3aa7;
+    --chart-4: #eda100;
+    --chart-5: #e87ba4;
+    /* ألوان الحالات — محجوزة للحالة، وكلها فوق 4.5:1 كنص على خلفية الكارت */
+    --status-good: #0b7a63;
+    --status-warning: #8a5a00;
+    --status-critical: #c0252b;
     --radius: 0.75rem;
     --sidebar: oklch(0.995 0.002 197);
     --sidebar-foreground: oklch(0.3 0.016 215);
@@ -132,11 +141,14 @@
     --border: oklch(0.29 0.014 225);
     --input: oklch(0.3 0.014 225);
     --ring: oklch(0.6 0.09 190);
-    --chart-1: oklch(0.72 0.115 188);
-    --chart-2: oklch(0.7 0.13 245);
-    --chart-3: oklch(0.78 0.14 82);
-    --chart-4: oklch(0.7 0.15 320);
-    --chart-5: oklch(0.73 0.13 152);
+    --chart-1: #1da09a;
+    --chart-2: #d95926;
+    --chart-3: #9085e9;
+    --chart-4: #c98500;
+    --chart-5: #d55181;
+    --status-good: #4ec08a;
+    --status-warning: #e0a638;
+    --status-critical: #f08a86;
     --sidebar: oklch(0.195 0.013 225);
     --sidebar-foreground: oklch(0.9 0.005 210);
     --sidebar-primary: oklch(0.74 0.115 186);

@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\Erp\ComingSoonController;
+use App\Http\Controllers\Erp\DashboardController;
 use Illuminate\Support\Facades\Route;
 
 /*
@@ -9,7 +10,7 @@ use Illuminate\Support\Facades\Route;
  * ولما شاشته تتبني بيتبدّل الـ controller بتاعه بس.
  */
 Route::middleware(['auth', 'verified'])->group(function () {
-    Route::get('dashboard', ComingSoonController::class)->name('erp.dashboard');
+    Route::get('dashboard', DashboardController::class)->name('erp.dashboard');
     Route::get('sales', ComingSoonController::class)->name('sales.index');
     Route::get('purchases', ComingSoonController::class)->name('purchases.index');
     Route::get('inventory', ComingSoonController::class)->name('inventory.index');

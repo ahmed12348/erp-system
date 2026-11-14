@@ -23,6 +23,13 @@ class Invoice extends Model
 
     public const STATUS_CANCELLED = 'cancelled';
 
+    /** حالات منظومة الفاتورة الإلكترونية (ETA) — null يعني الفاتورة لسه مااتبعتتش */
+    public const ETA_SUBMITTED = 'submitted';
+
+    public const ETA_VALID = 'valid';
+
+    public const ETA_REJECTED = 'rejected';
+
     protected $fillable = [
         'type', 'number', 'customer_id', 'supplier_id', 'warehouse_id', 'user_id',
         'date', 'due_date', 'currency', 'exchange_rate', 'subtotal', 'discount',

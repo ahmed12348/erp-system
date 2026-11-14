@@ -16,8 +16,8 @@ class NavigationTest extends TestCase
     {
         $user = User::factory()->create();
 
+        // لوحة التحكم اتبنت في المرحلة ٣، فليها تأكيد منفصل تحت
         $sections = [
-            '/dashboard' => 'لوحة التحكم',
             '/sales' => 'المبيعات',
             '/purchases' => 'المشتريات',
             '/inventory' => 'المخزون',
@@ -36,6 +36,14 @@ class NavigationTest extends TestCase
                     ->where('title', $title)
                 );
         }
+    }
+
+    public function test_the_dashboard_section_renders_the_real_dashboard(): void
+    {
+        $this->actingAs(User::factory()->create())
+            ->get('/dashboard')
+            ->assertOk()
+            ->assertInertia(fn (AssertableInertia $page) => $page->component('Dashboard'));
     }
 
     public function test_sections_require_authentication(): void

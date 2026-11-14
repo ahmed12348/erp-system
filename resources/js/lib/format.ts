@@ -95,18 +95,25 @@ export function formatMoney(
     return `${formatNumber(value, decimals)} ${symbol}`;
 }
 
-/** 1250000 → "1.25 مليون ج.م" — للكروت اللي المساحة فيها ضيقة */
+/** يقرّب لعدد خانات معيّن ويشيل الأصفار الزايدة — "750" مش "750.0" */
+function trimmed(value: number, decimals: number): string {
+    const rounded = Number(value.toFixed(decimals));
+
+    return formatNumber(rounded, Number.isInteger(rounded) ? 0 : decimals);
+}
+
+/** 1250000 → "1.25 مليون ج.م" — للكروت وعلامات المحاور اللي المساحة فيها ضيقة */
 export function formatCompactMoney(value: Numeric, currency = 'EGP'): string {
     const amount = toNumber(value);
     const symbol = CURRENCY_SYMBOLS[currency] ?? currency;
     const abs = Math.abs(amount);
 
     if (abs >= 1_000_000) {
-        return `${formatNumber(amount / 1_000_000, 2)} مليون ${symbol}`;
+        return `${trimmed(amount / 1_000_000, 2)} مليون ${symbol}`;
     }
 
     if (abs >= 10_000) {
-        return `${formatNumber(amount / 1000, 1)} ألف ${symbol}`;
+        return `${trimmed(amount / 1000, 1)} ألف ${symbol}`;
     }
 
     return formatMoney(amount, currency);
@@ -175,6 +182,32 @@ export function formatQuantity(value: Numeric, unit?: string | null): string {
     const formatted = formatNumber(amount, decimals);
 
     return unit ? `${formatted} ${unit}` : formatted;
+}
+
+/**
+ * عدّ الفواتير بصيغة عربية سليمة:
+ * ٠ مفيش، ١ فاتورة واحدة، ٢ فاتورتين، ٣-١٠ فواتير، ١١+ فاتورة.
+ */
+export function invoiceCountLabel(count: Numeric): string {
+    const n = Math.abs(Math.round(toNumber(count)));
+
+    if (n === 0) {
+        return 'مفيش فواتير';
+    }
+
+    if (n === 1) {
+        return 'فاتورة واحدة';
+    }
+
+    if (n === 2) {
+        return 'فاتورتين';
+    }
+
+    if (n <= 10) {
+        return `${formatNumber(n)} فواتير`;
+    }
+
+    return `${formatNumber(n)} فاتورة`;
 }
 
 export { AR_MONTHS, AR_WEEKDAYS };
