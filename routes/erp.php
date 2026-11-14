@@ -8,6 +8,7 @@ use App\Http\Controllers\Erp\InventoryController;
 use App\Http\Controllers\Erp\PurchaseInvoiceController;
 use App\Http\Controllers\Erp\ReportController;
 use App\Http\Controllers\Erp\SaleInvoiceController;
+use App\Http\Controllers\Erp\SalesRepController;
 use App\Http\Controllers\Erp\SupplierController;
 use App\Http\Controllers\Erp\TreasuryController;
 use Illuminate\Support\Facades\Route;
@@ -47,6 +48,10 @@ Route::middleware(['auth', 'verified'])->group(function () {
     // المخزون
     Route::get('inventory', [InventoryController::class, 'index'])->name('inventory.index');
     Route::get('inventory/{product}', [InventoryController::class, 'show'])->name('inventory.show');
+
+    // المندوبين
+    Route::get('reps', [SalesRepController::class, 'index'])->name('reps.index');
+    Route::get('reps/{rep}', [SalesRepController::class, 'show'])->name('reps.show');
 
     // الخزينة
     Route::get('treasury', [TreasuryController::class, 'index'])->name('treasury.index');

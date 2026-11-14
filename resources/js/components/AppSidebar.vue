@@ -7,6 +7,7 @@ import {
     ReceiptText,
     ShoppingCart,
     Truck,
+    UserRound,
     Users,
     Wallet,
 } from '@lucide/vue';
@@ -44,6 +45,7 @@ const navGroups: NavGroup[] = [
         items: [
             { title: 'التجار', href: '/customers', icon: Users },
             { title: 'الموردون', href: '/suppliers', icon: Truck },
+            { title: 'المندوبين', href: '/reps', icon: UserRound },
             { title: 'الخزينة', href: '/treasury', icon: Wallet },
             { title: 'التقارير', href: '/reports', icon: ChartNoAxesCombined },
         ],

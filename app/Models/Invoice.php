@@ -35,7 +35,7 @@ class Invoice extends Model
     public const ETA_REJECTED = 'rejected';
 
     protected $fillable = [
-        'type', 'number', 'customer_id', 'supplier_id', 'warehouse_id', 'user_id',
+        'type', 'number', 'customer_id', 'supplier_id', 'warehouse_id', 'user_id', 'sales_rep_id',
         'date', 'due_date', 'currency', 'exchange_rate', 'subtotal', 'discount',
         'tax', 'shipping_cost', 'customs_cost', 'clearance_cost',
         'total', 'paid', 'status', 'eta_status', 'eta_uuid', 'notes',
