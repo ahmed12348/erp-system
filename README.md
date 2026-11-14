@@ -1,0 +1,113 @@
+# نظام إدارة التوزيع — ERP
+
+نظام ERP بالعربي (RTL) لشركة استيراد وتوزيع مصرية: مشتريات بعملات أجنبية مع مصاريف
+استيراد، مخازن، مبيعات للتجار، تحصيلات، مندوبين، وتقارير.
+
+**Laravel 13 · Inertia v3 · Vue 3 + TypeScript · Tailwind v4 · MySQL (InnoDB)**
+
+---
+
+## التشغيل
+
+```bash
+composer install
+npm install
+cp .env.example .env && php artisan key:generate
+php artisan migrate --seed
+npm run dev
+```
+
+### بيانات الدخول
+
+| المستخدم | الإيميل | كلمة السر | الدور |
+| --- | --- | --- | --- |
+| أحمد البطل | `admin@erp.test` | `password` | admin |
+| منى عبد الرحمن | `accountant@erp.test` | `password` | accountant |
+| كريم سعيد | `sales@erp.test` | `password` | sales |
+
+التسجيل العام مقفول — بس المستخدمين دول يقدروا يدخلوا.
+
+---
+
+## قواعد مهمة في البيانات
+
+- **رصيد المخزن = مجموع حركات المخزون** (`stock_movements`)، مفيش عمود رصيد مخزّن.
+- فواتير الشراء بعملتها + `exchange_rate` للتحويل للجنيه. `stock_movements.unit_cost`
+  **دايمًا بالجنيه** بعد توزيع مصاريف الاستيراد على البنود.
+- أرصدة الموردين بعملة المورد؛ أرصدة التجار ومصاريف الاستيراد بالجنيه.
+- عمولة المندوب بتتحسب **على المحصّل** مش على المبيعات.
+- كل الأرقام بأرقام لاتينية (0-9) والتواريخ بصيغة «13 نوفمبر 2026».
+
+---
+
+## الاختبارات والفحوصات
+
+```bash
+php artisan test        # اختبارات الـ Feature
+vendor/bin/pint         # تنسيق PHP
+npm run types:check     # vue-tsc
+npm run check:fix       # lint + format للواجهة
+```
+
+---
+
+## سيرفر الـ MCP — ربط كلود بالبيانات
+
+النظام فيه سيرفر [MCP](https://modelcontextprotocol.io) **للقراءة فقط**، بيدّي كلود
+القدرة إنه يجاوب على أسئلة زي «مين أكبر المديونيات؟» أو «إيه اللي ناقص من المخزن؟»
+من غير ما يقدر يعدّل أي حاجة. كل الأدوات متعلّمة `readOnlyHint`.
+
+### الأدوات
+
+| الأداة | بتعمل إيه |
+| --- | --- |
+| `low-stock-products` | الأصناف تحت حد الطلب والناقص من كل صنف |
+| `trader-balance` | رصيد تاجر، المحصّل منه، وحالته مع حد الائتمان |
+| `top-debtors` | أكبر المديونيات + إجمالي المستحق على كل التجار |
+| `sales-summary` | مبيعات فترة مقسّمة باليوم أو بالشهر |
+| `top-products` | أكتر الأصناف مبيعًا بالقيمة أو بالكمية مع هامش الربح |
+| `stock-lookup` | رصيد صنف في كل مخزن + التكلفة وسعر البيع |
+| `invoice-lookup` | تفاصيل فاتورة برقمها: البنود، الإجماليات، وحالة الفاتورة الإلكترونية |
+
+### الاتصال
+
+السيرفر على `POST /mcp/erp` ومحمي بتوكن Sanctum. اعمل توكن:
+
+```bash
+php artisan erp:mcp-token admin@erp.test
+```
+
+الأمر بيطبع التوكن **مرة واحدة بس** ومعاه سطر الربط الجاهز:
+
+```bash
+claude mcp add --transport http erp https://your-domain.test/mcp/erp \
+  --header "Authorization: Bearer <التوكن>"
+```
+
+للتجربة المحلية من غير توكن (stdio):
+
+```bash
+php artisan mcp:start erp
+```
+
+أو بواجهة الـ Inspector:
+
+```bash
+php artisan mcp:inspector erp
+```
+
+> **ملاحظة عن claude.ai:** الـ custom connectors على claude.ai بتطلب OAuth 2.0.
+> النسخة دي بتستخدم توكن Bearer، اللي بيشتغل مع Claude Code وأي عميل بيسمح
+> بإضافة هيدر. لو محتاج ربط من claude.ai نفسه، `laravel/mcp` بيدعم OAuth عن طريق
+> Laravel Passport (`Mcp::oauthRoutes()`).
+
+---
+
+## ملاحظات على العرض التوضيحي
+
+- **الفاتورة الإلكترونية (ETA) وهمية** — `EtaService` بيولّد UUID شكله حقيقي
+  وبيحرّك الحالة، لكنه عمره ما بيتصل بمنظومة مصلحة الضرائب.
+- **طباعة PDF من المتصفح** — في صفحات طباعة مخصّصة (A4) بدل مكتبة PDF، لأن
+  `dompdf` مش بيشكّل العربي و `mPDF` محتاج `ext-gd` مش متاح هنا.
+- **المرفقات** على القرص الخاص (`storage/app/private`)، والوصول ليها بيعدّي على
+  مسار محمي بتسجيل الدخول.
