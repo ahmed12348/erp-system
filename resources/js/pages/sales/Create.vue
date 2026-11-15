@@ -1,7 +1,8 @@
 <script setup lang="ts">
 import { Head, useForm } from '@inertiajs/vue3';
-import { AlertTriangle, Plus, Trash2 } from '@lucide/vue';
+import { AlertTriangle, Plus, ReceiptText, Trash2 } from '@lucide/vue';
 import { computed, watch } from 'vue';
+import EmptyState from '@/components/EmptyState.vue';
 import InputError from '@/components/InputError.vue';
 import PageHeader from '@/components/PageHeader.vue';
 import SectionCard from '@/components/SectionCard.vue';
@@ -47,6 +48,28 @@ defineOptions({
     layout: (page: { breadcrumbs: BreadcrumbItem[] }) => ({
         breadcrumbs: page.breadcrumbs,
     }),
+});
+
+/*
+ * على نظام فاضي الفورم ده مالوش معنى — مفيش تجار ولا مخازن ولا أصناف
+ * نختار منهم. بنوضّح الناقص بدل ما نعرض قوايم فاضية.
+ */
+const missing = computed(() => {
+    const items: string[] = [];
+
+    if (!props.warehouses.length) {
+        items.push('مخزن');
+    }
+
+    if (!props.customers.length) {
+        items.push('تاجر');
+    }
+
+    if (!props.products.length) {
+        items.push('صنف');
+    }
+
+    return items;
 });
 
 type Line = {
@@ -195,7 +218,30 @@ const SELECT_CLASS =
 <template>
     <Head title="فاتورة بيع جديدة" />
 
+    <div v-if="missing.length" class="flex flex-1 flex-col gap-5 p-4 md:p-6">
+        <PageHeader
+            title="فاتورة بيع جديدة"
+            description="اختر التاجر والمخزن وأضف الأصناف — الأسعار بتتملا حسب شريحة التاجر"
+        />
+
+        <SectionCard flush>
+            <EmptyState
+                large
+                :icon="ReceiptText"
+                title="لسه بدري على فاتورة البيع"
+                :description="`لازم تسجّل ${missing.join(' و')} الأول، وتدخّل بضاعة بفاتورة شراء، عشان تقدر تبيع.`"
+                :action="
+                    missing.includes('مخزن')
+                        ? { label: 'أضف أول مخزن', href: '/warehouses' }
+                        : null
+                "
+                :secondary="{ label: 'رجوع للمبيعات', href: '/sales' }"
+            />
+        </SectionCard>
+    </div>
+
     <form
+        v-else
         class="flex flex-1 flex-col gap-5 p-4 md:p-6"
         @submit.prevent="submit"
     >

@@ -12,6 +12,7 @@ use App\Http\Controllers\Erp\SaleInvoiceController;
 use App\Http\Controllers\Erp\SalesRepController;
 use App\Http\Controllers\Erp\SupplierController;
 use App\Http\Controllers\Erp\TreasuryController;
+use App\Http\Controllers\Erp\WarehouseController;
 use Illuminate\Support\Facades\Route;
 
 /*
@@ -49,6 +50,12 @@ Route::middleware(['auth', 'verified'])->group(function () {
     // المخزون
     Route::get('inventory', [InventoryController::class, 'index'])->name('inventory.index');
     Route::get('inventory/{product}', [InventoryController::class, 'show'])->name('inventory.show');
+
+    // المخازن — أول حاجة بتتسجّل في نظام فاضي
+    Route::get('warehouses', [WarehouseController::class, 'index'])->name('warehouses.index');
+    Route::post('warehouses', [WarehouseController::class, 'store'])->name('warehouses.store');
+    Route::put('warehouses/{warehouse}', [WarehouseController::class, 'update'])->name('warehouses.update');
+    Route::delete('warehouses/{warehouse}', [WarehouseController::class, 'destroy'])->name('warehouses.destroy');
 
     // المرفقات (صور وPDF على الفواتير والسندات)
     Route::post('invoices/{invoice}/attachments', [AttachmentController::class, 'storeForInvoice'])->name('invoices.attachments.store');

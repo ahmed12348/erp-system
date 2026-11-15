@@ -10,6 +10,7 @@ import {
     UserRound,
     Users,
     Wallet,
+    Warehouse,
 } from '@lucide/vue';
 import AppLogo from '@/components/AppLogo.vue';
 import NavMain from '@/components/NavMain.vue';
@@ -43,6 +44,7 @@ const navGroups: NavGroup[] = [
     {
         label: 'البيانات والتقارير',
         items: [
+            { title: 'المخازن', href: '/warehouses', icon: Warehouse },
             { title: 'التجار', href: '/customers', icon: Users },
             { title: 'الموردون', href: '/suppliers', icon: Truck },
             { title: 'المندوبين', href: '/reps', icon: UserRound },

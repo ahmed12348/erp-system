@@ -6,10 +6,13 @@ use Illuminate\Database\Console\Seeds\WithoutModelEvents;
 use Illuminate\Database\Seeder;
 
 /**
- * الوضع الافتراضي — نظام نضيف جاهز لتسليم العميل.
+ * الوضع الافتراضي — نظام فاضي تمامًا جاهز لتسليم العميل.
  *
- * المستخدمين الثلاثة بأدوارهم، اسم الشركة، مخزن افتراضي، ومثال واحد من كل
- * نوع (تصنيف، صنف، تاجر، مورد). مفيش فواتير ولا سندات ولا حركات مخزون.
+ * بيعمل المستخدمين الثلاثة بأدوارهم وفريق الشركة وبس. مفيش مخازن ولا
+ * تصنيفات ولا أصناف ولا تجار ولا موردين ولا أي حركة — العميل بيبدأ من
+ * صفحة بيضا ويسجّل بياناته بنفسه.
+ *
+ * بيشتغل على السيرفر بعد `composer install --no-dev` (مفيش factory ولا fake).
  *
  * للبيانات التجريبية الكاملة (3 شهور حركة):
  *   php artisan db:seed --class=DemoSeeder
@@ -22,7 +25,6 @@ class DatabaseSeeder extends Seeder
     {
         $this->call([
             ErpUserSeeder::class,
-            BaselineSeeder::class,
         ]);
     }
 }
