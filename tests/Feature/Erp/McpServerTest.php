@@ -20,6 +20,8 @@ use App\Models\StockMovement;
 use App\Models\User;
 use App\Models\Warehouse;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Laravel\Mcp\Server\Registrar;
+use Laravel\Passport\Passport;
 use Tests\TestCase;
 
 class McpServerTest extends TestCase
@@ -211,28 +213,35 @@ class McpServerTest extends TestCase
             ->assertSee('مفيش تاجر');
     }
 
-    /** السيرفر على الويب محمي بتوكن — من غيره 401 */
+    /**
+     * السيرفر على الويب محمي — من غير توكن 401، ومعاه هيدر WWW-Authenticate
+     * اللي بيوجّه العميل لمسار اكتشاف الـ OAuth. ده اللي بيخلي claude.ai
+     * يبدأ تسجيل الدخول لوحده بدل ما يفشل.
+     */
     public function test_the_web_endpoint_requires_a_token(): void
     {
-        $this->postJson('/mcp/erp', [
+        $response = $this->postJson('/mcp/erp', [
             'jsonrpc' => '2.0',
             'id' => 1,
             'method' => 'tools/list',
         ])->assertUnauthorized();
+
+        $this->assertStringContainsString(
+            '/.well-known/oauth-protected-resource/mcp/erp',
+            (string) $response->headers->get('WWW-Authenticate'),
+        );
     }
 
     public function test_a_valid_token_reaches_the_server(): void
     {
-        $token = User::first()->createToken('test')->plainTextToken;
+        Passport::actingAs(User::first(), [Registrar::OAUTH_SCOPE]);
 
-        $this->withHeaders([
-            'Authorization' => 'Bearer '.$token,
-            'Accept' => 'application/json, text/event-stream',
-        ])->postJson('/mcp/erp', [
-            'jsonrpc' => '2.0',
-            'id' => 1,
-            'method' => 'tools/list',
-        ])->assertOk()->assertJsonPath('result.tools.0.name', 'low-stock-products');
+        $this->withHeaders(['Accept' => 'application/json, text/event-stream'])
+            ->postJson('/mcp/erp', [
+                'jsonrpc' => '2.0',
+                'id' => 1,
+                'method' => 'tools/list',
+            ])->assertOk()->assertJsonPath('result.tools.0.name', 'low-stock-products');
     }
 
     /**
@@ -240,15 +249,13 @@ class McpServerTest extends TestCase
      */
     private function listTools(): array
     {
-        $token = User::first()->createToken('list')->plainTextToken;
+        Passport::actingAs(User::first(), [Registrar::OAUTH_SCOPE]);
 
-        return $this->withHeaders([
-            'Authorization' => 'Bearer '.$token,
-            'Accept' => 'application/json, text/event-stream',
-        ])->postJson('/mcp/erp', [
-            'jsonrpc' => '2.0',
-            'id' => 1,
-            'method' => 'tools/list',
-        ])->assertOk()->json('result.tools');
+        return $this->withHeaders(['Accept' => 'application/json, text/event-stream'])
+            ->postJson('/mcp/erp', [
+                'jsonrpc' => '2.0',
+                'id' => 1,
+                'method' => 'tools/list',
+            ])->assertOk()->json('result.tools');
     }
 }

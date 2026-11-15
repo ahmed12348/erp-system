@@ -86,7 +86,35 @@ npm run check:fix       # lint + format للواجهة
 
 ### الاتصال
 
-السيرفر على `POST /mcp/erp` ومحمي بتوكن Sanctum. اعمل توكن:
+السيرفر على `POST https://erp.usi-eg.com/mcp/erp`، ومحمي بجارد Passport واحد
+(`auth:api`) بيقبل طريقتين للتوكن.
+
+#### 1) claude.ai على الويب — Custom Connector (OAuth 2.1)
+
+في claude.ai: **Settings → Connectors → Add custom connector**، والصق:
+
+```
+https://erp.usi-eg.com/mcp/erp
+```
+
+كلود بيكتشف الباقي لوحده: بيقرا `/.well-known/oauth-protected-resource/mcp/erp`،
+بيسجّل نفسه على `/oauth/register`، وبيحوّلك على `/oauth/authorize` — تدخل
+بحساب النظام وتضغط **«اسمح بالوصول»**، وبترجع لكلود متوصّل.
+
+المسارات اللي `Mcp::oauthRoutes()` بتسجّلها:
+
+| المسار                                          | وظيفته                                 |
+| ----------------------------------------------- | -------------------------------------- |
+| `/.well-known/oauth-protected-resource/mcp/erp` | بيقول لكلود مين سيرفر التصاريح         |
+| `/.well-known/oauth-authorization-server`       | عناوين authorize/token/register + PKCE |
+| `POST /oauth/register`                          | تسجيل العميل تلقائيًا (RFC 7591)        |
+| `GET /oauth/authorize`                          | شاشة الموافقة العربية                  |
+| `POST /oauth/token`                             | تبديل الكود بتوكن (PKCE S256)          |
+
+نطاقات الـ redirect المسموح بيها محصورة في `config/mcp.php` على `claude.ai`
+و `claude.com` و localhost.
+
+#### 2) Claude Code — توكن شخصي
 
 ```bash
 php artisan erp:mcp-token admin@erp.test
@@ -95,26 +123,38 @@ php artisan erp:mcp-token admin@erp.test
 الأمر بيطبع التوكن **مرة واحدة بس** ومعاه سطر الربط الجاهز:
 
 ```bash
-claude mcp add --transport http erp https://your-domain.test/mcp/erp \
+claude mcp add --transport http erp https://erp.usi-eg.com/mcp/erp \
   --header "Authorization: Bearer <التوكن>"
 ```
 
-للتجربة المحلية من غير توكن (stdio):
+#### محليًا من غير توكن (stdio)
 
 ```bash
 php artisan mcp:start erp
-```
-
-أو بواجهة الـ Inspector:
-
-```bash
 php artisan mcp:inspector erp
 ```
 
-> **ملاحظة عن claude.ai:** الـ custom connectors على claude.ai بتطلب OAuth 2.0.
-> النسخة دي بتستخدم توكن Bearer، اللي بيشتغل مع Claude Code وأي عميل بيسمح
-> بإضافة هيدر. لو محتاج ربط من claude.ai نفسه، `laravel/mcp` بيدعم OAuth عن طريق
-> Laravel Passport (`Mcp::oauthRoutes()`).
+### النشر على استضافة مشتركة
+
+النشر المعتاد: `git pull` → `composer install` → `php artisan migrate`.
+بعد أول نشر بس، شغّل مرة واحدة:
+
+```bash
+php artisan erp:mcp-setup
+```
+
+بيولّد مفاتيح Passport (مش بتتحط في git) وبيعمل عميل التوكنات الشخصية.
+آمن لو اتشغّل تاني — بيعمل الناقص بس.
+
+ولو بتعمل `config:cache` على السيرفر، شغّل `php artisan optimize:clear` بعد
+أول نشر عشان إعدادات الجارد الجديدة تتقري.
+
+**شروط لازم تتحقق على السيرفر:**
+
+- `ext-sodium` مفعّلة في PHP (Passport محتاجها). تأكد بـ `php -m | grep sodium`.
+- `APP_URL=https://erp.usi-eg.com` في `.env` — روابط اكتشاف الـ OAuth بتتبني منها.
+- الملفات المبنية (`public/build`) بتتعمل لها commit من الجهاز المحلي لأن
+  السيرفر مافيهوش Node.
 
 ---
 

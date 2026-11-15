@@ -18,6 +18,13 @@ return Application::configure(basePath: dirname(__DIR__))
     ->withMiddleware(function (Middleware $middleware): void {
         $middleware->encryptCookies(except: ['appearance', 'sidebar_state']);
 
+        /*
+         * الاستضافة المشتركة بتنهي الـ TLS على بروكسي قدّام PHP، فمن غير
+         * السطر ده url() و route() بيطلّعوا http:// جوه روابط اكتشاف الـ OAuth
+         * و claude.ai بيرفض يكمّل. الثقة في X-Forwarded-* بتظبّط الـ scheme.
+         */
+        $middleware->trustProxies(at: '*');
+
         $middleware->web(append: [
             HandleAppearance::class,
             HandleInertiaRequests::class,
