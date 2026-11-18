@@ -4,17 +4,21 @@ namespace App\Services;
 
 use App\Models\Customer;
 use App\Models\Invoice;
+use App\Services\Concerns\PreventsDeletingUsedRecords;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Validation\ValidationException;
 
 /**
  * بيانات التجار: القائمة، ملخّص الحساب، وكشف الحساب بالرصيد الجاري.
  */
 class CustomerService
 {
+    use PreventsDeletingUsedRecords;
+
     /**
      * قائمة التجار مع الرصيد — بحث بالاسم أو التليفون وفلتر بالمحافظة.
      *
@@ -24,7 +28,11 @@ class CustomerService
     public function paginate(array $filters, int $perPage = 15): LengthAwarePaginator
     {
         return Customer::query()
-            ->select(['id', 'name', 'phone', 'city', 'price_tier', 'credit_limit', 'opening_balance'])
+            ->select([
+                'id', 'name', 'phone', 'city', 'address', 'price_tier', 'sales_rep_id',
+                'credit_limit', 'opening_balance', 'notes', 'is_active',
+            ])
+            ->with('salesRep:id,name')
             ->selectRaw($this->balanceSql().' as balance')
             ->when(
                 filled($filters['search'] ?? null),
@@ -254,5 +262,60 @@ class CustomerService
             ->where('id', $customer->id)
             ->selectRaw($this->balanceSql().' as balance')
             ->value('balance');
+    }
+
+    /**
+     * @param  array<string, mixed>  $data
+     */
+    public function create(array $data): Customer
+    {
+        return DB::transaction(fn () => Customer::create($this->attributes($data)));
+    }
+
+    /**
+     * @param  array<string, mixed>  $data
+     */
+    public function update(Customer $customer, array $data): Customer
+    {
+        return DB::transaction(function () use ($customer, $data) {
+            $customer->update($this->attributes($data));
+
+            return $customer;
+        });
+    }
+
+    /**
+     * @throws ValidationException
+     */
+    public function delete(Customer $customer): void
+    {
+        $this->guardAgainstDeletion('customer', $customer->name, [
+            'فاتورة' => $customer->invoices()->count(),
+            'سند تحصيل' => $customer->payments()->count(),
+        ]);
+
+        DB::transaction(fn () => $customer->delete());
+    }
+
+    /**
+     * @param  array<string, mixed>  $data
+     * @return array<string, mixed>
+     */
+    private function attributes(array $data): array
+    {
+        return [
+            'name' => $data['name'],
+            'city' => $data['city'] ?? null,
+            'phone' => $data['phone'] ?? null,
+            'address' => $data['address'] ?? null,
+            'price_tier' => $data['price_tier'] ?? 'sale',
+            // المفتاح نفسه بيبقى ناقص لما الحقل اختياري ومابيتبعتش
+            'sales_rep_id' => ($data['sales_rep_id'] ?? null) ?: null,
+            // الفاضي معناه «بدون حد مديونية»، مش صفر
+            'credit_limit' => ($data['credit_limit'] ?? null) === '' ? null : ($data['credit_limit'] ?? null),
+            'opening_balance' => $data['opening_balance'] ?? 0,
+            'notes' => $data['notes'] ?? null,
+            'is_active' => $data['is_active'] ?? true,
+        ];
     }
 }

@@ -2,9 +2,12 @@
 
 namespace App\Providers;
 
+use App\Enums\ErpAbility;
+use App\Models\User;
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Facades\Date;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\ServiceProvider;
 use Illuminate\Validation\Rules\Password;
@@ -27,7 +30,19 @@ class AppServiceProvider extends ServiceProvider
     {
         $this->configureDefaults();
         $this->configureOAuth();
+        $this->configureAbilities();
         Schema::defaultStringLength(191);
+    }
+
+    /**
+     * صلاحيات النظام — كل حالة في `ErpAbility` بتبقى Gate بنفس الاسم، فالتحقق
+     * في الكنترولرات بيبقى `Gate::authorize(ErpAbility::ManageMasterData->value)`.
+     */
+    protected function configureAbilities(): void
+    {
+        foreach (ErpAbility::cases() as $ability) {
+            Gate::define($ability->value, fn (User $user) => $user->allows($ability));
+        }
     }
 
     /**

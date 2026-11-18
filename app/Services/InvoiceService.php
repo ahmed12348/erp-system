@@ -58,6 +58,9 @@ class InvoiceService
                 'customer_id' => $customer->id,
                 'warehouse_id' => $warehouseId,
                 'user_id' => $user->id,
+                // الفاتورة بتورث مندوب التاجر — من غير كده تقارير المندوبين
+                // بتفضل أصفار على نظام جديد
+                'sales_rep_id' => $customer->sales_rep_id,
                 'date' => $data['date'],
                 'due_date' => $data['due_date'] ?? Carbon::parse($data['date'])->addDays(30)->toDateString(),
                 'currency' => 'EGP',

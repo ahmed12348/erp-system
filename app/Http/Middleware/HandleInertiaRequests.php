@@ -43,6 +43,13 @@ class HandleInertiaRequests extends Middleware
             'name' => config('app.name'),
             'auth' => [
                 'user' => $user,
+                // دور المستخدم وصلاحياته — الواجهة بتخفي أزرار الإضافة والتعديل على أساسها
+                'role' => $user?->erpRole()?->value,
+                'can' => $user?->abilityFlags() ?? [
+                    'manageMasterData' => false,
+                    'quickAddProduct' => false,
+                    'manageUsers' => false,
+                ],
             ],
             'sidebarOpen' => ! $request->hasCookie('sidebar_state') || $request->cookie('sidebar_state') === 'true',
             // بيغذّي عدّاد الجرس في الشريط العلوي — lazy عشان ما يتحسبش لو مفيش مستخدم

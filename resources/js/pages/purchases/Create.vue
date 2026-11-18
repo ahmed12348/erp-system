@@ -1,15 +1,24 @@
 <script setup lang="ts">
 import { Head, useForm } from '@inertiajs/vue3';
-import { Plus, ShoppingCart, Trash2 } from '@lucide/vue';
-import { computed, watch } from 'vue';
+import { PackagePlus, Plus, ShoppingCart, Trash2 } from '@lucide/vue';
+import { computed, nextTick, ref, watch } from 'vue';
 import EmptyState from '@/components/EmptyState.vue';
 import InputError from '@/components/InputError.vue';
 import PageHeader from '@/components/PageHeader.vue';
 import SectionCard from '@/components/SectionCard.vue';
 import { Button } from '@/components/ui/button';
+import {
+    Dialog,
+    DialogContent,
+    DialogDescription,
+    DialogFooter,
+    DialogHeader,
+    DialogTitle,
+} from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Spinner } from '@/components/ui/spinner';
+import { useAbilities } from '@/composables/useAbilities';
 import { formatMoney, formatNumber } from '@/lib/format';
 import type { BreadcrumbItem } from '@/types';
 
@@ -32,6 +41,10 @@ const props = defineProps<{
     suppliers: Supplier[];
     warehouses: { id: number; name: string }[];
     products: ProductOption[];
+    categories: { id: number; name: string }[];
+    units: string[];
+    /** كود مقترح للصنف السريع — P-0001، P-0002 … */
+    suggestedSku: string;
     rates: Record<string, number>;
     today: string;
     breadcrumbs: BreadcrumbItem[];
@@ -43,9 +56,15 @@ defineOptions({
     }),
 });
 
+const { quickAddProduct } = useAbilities();
+
 /*
- * على نظام فاضي الفورم ده مالوش معنى — مفيش مخازن ولا موردين ولا أصناف
- * نختار منهم. بنوضّح الناقص بدل ما نعرض قوايم فاضية.
+ * على نظام فاضي الفورم ده مالوش معنى — مفيش مخازن ولا موردين نختار منهم.
+ * بنوضّح الناقص بدل ما نعرض قوايم فاضية.
+ *
+ * الأصناف استثناء: لو المستخدم معاه صلاحية الإضافة السريعة، نسيبه يدخل
+ * الفورم ويضيف الصنف من جواه — ده بالظبط سيناريو أول فاتورة شراء على
+ * نظام فاضي، البضاعة لسه داخلة لأول مرة فالأصناف بتتعرّف وهو بيكتبها.
  */
 const missing = computed(() => {
     const items: string[] = [];
@@ -58,7 +77,7 @@ const missing = computed(() => {
         items.push('مورد');
     }
 
-    if (!props.products.length) {
+    if (!props.products.length && !quickAddProduct.value) {
         items.push('صنف');
     }
 
@@ -164,6 +183,68 @@ function submit() {
         due_date: data.due_date === '' ? null : data.due_date,
         items: data.items.filter((line) => line.product_id !== ''),
     })).post('/purchases', { preserveScroll: true });
+}
+
+/*
+ * إضافة صنف من غير ما تسيب الفاتورة.
+ *
+ * بنبعت الصنف لوحده على /products/quick، والرد بيرجّع نفس الصفحة بـ props
+ * متحدّثة — فبنلاقي الصنف الجديد بالكود بتاعه ونحطه في السطر اللي المستخدم
+ * كان واقف عليه. اللي اتكتب في الفاتورة لحد دلوقتي مابيضيعش.
+ */
+const quickOpen = ref(false);
+const quickLineIndex = ref<number | null>(null);
+
+const quickForm = useForm({
+    name: '',
+    sku: '',
+    unit: props.units[0] ?? 'قطعة',
+    category_id: '' as number | '',
+    purchase_price: '' as number | string,
+    sale_price: '' as number | string,
+});
+
+function openQuickAdd(index: number | null = null) {
+    quickLineIndex.value = index;
+    quickForm.defaults({
+        name: '',
+        sku: props.suggestedSku,
+        unit: props.units[0] ?? 'قطعة',
+        category_id: '',
+        purchase_price: '',
+        sale_price: '',
+    });
+    quickForm.reset();
+    quickForm.clearErrors();
+    quickOpen.value = true;
+}
+
+function submitQuickAdd() {
+    const sku = quickForm.sku;
+    const index = quickLineIndex.value;
+
+    quickForm.post('/products/quick', {
+        preserveScroll: true,
+        // بنحافظ على حالة الفورم المحلية (بنود الفاتورة) ونجدّد الـ props بس
+        preserveState: true,
+        onSuccess: async () => {
+            quickOpen.value = false;
+
+            await nextTick();
+
+            const created = props.products.find((p) => p.sku === sku);
+
+            if (created && index !== null && form.items[index]) {
+                form.items[index].product_id = created.id;
+
+                if (form.items[index].unit_price === '') {
+                    form.items[index].unit_price = created.lastCost || '';
+                }
+            }
+
+            quickLineIndex.value = null;
+        },
+    });
 }
 
 const SELECT_CLASS =
@@ -308,6 +389,17 @@ const SELECT_CLASS =
             <SectionCard title="الأصناف" flush class="lg:col-span-2">
                 <template #actions>
                     <Button
+                        v-if="quickAddProduct"
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        data-test="purchase-quick-product"
+                        @click="openQuickAdd()"
+                    >
+                        <PackagePlus class="size-4" />
+                        صنف جديد
+                    </Button>
+                    <Button
                         type="button"
                         variant="outline"
                         size="sm"
@@ -317,6 +409,14 @@ const SELECT_CLASS =
                         إضافة سطر
                     </Button>
                 </template>
+
+                <p
+                    v-if="!products.length"
+                    class="border-b border-border bg-muted/40 px-5 py-3 text-sm text-muted-foreground"
+                >
+                    لسه مافيش أصناف مسجّلة — اضغط «صنف جديد» وضيفه من هنا من غير
+                    ما تسيب الفاتورة.
+                </p>
 
                 <div class="scrollbar-thin overflow-x-auto">
                     <table class="w-full text-sm">
@@ -356,22 +456,34 @@ const SELECT_CLASS =
                                 :key="index"
                             >
                                 <td class="px-3 py-2">
-                                    <select
-                                        v-model="line.product_id"
-                                        :class="SELECT_CLASS"
-                                        :data-test="`pline-product-${index}`"
-                                    >
-                                        <option value="" disabled>
-                                            اختر الصنف
-                                        </option>
-                                        <option
-                                            v-for="p in products"
-                                            :key="p.id"
-                                            :value="p.id"
+                                    <div class="flex items-center gap-1">
+                                        <select
+                                            v-model="line.product_id"
+                                            :class="SELECT_CLASS"
+                                            :data-test="`pline-product-${index}`"
                                         >
-                                            {{ p.name }} ({{ p.sku }})
-                                        </option>
-                                    </select>
+                                            <option value="" disabled>
+                                                اختر الصنف
+                                            </option>
+                                            <option
+                                                v-for="p in products"
+                                                :key="p.id"
+                                                :value="p.id"
+                                            >
+                                                {{ p.name }} ({{ p.sku }})
+                                            </option>
+                                        </select>
+                                        <button
+                                            v-if="quickAddProduct"
+                                            type="button"
+                                            class="flex size-9 shrink-0 items-center justify-center rounded-md border border-input text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
+                                            aria-label="إضافة صنف جديد للسطر ده"
+                                            :data-test="`pline-add-product-${index}`"
+                                            @click="openQuickAdd(index)"
+                                        >
+                                            <PackagePlus class="size-4" />
+                                        </button>
+                                    </div>
                                     <p
                                         v-if="
                                             productsById.get(
@@ -582,5 +694,118 @@ const SELECT_CLASS =
                 حفظ الفاتورة
             </Button>
         </div>
+
+        <Dialog v-model:open="quickOpen">
+            <DialogContent class="max-w-lg">
+                <DialogHeader>
+                    <DialogTitle>صنف جديد</DialogTitle>
+                    <DialogDescription>
+                        البيانات الأساسية بس — تقدر تكمّل باقي بيانات الصنف
+                        بعدين من صفحة الأصناف. الفاتورة اللي بتكتبها مش هتضيع.
+                    </DialogDescription>
+                </DialogHeader>
+
+                <div class="space-y-4">
+                    <div class="grid gap-4 sm:grid-cols-2">
+                        <div class="space-y-2 sm:col-span-2">
+                            <Label for="quick-name">اسم الصنف</Label>
+                            <Input
+                                id="quick-name"
+                                v-model="quickForm.name"
+                                placeholder="زيت عباد شمس 1 لتر"
+                                autocomplete="off"
+                                data-test="quick-product-name"
+                            />
+                            <InputError :message="quickForm.errors.name" />
+                        </div>
+
+                        <div class="space-y-2">
+                            <Label for="quick-sku">كود الصنف</Label>
+                            <Input
+                                id="quick-sku"
+                                v-model="quickForm.sku"
+                                dir="ltr"
+                                class="text-start"
+                                autocomplete="off"
+                                data-test="quick-product-sku"
+                            />
+                            <InputError :message="quickForm.errors.sku" />
+                        </div>
+
+                        <div class="space-y-2">
+                            <Label for="quick-unit">الوحدة</Label>
+                            <select
+                                id="quick-unit"
+                                v-model="quickForm.unit"
+                                :class="SELECT_CLASS"
+                                data-test="quick-product-unit"
+                            >
+                                <option v-for="u in units" :key="u" :value="u">
+                                    {{ u }}
+                                </option>
+                            </select>
+                            <InputError :message="quickForm.errors.unit" />
+                        </div>
+
+                        <div class="space-y-2">
+                            <Label for="quick-category">
+                                التصنيف
+                                <span class="text-muted-foreground"
+                                    >(اختياري)</span
+                                >
+                            </Label>
+                            <select
+                                id="quick-category"
+                                v-model="quickForm.category_id"
+                                :class="SELECT_CLASS"
+                                data-test="quick-product-category"
+                            >
+                                <option value="">بدون تصنيف</option>
+                                <option
+                                    v-for="c in categories"
+                                    :key="c.id"
+                                    :value="c.id"
+                                >
+                                    {{ c.name }}
+                                </option>
+                            </select>
+                            <InputError
+                                :message="quickForm.errors.category_id"
+                            />
+                        </div>
+
+                        <div class="space-y-2">
+                            <Label for="quick-sale-price">سعر البيع</Label>
+                            <Input
+                                id="quick-sale-price"
+                                v-model="quickForm.sale_price"
+                                type="number"
+                                step="0.01"
+                                min="0"
+                                dir="ltr"
+                                class="text-start"
+                                data-test="quick-product-sale-price"
+                            />
+                            <InputError
+                                :message="quickForm.errors.sale_price"
+                            />
+                        </div>
+                    </div>
+
+                    <DialogFooter>
+                        <!-- مش <form> عشان ما يتداخلش مع فورم الفاتورة اللي حواليه -->
+                        <Button
+                            type="button"
+                            :disabled="quickForm.processing"
+                            data-test="quick-product-submit"
+                            @click="submitQuickAdd"
+                        >
+                            <Spinner v-if="quickForm.processing" />
+                            إضافة الصنف
+                        </Button>
+                    </DialogFooter>
+                </div>
+            </DialogContent>
+        </Dialog>
     </form>
 </template>

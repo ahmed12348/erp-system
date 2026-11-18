@@ -46,6 +46,9 @@ class PaymentService
                 'date' => $data['date'],
                 'reference' => $data['reference'] ?? null,
                 'user_id' => $user->id,
+                // التحصيل بيتنسب لمندوب التاجر — العمولة بتتحسب على المحصّل،
+                // فمن غير النسبة دي المندوب عمره ما هياخد عمولة
+                'sales_rep_id' => $customer->sales_rep_id,
                 'notes' => $data['notes'] ?? null,
             ]);
 

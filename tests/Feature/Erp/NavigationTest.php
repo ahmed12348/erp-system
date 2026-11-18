@@ -16,10 +16,19 @@ class NavigationTest extends TestCase
         '/sales',
         '/purchases',
         '/inventory',
+        '/warehouses',
+        '/products',
+        '/categories',
         '/customers',
         '/suppliers',
+        '/reps',
         '/treasury',
         '/reports',
+    ];
+
+    /** قسم المستخدمين بيظهر في القائمة للمدير بس */
+    public const ADMIN_ONLY_SECTIONS = [
+        '/users',
     ];
 
     public function test_every_sidebar_section_responds(): void
@@ -33,9 +42,18 @@ class NavigationTest extends TestCase
         }
     }
 
+    public function test_the_admin_only_sections_respond_for_the_admin(): void
+    {
+        $admin = $this->admin();
+
+        foreach (self::ADMIN_ONLY_SECTIONS as $url) {
+            $this->actingAs($admin)->get($url)->assertOk();
+        }
+    }
+
     public function test_sections_require_authentication(): void
     {
-        foreach (self::SIDEBAR_SECTIONS as $url) {
+        foreach ([...self::SIDEBAR_SECTIONS, ...self::ADMIN_ONLY_SECTIONS] as $url) {
             $this->get($url)->assertRedirect('/login');
         }
     }

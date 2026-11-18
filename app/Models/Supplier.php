@@ -2,16 +2,23 @@
 
 namespace App\Models;
 
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class Supplier extends Model
 {
-    protected $fillable = ['name', 'phone', 'country', 'currency', 'opening_balance', 'notes'];
+    protected $fillable = ['name', 'phone', 'country', 'currency', 'opening_balance', 'notes', 'is_active'];
 
     protected function casts(): array
     {
-        return ['opening_balance' => 'decimal:2'];
+        return ['opening_balance' => 'decimal:2', 'is_active' => 'boolean'];
+    }
+
+    /** @param  Builder<self>  $query */
+    public function scopeActive(Builder $query): void
+    {
+        $query->where('is_active', true);
     }
 
     public function invoices(): HasMany

@@ -1,17 +1,21 @@
 <script setup lang="ts">
 import { Link } from '@inertiajs/vue3';
 import {
+    Boxes,
     ChartNoAxesCombined,
     LayoutDashboard,
     Package,
     ReceiptText,
+    ShieldCheck,
     ShoppingCart,
+    Tags,
     Truck,
     UserRound,
     Users,
     Wallet,
     Warehouse,
 } from '@lucide/vue';
+import { computed } from 'vue';
 import AppLogo from '@/components/AppLogo.vue';
 import NavMain from '@/components/NavMain.vue';
 import NavUser from '@/components/NavUser.vue';
@@ -24,14 +28,20 @@ import {
     SidebarMenuButton,
     SidebarMenuItem,
 } from '@/components/ui/sidebar';
+import { useAbilities } from '@/composables/useAbilities';
 import { useActiveNav } from '@/composables/useActiveNav';
 import type { NavGroup } from '@/types';
+
+const { manageUsers } = useAbilities();
 
 /**
  * القائمة الجانبية مقسّمة لمجموعتين: الحركة اليومية، ثم البيانات والتقارير.
  * التقسيم بيخلي القائمة أسهل في القراءة من ٨ عناصر ورا بعض.
+ *
+ * شاشة المستخدمين بتظهر للمدير بس — باقي الأدوار الرابط بيرجّعلهم 403
+ * أصلاً، فعرضه في القائمة مالوش لازمة.
  */
-const navGroups: NavGroup[] = [
+const navGroups = computed<NavGroup[]>(() => [
     {
         label: 'الحركة اليومية',
         items: [
@@ -45,14 +55,25 @@ const navGroups: NavGroup[] = [
         label: 'البيانات والتقارير',
         items: [
             { title: 'المخازن', href: '/warehouses', icon: Warehouse },
+            { title: 'الأصناف', href: '/products', icon: Boxes },
+            { title: 'التصنيفات', href: '/categories', icon: Tags },
             { title: 'التجار', href: '/customers', icon: Users },
             { title: 'الموردون', href: '/suppliers', icon: Truck },
             { title: 'المندوبين', href: '/reps', icon: UserRound },
             { title: 'الخزينة', href: '/treasury', icon: Wallet },
             { title: 'التقارير', href: '/reports', icon: ChartNoAxesCombined },
+            ...(manageUsers.value
+                ? [
+                      {
+                          title: 'المستخدمين',
+                          href: '/users',
+                          icon: ShieldCheck,
+                      },
+                  ]
+                : []),
         ],
     },
-];
+]);
 
 const { activeHref } = useActiveNav(navGroups);
 </script>

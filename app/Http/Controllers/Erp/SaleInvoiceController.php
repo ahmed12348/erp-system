@@ -61,7 +61,7 @@ class SaleInvoiceController extends Controller
     public function create(): Response
     {
         return Inertia::render('sales/Create', [
-            'customers' => Customer::orderBy('name')->get([
+            'customers' => Customer::active()->orderBy('name')->get([
                 'id', 'name', 'city', 'price_tier', 'credit_limit',
             ])->map(fn (Customer $customer) => [
                 'id' => $customer->id,

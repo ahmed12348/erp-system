@@ -5,10 +5,12 @@ namespace App\Services;
 use App\Models\Invoice;
 use App\Models\Payment;
 use App\Models\SalesRep;
+use App\Services\Concerns\PreventsDeletingUsedRecords;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Validation\ValidationException;
 
 /**
  * أداء مندوبي المبيعات.
@@ -19,6 +21,8 @@ use Illuminate\Support\Facades\DB;
  */
 class SalesRepService
 {
+    use PreventsDeletingUsedRecords;
+
     /**
      * @param  array{from?: ?string, to?: ?string}  $filters
      * @return Collection<int, array<string, mixed>>
@@ -109,5 +113,73 @@ class SalesRepService
                 filled($filters['to'] ?? null),
                 fn (Builder $q) => $q->where('date', '<', Carbon::parse($filters['to'])->addDay()->toDateString())
             );
+    }
+
+    /**
+     * كل المندوبين للقوايم المنسدلة — الشغّالين بس.
+     *
+     * @return Collection<int, array<string, mixed>>
+     */
+    public function options(): Collection
+    {
+        return SalesRep::query()
+            ->active()
+            ->orderBy('name')
+            ->get(['id', 'name', 'region'])
+            ->map(fn (SalesRep $rep) => [
+                'id' => $rep->id,
+                'name' => $rep->name,
+                'region' => $rep->region,
+            ]);
+    }
+
+    /**
+     * @param  array<string, mixed>  $data
+     */
+    public function create(array $data): SalesRep
+    {
+        return DB::transaction(fn () => SalesRep::create($this->attributes($data)));
+    }
+
+    /**
+     * @param  array<string, mixed>  $data
+     */
+    public function update(SalesRep $rep, array $data): SalesRep
+    {
+        return DB::transaction(function () use ($rep, $data) {
+            $rep->update($this->attributes($data));
+
+            return $rep;
+        });
+    }
+
+    /**
+     * @throws ValidationException
+     */
+    public function delete(SalesRep $rep): void
+    {
+        $this->guardAgainstDeletion('rep', $rep->name, [
+            'تاجر مربوط بيه' => $rep->customers()->count(),
+            'فاتورة' => $rep->invoices()->count(),
+            'سند' => $rep->payments()->count(),
+        ]);
+
+        DB::transaction(fn () => $rep->delete());
+    }
+
+    /**
+     * @param  array<string, mixed>  $data
+     * @return array<string, mixed>
+     */
+    private function attributes(array $data): array
+    {
+        return [
+            'name' => $data['name'],
+            'region' => $data['region'] ?? null,
+            'phone' => $data['phone'] ?? null,
+            'commission_rate' => $data['commission_rate'] ?? 0,
+            'notes' => $data['notes'] ?? null,
+            'is_active' => $data['is_active'] ?? true,
+        ];
     }
 }

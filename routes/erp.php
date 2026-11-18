@@ -1,17 +1,20 @@
 <?php
 
 use App\Http\Controllers\Erp\AttachmentController;
+use App\Http\Controllers\Erp\CategoryController;
 use App\Http\Controllers\Erp\CustomerController;
 use App\Http\Controllers\Erp\CustomerPaymentController;
 use App\Http\Controllers\Erp\DashboardController;
 use App\Http\Controllers\Erp\EtaController;
 use App\Http\Controllers\Erp\InventoryController;
+use App\Http\Controllers\Erp\ProductController;
 use App\Http\Controllers\Erp\PurchaseInvoiceController;
 use App\Http\Controllers\Erp\ReportController;
 use App\Http\Controllers\Erp\SaleInvoiceController;
 use App\Http\Controllers\Erp\SalesRepController;
 use App\Http\Controllers\Erp\SupplierController;
 use App\Http\Controllers\Erp\TreasuryController;
+use App\Http\Controllers\Erp\UserController;
 use App\Http\Controllers\Erp\WarehouseController;
 use Illuminate\Support\Facades\Route;
 
@@ -24,6 +27,9 @@ Route::middleware(['auth', 'verified'])->group(function () {
 
     // التجار
     Route::get('customers', [CustomerController::class, 'index'])->name('customers.index');
+    Route::post('customers', [CustomerController::class, 'store'])->name('customers.store');
+    Route::put('customers/{customer}', [CustomerController::class, 'update'])->name('customers.update');
+    Route::delete('customers/{customer}', [CustomerController::class, 'destroy'])->name('customers.destroy');
     Route::get('customers/{customer}', [CustomerController::class, 'show'])->name('customers.show');
     Route::get('customers/{customer}/statement', [CustomerController::class, 'statement'])->name('customers.statement');
     Route::post('customers/{customer}/payments', [CustomerPaymentController::class, 'store'])->name('customers.payments.store');
@@ -44,12 +50,29 @@ Route::middleware(['auth', 'verified'])->group(function () {
 
     // الموردون
     Route::get('suppliers', [SupplierController::class, 'index'])->name('suppliers.index');
+    Route::post('suppliers', [SupplierController::class, 'store'])->name('suppliers.store');
+    Route::put('suppliers/{supplier}', [SupplierController::class, 'update'])->name('suppliers.update');
+    Route::delete('suppliers/{supplier}', [SupplierController::class, 'destroy'])->name('suppliers.destroy');
     Route::get('suppliers/{supplier}', [SupplierController::class, 'show'])->name('suppliers.show');
     Route::post('suppliers/{supplier}/payments', [SupplierController::class, 'storePayment'])->name('suppliers.payments.store');
 
     // المخزون
     Route::get('inventory', [InventoryController::class, 'index'])->name('inventory.index');
     Route::get('inventory/{product}', [InventoryController::class, 'show'])->name('inventory.show');
+
+    // الأصناف — كتالوج البضاعة نفسه (الأسعار والوحدات وحد الطلب)
+    Route::get('products', [ProductController::class, 'index'])->name('products.index');
+    Route::post('products', [ProductController::class, 'store'])->name('products.store');
+    // إضافة سريعة من جوه فورم الفاتورة — صلاحية أوسع شوية من الكتالوج
+    Route::post('products/quick', [ProductController::class, 'quickStore'])->name('products.quick-store');
+    Route::put('products/{product}', [ProductController::class, 'update'])->name('products.update');
+    Route::delete('products/{product}', [ProductController::class, 'destroy'])->name('products.destroy');
+
+    // التصنيفات
+    Route::get('categories', [CategoryController::class, 'index'])->name('categories.index');
+    Route::post('categories', [CategoryController::class, 'store'])->name('categories.store');
+    Route::put('categories/{category}', [CategoryController::class, 'update'])->name('categories.update');
+    Route::delete('categories/{category}', [CategoryController::class, 'destroy'])->name('categories.destroy');
 
     // المخازن — أول حاجة بتتسجّل في نظام فاضي
     Route::get('warehouses', [WarehouseController::class, 'index'])->name('warehouses.index');
@@ -66,7 +89,16 @@ Route::middleware(['auth', 'verified'])->group(function () {
 
     // المندوبين
     Route::get('reps', [SalesRepController::class, 'index'])->name('reps.index');
+    Route::post('reps', [SalesRepController::class, 'store'])->name('reps.store');
+    Route::put('reps/{rep}', [SalesRepController::class, 'update'])->name('reps.update');
+    Route::delete('reps/{rep}', [SalesRepController::class, 'destroy'])->name('reps.destroy');
     Route::get('reps/{rep}', [SalesRepController::class, 'show'])->name('reps.show');
+
+    // المستخدمين والأدوار — المدير لوحده
+    Route::get('users', [UserController::class, 'index'])->name('users.index');
+    Route::post('users', [UserController::class, 'store'])->name('users.store');
+    Route::put('users/{user}', [UserController::class, 'update'])->name('users.update');
+    Route::delete('users/{user}', [UserController::class, 'destroy'])->name('users.destroy');
 
     // الخزينة
     Route::get('treasury', [TreasuryController::class, 'index'])->name('treasury.index');

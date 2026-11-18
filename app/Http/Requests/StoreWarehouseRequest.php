@@ -2,6 +2,7 @@
 
 namespace App\Http\Requests;
 
+use App\Enums\ErpAbility;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
 
@@ -9,7 +10,7 @@ class StoreWarehouseRequest extends FormRequest
 {
     public function authorize(): bool
     {
-        return $this->user() !== null;
+        return $this->user()?->allows(ErpAbility::ManageMasterData) ?? false;
     }
 
     /**

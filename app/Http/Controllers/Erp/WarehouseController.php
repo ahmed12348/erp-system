@@ -2,11 +2,13 @@
 
 namespace App\Http\Controllers\Erp;
 
+use App\Enums\ErpAbility;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\StoreWarehouseRequest;
 use App\Models\Warehouse;
 use App\Services\WarehouseService;
 use Illuminate\Http\RedirectResponse;
+use Illuminate\Support\Facades\Gate;
 use Inertia\Inertia;
 use Inertia\Response;
 
@@ -52,6 +54,8 @@ class WarehouseController extends Controller
 
     public function destroy(Warehouse $warehouse): RedirectResponse
     {
+        Gate::authorize(ErpAbility::ManageMasterData->value);
+
         $this->warehouses->delete($warehouse);
 
         Inertia::flash('toast', [

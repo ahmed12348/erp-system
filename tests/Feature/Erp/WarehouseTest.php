@@ -20,7 +20,9 @@ class WarehouseTest extends TestCase
     {
         parent::setUp();
 
-        $this->user = User::factory()->create();
+        // إدارة المخازن محتاجة صلاحية البيانات الأساسية — الصلاحيات نفسها
+        // متغطّية في MasterDataPermissionsTest
+        $this->user = $this->admin();
     }
 
     /** ده المسار اللي بيخلي العميل يبدأ من نظام فاضي */

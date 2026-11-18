@@ -2,14 +2,19 @@
 
 namespace App\Models;
 
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class Customer extends Model
 {
+    /** شرائح السعر المتاحة للتاجر */
+    public const TIERS = ['sale', 'wholesale'];
+
     protected $fillable = [
         'name', 'phone', 'city', 'address', 'price_tier', 'sales_rep_id',
-        'credit_limit', 'opening_balance', 'notes',
+        'credit_limit', 'opening_balance', 'notes', 'is_active',
     ];
 
     protected function casts(): array
@@ -17,7 +22,19 @@ class Customer extends Model
         return [
             'credit_limit' => 'decimal:2',
             'opening_balance' => 'decimal:2',
+            'is_active' => 'boolean',
         ];
+    }
+
+    public function salesRep(): BelongsTo
+    {
+        return $this->belongsTo(SalesRep::class);
+    }
+
+    /** @param  Builder<self>  $query */
+    public function scopeActive(Builder $query): void
+    {
+        $query->where('is_active', true);
     }
 
     public function invoices(): HasMany

@@ -11,6 +11,8 @@ use App\Models\Product;
 use App\Models\Supplier;
 use App\Models\Warehouse;
 use App\Services\AttachmentService;
+use App\Services\CategoryService;
+use App\Services\ProductService;
 use App\Services\PurchaseService;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\RedirectResponse;
@@ -27,6 +29,8 @@ class PurchaseInvoiceController extends Controller
     public function __construct(
         private readonly PurchaseService $purchases,
         private readonly AttachmentService $attachments,
+        private readonly ProductService $products,
+        private readonly CategoryService $categories,
     ) {}
 
     public function index(Request $request): Response
@@ -76,17 +80,13 @@ class PurchaseInvoiceController extends Controller
     public function create(): Response
     {
         return Inertia::render('purchases/Create', [
-            'suppliers' => Supplier::orderBy('name')->get(['id', 'name', 'country', 'currency']),
+            'suppliers' => Supplier::active()->orderBy('name')->get(['id', 'name', 'country', 'currency']),
             'warehouses' => Warehouse::where('is_active', true)->orderBy('name')->get(['id', 'name']),
-            'products' => Product::where('is_active', true)->orderBy('name')
-                ->get(['id', 'sku', 'name', 'unit', 'purchase_price'])
-                ->map(fn (Product $product) => [
-                    'id' => $product->id,
-                    'sku' => $product->sku,
-                    'name' => $product->name,
-                    'unit' => $product->unit,
-                    'lastCost' => (float) $product->purchase_price,
-                ]),
+            'products' => $this->products->options(),
+            // بيغذّوا نافذة «صنف جديد» اللي جوه الفورم
+            'categories' => $this->categories->options(),
+            'units' => Product::UNITS,
+            'suggestedSku' => $this->products->suggestSku(),
             'rates' => self::SUGGESTED_RATES,
             'today' => now()->toDateString(),
             'breadcrumbs' => [

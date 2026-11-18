@@ -2,12 +2,14 @@
 
 namespace Database\Factories;
 
+use App\Enums\ErpRole;
 use App\Enums\TeamRole;
 use App\Models\Team;
 use App\Models\User;
 use Illuminate\Database\Eloquent\Factories\Factory;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Str;
+use Spatie\Permission\Models\Role;
 
 /**
  * @extends Factory<User>
@@ -53,6 +55,23 @@ class UserFactory extends Factory
             ]);
 
             $user->switchTeam($team);
+        });
+    }
+
+    /**
+     * إدي المستخدم دور في النظام (مدير / محاسب / مبيعات).
+     *
+     * الدور بيتعمل لو مش موجود — الاختبارات بتشتغل على قاعدة فاضية من غير
+     * ما تعدّي على `ErpUserSeeder`.
+     */
+    public function role(ErpRole|string $role): static
+    {
+        $name = $role instanceof ErpRole ? $role->value : $role;
+
+        return $this->afterCreating(function (User $user) use ($name) {
+            Role::findOrCreate($name, 'web');
+
+            $user->assignRole($name);
         });
     }
 

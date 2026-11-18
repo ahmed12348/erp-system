@@ -4,8 +4,10 @@ namespace App\Services;
 
 use App\Models\Invoice;
 use App\Models\Supplier;
+use App\Services\Concerns\PreventsDeletingUsedRecords;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Validation\ValidationException;
 
 /**
  * الموردين: القائمة، المستحق، وكشف الحساب.
@@ -15,6 +17,8 @@ use Illuminate\Support\Facades\DB;
  */
 class SupplierService
 {
+    use PreventsDeletingUsedRecords;
+
     /**
      * @return Collection<int, array<string, mixed>>
      */
@@ -30,6 +34,8 @@ class SupplierService
                 'phone' => $supplier->phone,
                 'currency' => $supplier->currency,
                 'openingBalance' => (float) $supplier->opening_balance,
+                'notes' => $supplier->notes,
+                'isActive' => (bool) $supplier->is_active,
                 ...$this->summary($supplier),
             ]);
     }
@@ -134,5 +140,55 @@ class SupplierService
         }
 
         return round($total, 2);
+    }
+
+    /**
+     * @param  array<string, mixed>  $data
+     */
+    public function create(array $data): Supplier
+    {
+        return DB::transaction(fn () => Supplier::create($this->attributes($data)));
+    }
+
+    /**
+     * @param  array<string, mixed>  $data
+     */
+    public function update(Supplier $supplier, array $data): Supplier
+    {
+        return DB::transaction(function () use ($supplier, $data) {
+            $supplier->update($this->attributes($data));
+
+            return $supplier;
+        });
+    }
+
+    /**
+     * @throws ValidationException
+     */
+    public function delete(Supplier $supplier): void
+    {
+        $this->guardAgainstDeletion('supplier', $supplier->name, [
+            'فاتورة' => $supplier->invoices()->count(),
+            'سند صرف' => $supplier->payments()->count(),
+        ]);
+
+        DB::transaction(fn () => $supplier->delete());
+    }
+
+    /**
+     * @param  array<string, mixed>  $data
+     * @return array<string, mixed>
+     */
+    private function attributes(array $data): array
+    {
+        return [
+            'name' => $data['name'],
+            'country' => $data['country'] ?? null,
+            'currency' => $data['currency'],
+            'phone' => $data['phone'] ?? null,
+            'opening_balance' => $data['opening_balance'] ?? 0,
+            'notes' => $data['notes'] ?? null,
+            'is_active' => $data['is_active'] ?? true,
+        ];
     }
 }

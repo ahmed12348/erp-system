@@ -2,17 +2,25 @@
 
 namespace App\Http\Controllers\Erp;
 
+use App\Enums\ErpAbility;
 use App\Http\Controllers\Controller;
+use App\Http\Requests\StoreCustomerRequest;
 use App\Models\Customer;
 use App\Models\Invoice;
 use App\Services\CustomerService;
+use App\Services\SalesRepService;
+use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Gate;
 use Inertia\Inertia;
 use Inertia\Response;
 
 class CustomerController extends Controller
 {
-    public function __construct(private readonly CustomerService $customers) {}
+    public function __construct(
+        private readonly CustomerService $customers,
+        private readonly SalesRepService $reps,
+    ) {}
 
     public function index(Request $request): Response
     {
@@ -21,6 +29,7 @@ class CustomerController extends Controller
         return Inertia::render('customers/Index', [
             'customers' => $this->customers->paginate($filters),
             'governorates' => $this->customers->governorates(),
+            'reps' => $this->reps->options(),
             'hasAny' => Customer::query()->exists(),
             'filters' => $filters,
             'breadcrumbs' => [
@@ -102,5 +111,43 @@ class CustomerController extends Controller
             'filters' => ['from' => $from, 'to' => $to],
             'printedAt' => now()->toDateString(),
         ]);
+    }
+
+    public function store(StoreCustomerRequest $request): RedirectResponse
+    {
+        $customer = $this->customers->create($request->validated());
+
+        Inertia::flash('toast', [
+            'type' => 'success',
+            'message' => 'تم إضافة تاجر «'.$customer->name.'».',
+        ]);
+
+        return back();
+    }
+
+    public function update(StoreCustomerRequest $request, Customer $customer): RedirectResponse
+    {
+        $this->customers->update($customer, $request->validated());
+
+        Inertia::flash('toast', [
+            'type' => 'success',
+            'message' => 'تم تعديل بيانات التاجر.',
+        ]);
+
+        return back();
+    }
+
+    public function destroy(Customer $customer): RedirectResponse
+    {
+        Gate::authorize(ErpAbility::ManageMasterData->value);
+
+        $this->customers->delete($customer);
+
+        Inertia::flash('toast', [
+            'type' => 'success',
+            'message' => 'تم حذف التاجر.',
+        ]);
+
+        return back();
     }
 }

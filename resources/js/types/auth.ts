@@ -10,8 +10,20 @@ export type User = {
     [key: string]: unknown;
 };
 
+/** أدوار النظام — نفس قيم `App\Enums\ErpRole` */
+export type ErpRole = 'admin' | 'accountant' | 'sales';
+
+/** صلاحيات المستخدم الحالي — بتتبعت مع كل صفحة من `HandleInertiaRequests` */
+export type ErpAbilities = {
+    manageMasterData: boolean;
+    quickAddProduct: boolean;
+    manageUsers: boolean;
+};
+
 export type Auth = {
     user: User;
+    role: ErpRole | null;
+    can: ErpAbilities;
 };
 
 export type Passkey = {

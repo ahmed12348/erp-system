@@ -2,12 +2,16 @@
 
 namespace App\Http\Controllers\Erp;
 
+use App\Enums\ErpAbility;
 use App\Http\Controllers\Controller;
+use App\Http\Requests\StoreSalesRepRequest;
 use App\Models\Customer;
 use App\Models\Invoice;
 use App\Models\SalesRep;
 use App\Services\SalesRepService;
+use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Gate;
 use Inertia\Inertia;
 use Inertia\Response;
 
@@ -65,5 +69,43 @@ class SalesRepController extends Controller
                 ['title' => $rep->name, 'href' => route('reps.show', $rep)],
             ],
         ]);
+    }
+
+    public function store(StoreSalesRepRequest $request): RedirectResponse
+    {
+        $rep = $this->reps->create($request->validated());
+
+        Inertia::flash('toast', [
+            'type' => 'success',
+            'message' => 'تم إضافة مندوب «'.$rep->name.'».',
+        ]);
+
+        return back();
+    }
+
+    public function update(StoreSalesRepRequest $request, SalesRep $rep): RedirectResponse
+    {
+        $this->reps->update($rep, $request->validated());
+
+        Inertia::flash('toast', [
+            'type' => 'success',
+            'message' => 'تم تعديل بيانات المندوب.',
+        ]);
+
+        return back();
+    }
+
+    public function destroy(SalesRep $rep): RedirectResponse
+    {
+        Gate::authorize(ErpAbility::ManageMasterData->value);
+
+        $this->reps->delete($rep);
+
+        Inertia::flash('toast', [
+            'type' => 'success',
+            'message' => 'تم حذف المندوب.',
+        ]);
+
+        return back();
     }
 }
