@@ -2,6 +2,7 @@
 
 namespace App\Http\Requests;
 
+use App\Services\AttachmentService;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
 
@@ -30,6 +31,14 @@ class StorePurchaseInvoiceRequest extends FormRequest
             'discount' => ['nullable', 'numeric', 'min:0'],
             'notes' => ['nullable', 'string', 'max:1000'],
 
+            // صورة الفاتورة الممسوحة — بتتعلّق على الفاتورة بعد الحفظ
+            'attachment' => [
+                'nullable',
+                'file',
+                'mimes:'.implode(',', AttachmentService::ALLOWED_MIMES),
+                'max:'.AttachmentService::MAX_SIZE_KB,
+            ],
+
             'items' => ['required', 'array', 'min:1'],
             'items.*.product_id' => ['required', 'integer', 'exists:products,id'],
             'items.*.quantity' => ['required', 'numeric', 'gt:0'],
@@ -49,6 +58,8 @@ class StorePurchaseInvoiceRequest extends FormRequest
             'exchange_rate.gt' => 'سعر الصرف لازم يكون أكبر من صفر.',
             'currency.in' => 'العملة لازم تكون جنيه مصري أو دولار أو يورو أو ليرة تركية.',
             'date.before_or_equal' => 'ماينفعش تعمل فاتورة بتاريخ في المستقبل.',
+            'attachment.mimes' => 'المرفق لازم يكون صورة (JPG أو PNG أو WEBP) أو PDF.',
+            'attachment.max' => 'المرفق لازم يكون أقل من 8 ميجا.',
         ];
     }
 }

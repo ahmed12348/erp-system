@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Erp;
 
+use App\Concerns\AttachesScannedInvoice;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\StorePurchaseInvoiceRequest;
 use App\Models\Attachment;
@@ -23,6 +24,8 @@ use Inertia\Response;
 
 class PurchaseInvoiceController extends Controller
 {
+    use AttachesScannedInvoice;
+
     /** أسعار صرف تقريبية بتتقترح في الفورم، والمستخدم يقدر يعدّلها */
     private const SUGGESTED_RATES = ['EGP' => 1, 'USD' => 49.4, 'EUR' => 53.8, 'TRY' => 1.46];
 
@@ -99,7 +102,12 @@ class PurchaseInvoiceController extends Controller
 
     public function store(StorePurchaseInvoiceRequest $request): RedirectResponse
     {
-        $invoice = $this->purchases->createPurchase($request->validated(), $request->user());
+        $invoice = $this->purchases->createPurchase(
+            $request->safe()->except('attachment'),
+            $request->user(),
+        );
+
+        $this->attachScan($request, $invoice);
 
         Inertia::flash('toast', [
             'type' => 'success',

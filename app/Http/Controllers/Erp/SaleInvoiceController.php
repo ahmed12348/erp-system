@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Erp;
 
+use App\Concerns\AttachesScannedInvoice;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\StoreSaleInvoiceRequest;
 use App\Models\Attachment;
@@ -21,6 +22,8 @@ use Inertia\Response;
 
 class SaleInvoiceController extends Controller
 {
+    use AttachesScannedInvoice;
+
     public function __construct(
         private readonly InvoiceService $invoices,
         private readonly SalesQueryService $sales,
@@ -85,7 +88,12 @@ class SaleInvoiceController extends Controller
 
     public function store(StoreSaleInvoiceRequest $request): RedirectResponse
     {
-        $invoice = $this->invoices->createSale($request->validated(), $request->user());
+        $invoice = $this->invoices->createSale(
+            $request->safe()->except('attachment'),
+            $request->user(),
+        );
+
+        $this->attachScan($request, $invoice);
 
         Inertia::flash('toast', [
             'type' => 'success',

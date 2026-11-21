@@ -1,10 +1,12 @@
 <script setup lang="ts">
-import { Head, useForm } from '@inertiajs/vue3';
+import { Head, useForm, usePage } from '@inertiajs/vue3';
 import { PackagePlus, Plus, ShoppingCart, Trash2 } from '@lucide/vue';
 import { computed, nextTick, ref, watch } from 'vue';
 import EmptyState from '@/components/EmptyState.vue';
 import InputError from '@/components/InputError.vue';
 import PageHeader from '@/components/PageHeader.vue';
+import ScanInvoiceDialog from '@/components/ScanInvoiceDialog.vue';
+import ScanReviewNotice from '@/components/ScanReviewNotice.vue';
 import SectionCard from '@/components/SectionCard.vue';
 import { Button } from '@/components/ui/button';
 import {
@@ -19,6 +21,8 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Spinner } from '@/components/ui/spinner';
 import { useAbilities } from '@/composables/useAbilities';
+import { itemKey, useInvoiceScan } from '@/composables/useInvoiceScan';
+import type { ScanResult } from '@/composables/useInvoiceScan';
 import { formatMoney, formatNumber } from '@/lib/format';
 import type { BreadcrumbItem } from '@/types';
 
@@ -105,6 +109,79 @@ const form = useForm({
     items: [{ product_id: '', quantity: 1, unit_price: '' }] as Line[],
 });
 
+/*
+ * «مسح فاتورة» — بيملا الفورم اللي فوق ده بالظبط، مش فورم تاني.
+ *
+ * الملف بيفضل في المتصفح وبيتبعت مع الحفظ عشان يتعلّق على الفاتورة،
+ * فمفيش ملفات مؤقتة على السيرفر ولا مهمة تنضيف.
+ */
+const page = usePage();
+const aiEnabled = computed(() => page.props.aiEnabled === true);
+
+const scan = useInvoiceScan();
+
+function applyScan(result: ScanResult, file: File) {
+    const data = result.form as {
+        supplier_id: number | null;
+        date: string | null;
+        currency: string | null;
+        exchange_rate: number | null;
+        discount: number | null;
+        shipping_cost: number | null;
+        customs_cost: number | null;
+        clearance_cost: number | null;
+        notes: string | null;
+        items: {
+            product_id: number | null;
+            quantity: number | null;
+            unit_price: number | null;
+        }[];
+    };
+
+    // بنملا اللي اتقرا بس — أي حاجة فاضية بتسيب قيمة الفورم زي ما هي
+    if (data.supplier_id) {
+        form.supplier_id = data.supplier_id;
+    }
+
+    if (data.date) {
+        form.date = data.date;
+    }
+
+    if (data.currency) {
+        form.currency = data.currency;
+    }
+
+    // سعر الصرف بعد العملة، لأن تغيير العملة بيقترح سعر من عنده
+    if (data.exchange_rate) {
+        form.exchange_rate = data.exchange_rate;
+    }
+
+    form.discount = data.discount ?? 0;
+    form.shipping_cost = data.shipping_cost ?? 0;
+    form.customs_cost = data.customs_cost ?? 0;
+    form.clearance_cost = data.clearance_cost ?? 0;
+
+    if (data.notes) {
+        form.notes = data.notes;
+    }
+
+    if (data.items.length) {
+        form.items = data.items.map((item) => ({
+            product_id: item.product_id ?? '',
+            quantity: item.quantity ?? 1,
+            unit_price: item.unit_price ?? '',
+        }));
+    }
+
+    form.clearErrors();
+    scan.applyReview(result, file);
+}
+
+/** شيل المرفق — الخانات اللي اتملت بتفضل، المستخدم يعدّلها بإيده */
+function dropScan() {
+    scan.reset();
+}
+
 const selectedSupplier = computed(
     () =>
         props.suppliers.find((s) => s.id === Number(form.supplier_id)) ?? null,
@@ -182,6 +259,9 @@ function submit() {
         ...data,
         due_date: data.due_date === '' ? null : data.due_date,
         items: data.items.filter((line) => line.product_id !== ''),
+        // وجود الملف هو اللي بيخلّي Inertia يبعت multipart، فما بنضيفهوش
+        // أصلاً لو مفيش مسح — الحفظ العادي يفضل زي ما هو
+        ...(scan.file.value ? { attachment: scan.file.value } : {}),
     })).post('/purchases', { preserveScroll: true });
 }
 
@@ -284,6 +364,18 @@ const SELECT_CLASS =
         <PageHeader
             title="فاتورة شراء جديدة"
             description="فاتورة استيراد بعملة المورد — مصاريف الشحن والجمارك بتتوزّع على الأصناف بالتناسب"
+        >
+            <template v-if="aiEnabled" #actions>
+                <ScanInvoiceDialog type="purchase" @scanned="applyScan" />
+            </template>
+        </PageHeader>
+
+        <ScanReviewNotice
+            v-if="scan.review.value && scan.file.value"
+            :review="scan.review.value"
+            :file-name="scan.file.value.name"
+            :pending-count="scan.pending.value.size"
+            @remove="dropScan"
         />
 
         <div class="grid gap-5 lg:grid-cols-3">
@@ -294,9 +386,13 @@ const SELECT_CLASS =
                         <select
                             id="supplier_id"
                             v-model="form.supplier_id"
-                            :class="SELECT_CLASS"
+                            :class="[
+                                SELECT_CLASS,
+                                scan.reviewClass('supplier_id'),
+                            ]"
                             required
                             data-test="purchase-supplier"
+                            @change="scan.confirm('supplier_id')"
                         >
                             <option value="" disabled>اختر المورد</option>
                             <option
@@ -308,6 +404,18 @@ const SELECT_CLASS =
                                 }}{{ s.country ? ` — ${s.country}` : '' }}
                             </option>
                         </select>
+                        <p
+                            v-if="
+                                scan.needsReview('supplier_id') &&
+                                scan.review.value?.party.extracted
+                            "
+                            class="text-xs text-muted-foreground"
+                            data-test="scan-supplier-hint"
+                        >
+                            مكتوب على الفاتورة: «{{
+                                scan.review.value.party.extracted
+                            }}»
+                        </p>
                         <InputError :message="form.errors.supplier_id" />
                     </div>
 
@@ -336,8 +444,12 @@ const SELECT_CLASS =
                             <select
                                 id="currency"
                                 v-model="form.currency"
-                                :class="SELECT_CLASS"
+                                :class="[
+                                    SELECT_CLASS,
+                                    scan.reviewClass('currency'),
+                                ]"
                                 data-test="purchase-currency"
+                                @change="scan.confirm('currency')"
                             >
                                 <option value="USD">دولار أمريكي</option>
                                 <option value="EUR">يورو</option>
@@ -355,8 +467,12 @@ const SELECT_CLASS =
                                 step="0.0001"
                                 min="0.0001"
                                 dir="ltr"
-                                class="text-start"
+                                :class="[
+                                    'text-start',
+                                    scan.reviewClass('exchange_rate'),
+                                ]"
                                 data-test="purchase-rate"
+                                @input="scan.confirm('exchange_rate')"
                             />
                             <InputError :message="form.errors.exchange_rate" />
                         </div>
@@ -370,6 +486,8 @@ const SELECT_CLASS =
                                 v-model="form.date"
                                 type="date"
                                 required
+                                :class="scan.reviewClass('date')"
+                                @input="scan.confirm('date')"
                             />
                             <InputError :message="form.errors.date" />
                         </div>
@@ -459,8 +577,24 @@ const SELECT_CLASS =
                                     <div class="flex items-center gap-1">
                                         <select
                                             v-model="line.product_id"
-                                            :class="SELECT_CLASS"
+                                            :class="[
+                                                SELECT_CLASS,
+                                                scan.reviewClass(
+                                                    itemKey(
+                                                        index,
+                                                        'product_id',
+                                                    ),
+                                                ),
+                                            ]"
                                             :data-test="`pline-product-${index}`"
+                                            @change="
+                                                scan.confirm(
+                                                    itemKey(
+                                                        index,
+                                                        'product_id',
+                                                    ),
+                                                )
+                                            "
                                         >
                                             <option value="" disabled>
                                                 اختر الصنف
@@ -484,8 +618,26 @@ const SELECT_CLASS =
                                             <PackagePlus class="size-4" />
                                         </button>
                                     </div>
+                                    <!-- اللي مكتوب على الورق، عشان المستخدم
+                                         يعرف يختار إيه من غير ما يرجّع للصورة -->
                                     <p
                                         v-if="
+                                            scan.needsReview(
+                                                itemKey(index, 'product_id'),
+                                            ) && scan.review.value?.items[index]
+                                        "
+                                        class="mt-1 text-xs text-muted-foreground"
+                                        :data-test="`scan-line-hint-${index}`"
+                                    >
+                                        على الفاتورة: «{{
+                                            scan.review.value.items[index]
+                                                .extracted.name ??
+                                            scan.review.value.items[index]
+                                                .extracted.code
+                                        }}»
+                                    </p>
+                                    <p
+                                        v-else-if="
                                             productsById.get(
                                                 Number(line.product_id),
                                             )
@@ -520,8 +672,18 @@ const SELECT_CLASS =
                                         step="0.01"
                                         min="0"
                                         dir="ltr"
-                                        class="text-start"
+                                        :class="[
+                                            'text-start',
+                                            scan.reviewClass(
+                                                itemKey(index, 'unit_price'),
+                                            ),
+                                        ]"
                                         :data-test="`pline-price-${index}`"
+                                        @input="
+                                            scan.confirm(
+                                                itemKey(index, 'unit_price'),
+                                            )
+                                        "
                                     />
                                 </td>
                                 <td

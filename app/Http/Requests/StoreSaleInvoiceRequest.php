@@ -2,6 +2,7 @@
 
 namespace App\Http\Requests;
 
+use App\Services\AttachmentService;
 use Illuminate\Foundation\Http\FormRequest;
 
 class StoreSaleInvoiceRequest extends FormRequest
@@ -24,6 +25,14 @@ class StoreSaleInvoiceRequest extends FormRequest
             'discount' => ['nullable', 'numeric', 'min:0'],
             'notes' => ['nullable', 'string', 'max:1000'],
 
+            // صورة الفاتورة الممسوحة — بتتعلّق على الفاتورة بعد الحفظ
+            'attachment' => [
+                'nullable',
+                'file',
+                'mimes:'.implode(',', AttachmentService::ALLOWED_MIMES),
+                'max:'.AttachmentService::MAX_SIZE_KB,
+            ],
+
             'items' => ['required', 'array', 'min:1'],
             'items.*.product_id' => ['required', 'integer', 'exists:products,id'],
             'items.*.quantity' => ['required', 'numeric', 'gt:0'],
@@ -44,6 +53,8 @@ class StoreSaleInvoiceRequest extends FormRequest
             'items.*.product_id.required' => 'اختر الصنف في كل سطر.',
             'date.before_or_equal' => 'ماينفعش تعمل فاتورة بتاريخ في المستقبل.',
             'due_date.after_or_equal' => 'تاريخ الاستحقاق لازم يكون بعد تاريخ الفاتورة أو نفسه.',
+            'attachment.mimes' => 'المرفق لازم يكون صورة (JPG أو PNG أو WEBP) أو PDF.',
+            'attachment.max' => 'المرفق لازم يكون أقل من 8 ميجا.',
         ];
     }
 }

@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\Ai\AskController;
+use App\Http\Controllers\Ai\ScanInvoiceController;
 use Illuminate\Support\Facades\Route;
 
 /*
@@ -20,4 +21,9 @@ Route::middleware(['auth', 'verified'])->prefix('ai')->name('ai.')->group(functi
         Route::post('chat', [AskController::class, 'store'])->name('chat.store');
         Route::delete('chat', [AskController::class, 'destroy'])->name('chat.destroy');
     });
+
+    // «مسح فاتورة» — بيقرا الصورة ويرجّع بيانات الفورم، مش بيحفظ أي حاجة
+    Route::post('scan-invoice', ScanInvoiceController::class)
+        ->middleware('throttle:ai-scan')
+        ->name('scan-invoice');
 });
