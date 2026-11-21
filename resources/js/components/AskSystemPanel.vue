@@ -97,7 +97,8 @@ function onKeydown(event: KeyboardEvent) {
                             v-for="starter in starters"
                             :key="starter"
                             type="button"
-                            class="rounded-lg border border-border bg-card px-3 py-2 text-start text-sm transition-colors hover:border-primary/50 hover:bg-accent"
+                            class="rounded-lg border border-border bg-card px-3 py-2 text-start text-sm transition-colors hover:border-primary/50 hover:bg-accent disabled:pointer-events-none disabled:opacity-50"
+                            :disabled="thinking"
                             data-test="ask-starter"
                             @click="ask(starter)"
                         >

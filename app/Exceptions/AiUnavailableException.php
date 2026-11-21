@@ -3,6 +3,7 @@
 namespace App\Exceptions;
 
 use Exception;
+use Illuminate\Http\Client\ConnectionException;
 use Prism\Prism\Exceptions\PrismProviderOverloadedException;
 use Prism\Prism\Exceptions\PrismRateLimitedException;
 use Prism\Prism\Exceptions\PrismRequestTooLargeException;
@@ -56,6 +57,18 @@ class AiUnavailableException extends Exception
                 $e,
             ),
 
+            self::looksLikeTimeout($e) => new self(
+                'المساعد أخد وقت أطول من اللازم. جرّب تاني، أو اسأل سؤال أبسط شوية.',
+                'timeout',
+                $e,
+            ),
+
+            self::looksLikeMissingModel($e) => new self(
+                'موديل المساعد مش متاح على المفتاح ده. كلّم المدير يراجع ERP_AI_CHAT_MODEL.',
+                'model_not_found',
+                $e,
+            ),
+
             self::looksLikeQuota($e) => new self(
                 'خلصت الحصة المجانية للمساعد. كلّم المدير يراجع إعدادات الـ API.',
                 'quota',
@@ -76,6 +89,20 @@ class AiUnavailableException extends Exception
         };
     }
 
+    /**
+     * الميزانية خلصت قبل ما الرد يكمّل.
+     *
+     * بنرميها بنفسنا قبل ما PHP يقطع التنفيذ، عشان المستخدم يشوف جملة
+     * مفهومة بدل صفحة 500 بيضا من السيرفر.
+     */
+    public static function timedOut(): self
+    {
+        return new self(
+            'المساعد أخد وقت أطول من اللازم. جرّب تاني، أو اسأل سؤال أبسط شوية.',
+            'timeout',
+        );
+    }
+
     /** المساعد مقفول من .env */
     public static function disabled(): self
     {
@@ -88,6 +115,25 @@ class AiUnavailableException extends Exception
         return new self(
             'المساعد الذكي لسه مش متظبّط. كلّم المدير يضيف مفتاح الـ API.',
             'not_configured',
+        );
+    }
+
+    /** انقطاع الاتصال بسبب الوقت — cURL بيقولها بصيغ مختلفة */
+    private static function looksLikeTimeout(Throwable $e): bool
+    {
+        return $e instanceof ConnectionException
+            || (bool) preg_grep(
+                '/timed? ?out|timeout|cURL error 28|deadline/i',
+                [$e->getMessage()],
+            );
+    }
+
+    /** الموديل مش موجود على المفتاح ده — 404 من المزوّد */
+    private static function looksLikeMissingModel(Throwable $e): bool
+    {
+        return (bool) preg_grep(
+            '/404|NOT_FOUND|is not found|not supported|does not exist/i',
+            [$e->getMessage()],
         );
     }
 

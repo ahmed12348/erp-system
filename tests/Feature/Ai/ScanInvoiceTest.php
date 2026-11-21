@@ -321,7 +321,7 @@ class ScanInvoiceTest extends TestCase
             /** @var StructuredRequest $request */
             $request = $requests[0];
 
-            $this->assertSame('gemini-2.5-flash', $request->model());
+            $this->assertSame('gemini-3.5-flash', $request->model());
             // الصورة اتبعتت فعلاً مع الرسالة
             $this->assertCount(1, $request->messages()[0]->images());
         });

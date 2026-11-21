@@ -3,7 +3,6 @@
 namespace App\Ai;
 
 use App\Mcp\Servers\ErpServer;
-use Laravel\Mcp\Server\Attributes\Instructions;
 use Laravel\Mcp\Server\Tool as McpTool;
 use Prism\Prism\Tool;
 use Prism\Prism\Tools\LaravelMcpTool;
@@ -41,25 +40,6 @@ class ErpToolkit
             fn (string $tool): ?Tool => $this->wrap($tool),
             $this->toolClasses(),
         )));
-    }
-
-    /**
-     * التعليمات اللي بتتبعت للموديل — نفس تعليمات سيرفر الـ MCP.
-     *
-     * بنقراها من الـ attribute بتاع `ErpServer` بدل ما نكتبها تاني، عشان
-     * قواعد قراءة الأرقام (العملات، إشارة رصيد التاجر، إن المخزون مجموع
-     * حركات) تفضل مكتوبة في مكان واحد.
-     */
-    public function instructions(): string
-    {
-        $attributes = (new ReflectionClass(ErpServer::class))
-            ->getAttributes(Instructions::class);
-
-        if ($attributes === []) {
-            return '';
-        }
-
-        return trim($attributes[0]->newInstance()->value);
     }
 
     /**

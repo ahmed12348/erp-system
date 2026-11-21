@@ -9,12 +9,17 @@ use App\Models\StockMovement;
 use App\Models\User;
 use App\Models\Warehouse;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Http\Client\ConnectionException;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\RateLimiter;
+use Prism\Prism\Exceptions\PrismException;
+use Prism\Prism\Exceptions\PrismProviderOverloadedException;
 use Prism\Prism\Exceptions\PrismRateLimitedException;
 use Prism\Prism\Facades\Prism;
 use Prism\Prism\Testing\TextResponseFake;
 use Prism\Prism\Text\Request as TextRequest;
 use Tests\Support\FailingPrism;
+use Tests\Support\SequencedPrism;
 use Tests\TestCase;
 
 /**
@@ -147,7 +152,7 @@ class AskSystemTest extends TestCase
             ->assertJsonCount(0, 'messages');
     }
 
-    public function test_it_uses_the_gemini_model_by_default(): void
+    public function test_it_uses_gemini_3_5_flash_by_default(): void
     {
         $fake = Prism::fake([TextResponseFake::make()->withText('تمام.')]);
 
@@ -158,7 +163,7 @@ class AskSystemTest extends TestCase
             /** @var TextRequest $request */
             $request = $requests[0];
 
-            $this->assertSame('gemini-2.5-flash', $request->model());
+            $this->assertSame('gemini-3.5-flash', $request->model());
         });
     }
 
@@ -204,11 +209,190 @@ class AskSystemTest extends TestCase
                 ->map(fn ($prompt) => $prompt->content)
                 ->implode("\n");
 
-            // قواعد قراءة الأرقام جاية من ErpServer
-            $this->assertStringContainsString('رصيد التاجر موجب', $system);
-            // وأسلوب الرد المصري
-            $this->assertStringContainsString('بالعامية المصرية', $system);
+            // أسلوب الرد المصري وقواعد قراءة الأرقام
+            $this->assertStringContainsString('عامية مصرية', $system);
+            $this->assertStringContainsString('رصيد التاجر الموجب', $system);
         });
+    }
+
+    /**
+     * التعليمات بتتبعت مع كل جولة أدوات، فطولها بيتحوّل لوقت على
+     * استضافة بتقطع بعد 30 ثانية. وصف كل أداة بيتبعت مع الأداة نفسها،
+     * فمالوش لازمة يتكرّر هنا.
+     */
+    public function test_the_system_prompt_stays_short(): void
+    {
+        $fake = Prism::fake([TextResponseFake::make()->withText('تمام.')]);
+
+        $this->actingAs(User::factory()->create())
+            ->postJson('/ai/chat', ['message' => 'سؤال']);
+
+        $fake->assertRequest(function (array $requests): void {
+            /** @var TextRequest $request */
+            $request = $requests[0];
+
+            $system = collect($request->systemPrompts())
+                ->map(fn ($prompt) => $prompt->content)
+                ->implode("\n");
+
+            $this->assertLessThan(900, mb_strlen($system));
+
+            // الشرح الطويل بتاع سيرفر الـ MCP مابيتبعتش مع المحادثة
+            $this->assertStringNotContainsString('سيرفر قراءة فقط', $system);
+        });
+    }
+
+    /**
+     * الاستضافة بتقطع التنفيذ بعد حوالي 30 ثانية، فكل نداء ليه مهلة
+     * والطلب كله ليه ميزانية أقصر من كده.
+     */
+    public function test_each_call_gets_a_twenty_second_timeout(): void
+    {
+        $fake = Prism::fake([TextResponseFake::make()->withText('تمام.')]);
+
+        $this->actingAs(User::factory()->create())
+            ->postJson('/ai/chat', ['message' => 'سؤال']);
+
+        $fake->assertRequest(function (array $requests): void {
+            /** @var TextRequest $request */
+            $request = $requests[0];
+
+            $this->assertSame(20, $request->clientOptions()['timeout']);
+        });
+    }
+
+    public function test_chat_asks_for_the_lowest_thinking_level(): void
+    {
+        $fake = Prism::fake([TextResponseFake::make()->withText('تمام.')]);
+
+        $this->actingAs(User::factory()->create())
+            ->postJson('/ai/chat', ['message' => 'سؤال']);
+
+        $fake->assertRequest(function (array $requests): void {
+            /** @var TextRequest $request */
+            $request = $requests[0];
+
+            $this->assertSame('low', $request->providerOptions('thinkingLevel'));
+        });
+    }
+
+    /**
+     * الجولة الواحدة بتتدار من `AiService` مش من Prism، عشان نقدر
+     * نحسب الوقت الفاضل قبل كل جولة.
+     */
+    public function test_the_tool_loop_is_driven_one_step_at_a_time(): void
+    {
+        $fake = Prism::fake([TextResponseFake::make()->withText('تمام.')]);
+
+        $this->actingAs(User::factory()->create())
+            ->postJson('/ai/chat', ['message' => 'سؤال']);
+
+        $fake->assertRequest(function (array $requests): void {
+            /** @var TextRequest $request */
+            $request = $requests[0];
+
+            $this->assertSame(1, $request->maxSteps());
+        });
+    }
+
+    public function test_it_gives_up_with_an_arabic_message_when_the_budget_runs_out(): void
+    {
+        // ميزانية صفر — مفيش وقت يكفي ولا نداء واحد
+        config()->set('ai.budget', 0);
+
+        Prism::fake([TextResponseFake::make()->withText('تمام.')]);
+
+        $this->actingAs(User::factory()->create())
+            ->postJson('/ai/chat', ['message' => 'سؤال'])
+            ->assertStatus(503)
+            ->assertJson([
+                'reason' => 'timeout',
+                'message' => 'المساعد أخد وقت أطول من اللازم. جرّب تاني، أو اسأل سؤال أبسط شوية.',
+            ]);
+    }
+
+    public function test_a_connection_timeout_becomes_the_friendly_timeout_message(): void
+    {
+        FailingPrism::fake(
+            new ConnectionException('cURL error 28: Operation timed out')
+        );
+
+        $this->actingAs(User::factory()->create())
+            ->postJson('/ai/chat', ['message' => 'سؤال'])
+            ->assertStatus(503)
+            ->assertJson(['reason' => 'timeout']);
+    }
+
+    public function test_an_overloaded_provider_is_retried_then_falls_back(): void
+    {
+        $fake = SequencedPrism::fake([
+            // الأساسي مزحوم مرتين
+            new PrismProviderOverloadedException('Gemini overloaded'),
+            new PrismProviderOverloadedException('Gemini overloaded'),
+            // البديل بيرد
+            TextResponseFake::make()->withText('رد من الموديل البديل.'),
+        ]);
+
+        $this->actingAs(User::factory()->create())
+            ->postJson('/ai/chat', ['message' => 'سؤال'])
+            ->assertOk()
+            ->assertJsonPath('reply.content', 'رد من الموديل البديل.');
+
+        $models = $fake->models();
+
+        $this->assertSame(
+            ['gemini-3.5-flash', 'gemini-3.5-flash', 'gemini-3.5-flash-lite'],
+            $models,
+        );
+    }
+
+    public function test_a_missing_model_falls_back_instead_of_failing(): void
+    {
+        $fake = SequencedPrism::fake([
+            // زي ما بيحصل للحسابات الجديدة لما الموديل مش متاح
+            new PrismException('Gemini Error: [404] models/x is not found'),
+            new PrismException('Gemini Error: [404] models/x is not found'),
+            TextResponseFake::make()->withText('رد من البديل.'),
+        ]);
+
+        $this->actingAs(User::factory()->create())
+            ->postJson('/ai/chat', ['message' => 'سؤال'])
+            ->assertOk();
+
+        $this->assertSame('gemini-3.5-flash-lite', $fake->models()[2]);
+    }
+
+    public function test_a_quota_error_is_not_retried(): void
+    {
+        $fake = SequencedPrism::fake([
+            PrismRateLimitedException::make([]),
+            TextResponseFake::make()->withText('ما يوصلش هنا.'),
+        ]);
+
+        $this->actingAs(User::factory()->create())
+            ->postJson('/ai/chat', ['message' => 'سؤال'])
+            ->assertStatus(503)
+            ->assertJson(['reason' => 'rate_limited']);
+
+        // محاولة واحدة بس — إعادة المحاولة مالهاش لازمة لما الحصة خلصت
+        $this->assertCount(1, $fake->models());
+    }
+
+    public function test_ai_failures_are_logged_at_error_level(): void
+    {
+        FailingPrism::fake(new \RuntimeException('boom'));
+
+        Log::shouldReceive('error')
+            ->once()
+            ->withArgs(fn (string $message, array $context): bool => $message === 'AI request failed'
+                && $context['operation'] === 'chat'
+                && $context['provider'] === 'gemini');
+
+        Log::shouldReceive('warning')->zeroOrMoreTimes();
+
+        $this->actingAs(User::factory()->create())
+            ->postJson('/ai/chat', ['message' => 'سؤال'])
+            ->assertStatus(503);
     }
 
     public function test_a_provider_failure_becomes_a_friendly_arabic_message(): void
