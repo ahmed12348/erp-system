@@ -15,6 +15,7 @@ use App\Services\AttachmentService;
 use App\Services\CategoryService;
 use App\Services\InventoryService;
 use App\Services\InvoiceDraftService;
+use App\Services\InvoiceScanService;
 use App\Services\InvoiceService;
 use App\Services\ProductService;
 use Illuminate\Http\RedirectResponse;
@@ -148,6 +149,30 @@ class DraftInvoiceController extends Controller
         return redirect()->route('purchases.show', $invoice);
     }
 
+    /**
+     * «حوّلها لفاتورة بيع/شراء» — لما المسح يتفتح بالنوع الغلط.
+     */
+    public function switchType(Invoice $draft, InvoiceScanService $scanner): RedirectResponse
+    {
+        abort_unless($draft->isDraft(), 404);
+
+        $switched = $this->drafts->switchType($draft, $scanner);
+
+        Inertia::flash('toast', [
+            'type' => 'success',
+            'message' => $switched->type === Invoice::TYPE_PURCHASE
+                ? 'اتحوّلت لفاتورة شراء. راجع المورد والبنود.'
+                : 'اتحوّلت لفاتورة بيع. راجع التاجر والبنود.',
+        ]);
+
+        return redirect()->route(
+            $switched->type === Invoice::TYPE_PURCHASE
+                ? 'purchases.drafts.show'
+                : 'sales.drafts.show',
+            $switched,
+        );
+    }
+
     public function destroy(Invoice $draft): RedirectResponse
     {
         abort_unless($draft->isDraft(), 404);
@@ -181,6 +206,8 @@ class DraftInvoiceController extends Controller
             'type' => $draft->type,
             'form' => $payload['form'] ?? [],
             'review' => $payload['review'] ?? null,
+            // لو القراءة شكلها نوع تاني، الواجهة بتعرض تنبيه وزرار تحويل
+            'suggestedType' => $payload['review']['suggestedType'] ?? null,
             'warehouseId' => $draft->warehouse_id,
             'scannedAt' => $draft->scanned_at?->toDateString(),
             // صورة الفاتورة بتتعرض جنب الفورم وهو بيراجع

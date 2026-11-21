@@ -46,6 +46,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::get('purchases/drafts/{draft}', [DraftInvoiceController::class, 'showPurchase'])->name('purchases.drafts.show');
     Route::put('purchases/drafts/{draft}', [DraftInvoiceController::class, 'updatePurchase'])->name('purchases.drafts.update');
     Route::post('purchases/drafts/{draft}/confirm', [DraftInvoiceController::class, 'confirmPurchase'])->name('purchases.drafts.confirm');
+    Route::post('drafts/{draft}/switch-type', [DraftInvoiceController::class, 'switchType'])->name('drafts.switch-type');
     Route::delete('drafts/{draft}', [DraftInvoiceController::class, 'destroy'])->name('drafts.destroy');
 
     // المبيعات

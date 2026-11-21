@@ -5,6 +5,7 @@ import { computed, onMounted } from 'vue';
 import InputError from '@/components/InputError.vue';
 import PageHeader from '@/components/PageHeader.vue';
 import ScanImagePanel from '@/components/ScanImagePanel.vue';
+import ScanTypeMismatch from '@/components/ScanTypeMismatch.vue';
 import SectionCard from '@/components/SectionCard.vue';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -53,6 +54,7 @@ const props = defineProps<{
         number: string;
         form: DraftForm;
         review: ScanReview | null;
+        suggestedType: 'purchase' | 'sale' | null;
         warehouseId: number;
         scannedAt: string | null;
         image: { previewUrl: string; name: string; isPdf: boolean } | null;
@@ -216,6 +218,9 @@ function discard() {
     router.delete(`/drafts/${props.draft.id}`);
 }
 
+/** نوع المسودة — ثابت، بيتبعت للتنبيه بتاع النوع الغلط */
+const DRAFT_TYPE = 'sale' as const;
+
 const SELECT_CLASS =
     'h-9 w-full rounded-md border border-input bg-transparent px-3 text-sm';
 </script>
@@ -242,6 +247,14 @@ const SELECT_CLASS =
                 </Button>
             </template>
         </PageHeader>
+
+        <ScanTypeMismatch
+            v-if="draft.suggestedType"
+            :draft-id="draft.id"
+            :current="DRAFT_TYPE"
+            :suggested="draft.suggestedType"
+            :party-name="scan.review.value?.party.extracted ?? null"
+        />
 
         <!-- شريط الحالة: المسودة ما بتلمسش حاجة -->
         <div

@@ -53,9 +53,117 @@ class InvoiceScanService
             InvoiceSchema::make(),
         );
 
-        return $type === Invoice::TYPE_PURCHASE
+        return $this->build($extracted, $type);
+    }
+
+    /**
+     * بيبني نتيجة المسح من قراءة الموديل.
+     *
+     * منفصلة عن `scan()` عشان تبديل نوع الفاتورة يقدر يعيد البناء من
+     * نفس القراءة من غير ما يرفع الصورة ويقراها تاني.
+     *
+     * @param  array<string, mixed>  $extracted
+     * @return array<string, mixed>
+     */
+    public function build(array $extracted, string $type): array
+    {
+        $extracted = $this->realignParty($extracted);
+
+        $result = $type === Invoice::TYPE_PURCHASE
             ? $this->buildPurchase($extracted)
             : $this->buildSale($extracted);
+
+        // القراءة الخام بتتحفظ عشان نعيد البناء لو النوع اتبدّل
+        $result['extracted'] = $extracted;
+        $result['review']['suggestedType'] = $this->suggestType($extracted, $type);
+
+        return $result;
+    }
+
+    /**
+     * بيصلّح اسم العميل لما الموديل ياخده من سطر صنف.
+     *
+     * على الدفتر المكتوب بخط اليد اسم العميل بيتكتب في **أول** سطر من
+     * خانة «اسم العميل / الصنف»، والباقي كله أصناف. الموديل ساعات
+     * بيقرا السطور كلها كأصناف وبعدين يختار واحد منهم — آخر واحد
+     * غالبًا — ويحطّه كاسم عميل.
+     *
+     * العلامة إن ده حصل: اسم العميل موجود برضه في قايمة الأصناف. ساعتها
+     * بناخد أول سطر كاسم العميل ونشيله من الأصناف، فخمس سطور بيطلعوا
+     * أربع أصناف وعميل واحد.
+     *
+     * @param  array<string, mixed>  $data
+     * @return array<string, mixed>
+     */
+    private function realignParty(array $data): array
+    {
+        $items = array_values(array_filter(
+            $data['items'] ?? [],
+            fn ($row): bool => is_array($row),
+        ));
+
+        if (count($items) < 2) {
+            return $data;
+        }
+
+        $party = ArabicText::normalize($this->text($data['party_name'] ?? null));
+
+        if ($party === '') {
+            return $data;
+        }
+
+        $names = array_map(
+            fn (array $row): string => ArabicText::normalize($this->text($row['name'] ?? null)),
+            $items,
+        );
+
+        // اسم العميل مش مكرر في السطور — يبقى القراءة مظبوطة
+        if (! in_array($party, $names, true)) {
+            return $data;
+        }
+
+        $first = array_shift($items);
+        $firstName = $this->text($first['name'] ?? null);
+
+        // أول سطر مالوش اسم — مانقدرش نصلّح حاجة
+        if ($firstName === null) {
+            return $data;
+        }
+
+        $data['party_name'] = $firstName;
+        $data['items'] = $items;
+
+        return $data;
+    }
+
+    /**
+     * بيكتشف إن الفاتورة اتفتحت بالنوع الغلط.
+     *
+     * المستخدم بيبدأ المسح من شاشة المشتريات أو المبيعات، وساعات
+     * بيصوّر فاتورة من النوع التاني. أقوى دليل عندنا هو الاسم: لو
+     * الاسم اللي على الورق مش مورد عندنا لكنه تاجر، يبقى دي فاتورة
+     * بيع اتفتحت من المشتريات — والعكس.
+     *
+     * @param  array<string, mixed>  $data
+     */
+    private function suggestType(array $data, string $type): ?string
+    {
+        if ($this->text($data['party_name'] ?? null) === null) {
+            return null;
+        }
+
+        $supplier = $this->matchParty(Supplier::active()->get(), $data)['model'];
+        $customer = $this->matchParty(Customer::active()->get(), $data)['model'];
+
+        if ($type === Invoice::TYPE_PURCHASE) {
+            return $supplier === null && $customer !== null
+                ? Invoice::TYPE_SALE
+                : null;
+        }
+
+        return $customer === null && $supplier !== null
+            ? Invoice::TYPE_PURCHASE
+            : null;
     }
 
     /**
@@ -69,11 +177,16 @@ class InvoiceScanService
 
         /*
          * العملة: اللي على الورق أول حاجة، وإلا عملة المورد المطابق،
-         * وإلا دولار زي الفورم.
+         * وإلا الجنيه.
+         *
+         * الجنيه مش الدولار عن قصد: الفورم الفاضي بيقترح دولار لأن
+         * معظم الاستيراد بيه، لكن المسح حاجة تانية — لو الورق مش مكتوب
+         * فيه عملة يبقى غالبًا فاتورة محلية، وافتراض الدولار بيحوّل
+         * فاتورة بـ 500 جنيه لـ 500 دولار من غير ما حد ياخد باله.
          */
         $currency = $this->currency($data['currency'] ?? null)
             ?? $supplier?->currency
-            ?? 'USD';
+            ?? 'EGP';
 
         $items = $this->matchItems($data['items'] ?? [], fn (Product $product): float => (float) $product->purchase_price);
 
@@ -83,7 +196,9 @@ class InvoiceScanService
                 'supplier_id' => $supplier?->id,
                 'date' => $this->date($data['date'] ?? null),
                 'currency' => $currency,
-                'exchange_rate' => $this->positive($data['exchange_rate'] ?? null),
+                // الجنيه بالجنيه = 1، مفيش حاجة تتسأل عنها
+                'exchange_rate' => $this->positive($data['exchange_rate'] ?? null)
+                    ?? ($currency === 'EGP' ? 1.0 : null),
                 'discount' => $this->amount($data['discount'] ?? null),
                 'shipping_cost' => $this->amount($data['shipping_cost'] ?? null),
                 'customs_cost' => $this->amount($data['customs_cost'] ?? null),
@@ -255,9 +370,9 @@ class InvoiceScanService
 
             [$product, $confidence, $via] = $this->matchProduct($code, $name, $bySku, $byName, $byNormalized);
 
-            // الكميات والأسعار ساعات بترجع كنص فيه أرقام هندية أو وحدة
-            $quantity = $this->positive(ArabicText::number($row['quantity'] ?? null)) ?? 1;
-            $extractedPrice = $this->amount(ArabicText::number($row['unit_price'] ?? null));
+            // الكميات والأسعار بترجع كنص فيه أرقام هندية ووحدة («٣ ك»، «٤٠ ج»)
+            $quantity = $this->positive($row['quantity'] ?? null) ?? 1;
+            $extractedPrice = $this->amount($row['unit_price'] ?? null);
 
             /*
              * السعر: اللي على الورق أولًا. لو مفيش، وكان الصنف اتطابق،
@@ -389,14 +504,19 @@ class InvoiceScanService
         return in_array($text, ['EGP', 'USD', 'EUR', 'TRY'], true) ? $text : null;
     }
 
-    /** مبلغ موجب أو صفر — السالب على الفاتورة غلط قراءة */
+    /**
+     * مبلغ موجب أو صفر — السالب على الفاتورة غلط قراءة.
+     *
+     * بيعدّي على `ArabicText::number()` لأن الموديل بيرجّع الخانات
+     * بنصّها زي ما هي على الورق («٤٠ ج»، «٦٠ الجوز»)، مش أرقام نضيفة.
+     */
     private function amount(mixed $value): ?float
     {
-        if (! is_numeric($value)) {
+        $amount = ArabicText::number($value);
+
+        if ($amount === null) {
             return null;
         }
-
-        $amount = (float) $value;
 
         return $amount >= 0 ? round($amount, 2) : null;
     }

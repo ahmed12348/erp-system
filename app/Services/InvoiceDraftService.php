@@ -146,6 +146,44 @@ class InvoiceDraftService
         });
     }
 
+    /**
+     * بيحوّل المسودة من شراء لبيع أو العكس.
+     *
+     * بيعيد بناء المطابقة من نفس القراءة الخام — من غير ما يرفع الصورة
+     * ويقراها تاني، فالتحويل مجاني ومابيستهلكش حصة من المزوّد.
+     */
+    public function switchType(Invoice $draft, InvoiceScanService $scanner): Invoice
+    {
+        $this->assertDraft($draft);
+
+        $payload = $draft->scan_payload ?? [];
+        $extracted = $payload['extracted'] ?? null;
+
+        abort_if($extracted === null, 404);
+
+        $target = $draft->type === Invoice::TYPE_PURCHASE
+            ? Invoice::TYPE_SALE
+            : Invoice::TYPE_PURCHASE;
+
+        return DB::transaction(function () use ($draft, $scanner, $extracted, $target) {
+            $scan = $scanner->build($extracted, $target);
+            $form = $scan['form'];
+
+            $draft->update([
+                'type' => $target,
+                // الرقم بيتجدّد لأن كل نوع ليه سلسلة أرقام لوحده
+                'number' => $this->invoices->nextNumber($target),
+                'customer_id' => $form['customer_id'] ?? null,
+                'supplier_id' => $form['supplier_id'] ?? null,
+                'currency' => $form['currency'] ?? 'EGP',
+                'exchange_rate' => $form['exchange_rate'] ?? 1,
+                'scan_payload' => $scan,
+            ]);
+
+            return $draft->fresh();
+        });
+    }
+
     /** بيلغي المسودة ويمسح مرفقاتها */
     public function discard(Invoice $draft): void
     {

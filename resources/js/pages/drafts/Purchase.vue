@@ -5,6 +5,7 @@ import { computed, onMounted } from 'vue';
 import InputError from '@/components/InputError.vue';
 import PageHeader from '@/components/PageHeader.vue';
 import ScanImagePanel from '@/components/ScanImagePanel.vue';
+import ScanTypeMismatch from '@/components/ScanTypeMismatch.vue';
 import SectionCard from '@/components/SectionCard.vue';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -43,6 +44,7 @@ const props = defineProps<{
         number: string;
         form: DraftForm;
         review: ScanReview | null;
+        suggestedType: 'purchase' | 'sale' | null;
         warehouseId: number;
         image: { previewUrl: string; name: string; isPdf: boolean } | null;
     };
@@ -78,7 +80,8 @@ const form = useForm({
     warehouse_id: props.draft.warehouseId,
     date: props.draft.form.date ?? new Date().toISOString().slice(0, 10),
     due_date: '',
-    currency: props.draft.form.currency ?? 'USD',
+    // الجنيه مش الدولار — المسح مابيفترضش عملة أجنبية من غير ما تكون مكتوبة
+    currency: props.draft.form.currency ?? 'EGP',
     exchange_rate: (props.draft.form.exchange_rate ?? 1) as number | string,
     shipping_cost: (props.draft.form.shipping_cost ?? 0) as number | string,
     customs_cost: (props.draft.form.customs_cost ?? 0) as number | string,
@@ -156,6 +159,9 @@ function discard() {
     router.delete(`/drafts/${props.draft.id}`);
 }
 
+/** نوع المسودة — ثابت، بيتبعت للتنبيه بتاع النوع الغلط */
+const DRAFT_TYPE = 'purchase' as const;
+
 const SELECT_CLASS =
     'h-9 w-full rounded-md border border-input bg-transparent px-3 text-sm';
 </script>
@@ -182,6 +188,14 @@ const SELECT_CLASS =
                 </Button>
             </template>
         </PageHeader>
+
+        <ScanTypeMismatch
+            v-if="draft.suggestedType"
+            :draft-id="draft.id"
+            :current="DRAFT_TYPE"
+            :suggested="draft.suggestedType"
+            :party-name="scan.review.value?.party.extracted ?? null"
+        />
 
         <div
             class="rounded-lg border border-yellow-400/60 bg-yellow-50 px-4 py-3 text-sm dark:border-yellow-500/40 dark:bg-yellow-500/10"

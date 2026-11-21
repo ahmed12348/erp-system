@@ -263,6 +263,144 @@ class ScanInvoiceTest extends TestCase
         $this->assertSame(342.0, (float) $form['items'][0]['unit_price']);
     }
 
+    /**
+     * المسح مابيفترضش عملة أجنبية. الفورم الفاضي بيقترح دولار لأن معظم
+     * الاستيراد بيه، لكن ورقة من غير عملة مكتوبة غالبًا فاتورة محلية —
+     * وافتراض الدولار بيحوّل 500 جنيه لـ 500 دولار في صمت.
+     */
+    public function test_a_scan_without_a_written_currency_defaults_to_egp(): void
+    {
+        $this->fakeExtraction([
+            // مورد مش موجود، فمفيش عملة نرثها منه كمان
+            'party_name' => 'مورد مش موجود',
+            'currency' => null,
+            'items' => [],
+        ]);
+
+        $this->scan('purchase')->assertOk();
+
+        $form = Invoice::query()->drafts()->sole()->scan_payload['form'];
+
+        $this->assertSame('EGP', $form['currency']);
+        $this->assertSame(1.0, (float) $form['exchange_rate']);
+    }
+
+    public function test_a_written_currency_still_wins(): void
+    {
+        $this->fakeExtraction([
+            'party_name' => 'شركة النور للتجارة',
+            'currency' => 'USD',
+            'exchange_rate' => '49.4',
+            'items' => [],
+        ]);
+
+        $this->scan('purchase')->assertOk();
+
+        $form = Invoice::query()->drafts()->sole()->scan_payload['form'];
+
+        $this->assertSame('USD', $form['currency']);
+        $this->assertSame(49.4, (float) $form['exchange_rate']);
+    }
+
+    /** مفيش عملة على الورق، بس المورد اتطابق — بناخد عملته */
+    public function test_a_matched_supplier_lends_its_currency(): void
+    {
+        $this->fakeExtraction([
+            'party_name' => 'شركة النور للتجارة',
+            'currency' => null,
+            'items' => [],
+        ]);
+
+        $this->scan('purchase')->assertOk();
+
+        $this->assertSame(
+            'TRY',
+            Invoice::query()->drafts()->sole()->scan_payload['form']['currency'],
+        );
+    }
+
+    /**
+     * المستخدم بيبدأ المسح من شاشة، وساعات بيصوّر فاتورة من النوع
+     * التاني. الاسم هو اللي بيكشفها.
+     */
+    public function test_a_sale_invoice_scanned_from_purchases_is_flagged(): void
+    {
+        $this->fakeExtraction([
+            // اسم تاجر، مش مورد
+            'party_name' => 'محمد عبد الله',
+            'items' => [],
+        ]);
+
+        $this->scan('purchase')->assertOk();
+
+        $payload = Invoice::query()->drafts()->sole()->scan_payload;
+
+        $this->assertSame(Invoice::TYPE_SALE, $payload['review']['suggestedType']);
+    }
+
+    public function test_a_purchase_invoice_scanned_from_sales_is_flagged(): void
+    {
+        $this->fakeExtraction([
+            'party_name' => 'شركة النور للتجارة',
+            'items' => [],
+        ]);
+
+        $this->scan('sale')->assertOk();
+
+        $payload = Invoice::query()->drafts()->sole()->scan_payload;
+
+        $this->assertSame(Invoice::TYPE_PURCHASE, $payload['review']['suggestedType']);
+    }
+
+    public function test_the_right_type_is_not_flagged(): void
+    {
+        $this->fakeExtraction([
+            'party_name' => 'شركة النور للتجارة',
+            'items' => [],
+        ]);
+
+        $this->scan('purchase')->assertOk();
+
+        $this->assertNull(
+            Invoice::query()->drafts()->sole()->scan_payload['review']['suggestedType'],
+        );
+    }
+
+    /**
+     * التحويل بيعيد بناء المطابقة من نفس القراءة — من غير ما يقرا
+     * الصورة تاني، فمفيش نداء جديد للمزوّد.
+     */
+    public function test_a_draft_can_be_switched_to_the_other_type(): void
+    {
+        $this->fakeExtraction([
+            'party_name' => 'محمد عبد الله',
+            'items' => [
+                ['code' => 'HA-9001', 'name' => 'خلاط كهربائي', 'quantity' => '٢', 'unit_price' => '١٥٠'],
+            ],
+        ]);
+
+        $this->scan('purchase')->assertOk();
+
+        $draft = Invoice::query()->drafts()->sole();
+
+        $this->actingAs(User::factory()->create())
+            ->post(route('drafts.switch-type', $draft))
+            ->assertRedirect(route('sales.drafts.show', $draft));
+
+        $draft->refresh();
+
+        $this->assertSame(Invoice::TYPE_SALE, $draft->type);
+        $this->assertStringStartsWith('S-', $draft->number);
+        $this->assertSame($this->customer->id, $draft->customer_id);
+        $this->assertNull($draft->supplier_id);
+
+        // البنود اتبنت تاني للنوع الجديد
+        $form = $draft->scan_payload['form'];
+
+        $this->assertSame($this->product->id, $form['items'][0]['product_id']);
+        $this->assertArrayNotHasKey('currency', $form);
+    }
+
     public function test_a_future_date_is_dropped_because_the_form_rejects_it(): void
     {
         $this->fakeExtraction([

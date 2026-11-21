@@ -2,6 +2,7 @@
 
 namespace Tests\Feature\Ai;
 
+use App\Ai\InvoiceSchema;
 use App\Models\Category;
 use App\Models\Customer;
 use App\Models\Invoice;
@@ -211,6 +212,82 @@ class HandwrittenInvoiceTest extends TestCase
     }
 
     /**
+     * السعر لازم يطلع حتى لما يكون مكتوب معاه حروف.
+     *
+     * ده اللي وقع على السيرفر: الـ schema كان بيطلب `unit_price` كرقم،
+     * والورق مكتوب فيه «٤٠ ج»، فالموديل مالقاش رقم صالح يرجّعه وساب
+     * الخانة فاضية — عمود السعر كله رجع فاضي.
+     */
+    public function test_handwritten_prices_with_letters_are_extracted(): void
+    {
+        $this->fakeReading();
+
+        $this->scan();
+
+        $form = Invoice::query()->drafts()->sole()->scan_payload['form'];
+
+        // «٣٤٢ ج» و«٤٠ ج الجوز»
+        $this->assertSame(342.0, (float) $form['items'][1]['unit_price']);
+        $this->assertSame(40.0, (float) $form['items'][2]['unit_price']);
+    }
+
+    /**
+     * الـ schema نفسه لازم يطلب الكمية والسعر كنص.
+     *
+     * `Prism::fake()` مابيتحققش من الـ schema، فالاختبار اللي بيعدّي
+     * نص في خانة رقم بيعدّي وهو غلط. بنفحص الـ schema نفسه هنا.
+     */
+    public function test_the_schema_asks_for_quantity_and_price_as_text(): void
+    {
+        $line = InvoiceSchema::make()->toArray()['properties']['items']['items'];
+
+        // nullable فبيبقى ['string', 'null'] — المهم إنه مش 'number'
+        $this->assertContains('string', (array) $line['properties']['unit_price']['type']);
+        $this->assertContains('string', (array) $line['properties']['quantity']['type']);
+        $this->assertNotContains('number', (array) $line['properties']['unit_price']['type']);
+    }
+
+    /**
+     * الموديل ساعات بياخد آخر سطر صنف ويحطّه كاسم عميل. اسم العميل في
+     * أول سطر دايمًا، فخمس سطور بيطلعوا عميل و٤ أصناف.
+     */
+    public function test_the_last_line_is_never_taken_as_the_party(): void
+    {
+        $this->fakeMisreadParty();
+
+        $this->scan();
+
+        $payload = Invoice::query()->drafts()->sole()->scan_payload;
+
+        // أول سطر بقى اسم العميل
+        $this->assertSame('وليد الثلاثين', $payload['review']['party']['extracted']);
+
+        // والأربعة الباقيين أصناف — آخر واحد لسه صنف
+        $this->assertCount(4, $payload['review']['items']);
+
+        $names = array_column(
+            array_column($payload['review']['items'], 'extracted'),
+            'name'
+        );
+
+        $this->assertSame('احمد مجرول', $names[3]);
+        $this->assertNotContains('وليد الثلاثين', $names);
+    }
+
+    public function test_a_correct_reading_is_left_alone(): void
+    {
+        $this->fakeReading();
+
+        $this->scan();
+
+        $payload = Invoice::query()->drafts()->sole()->scan_payload;
+
+        // اسم العميل مش مكرر في السطور، فمفيش تصحيح بيحصل
+        $this->assertSame('وليد الثلاثين', $payload['review']['party']['extracted']);
+        $this->assertCount(3, $payload['review']['items']);
+    }
+
+    /**
      * القراءة اللي متوقعينها من الموديل للصورة دي.
      *
      * مكتوبة بإيد عن قصد: الاختبار بيتأكد من المطابقة وبناء المسودة،
@@ -233,12 +310,43 @@ class HandwrittenInvoiceTest extends TestCase
                 'clearance_cost' => null,
                 'notes' => null,
                 'items' => [
-                    // «١ ك | الفاروق فضى» — السعر مش مقروء
+                    // «١ ك | الفاروق فضى» — خانة السعر فاضية على الورق
                     ['code' => null, 'name' => 'الفاروق فضى', 'quantity' => '١ ك', 'unit_price' => null],
-                    // «٣ ك | ٧٧٧ بلاوظ»
-                    ['code' => null, 'name' => '٧٧٧ بلاوظ', 'quantity' => '٣ ك', 'unit_price' => '٣٤٢'],
-                    // «٢٠٠ | كبولى حوز سيوستة بدون دعم» — السعر للجوز
-                    ['code' => null, 'name' => 'كبولى حوز سيوستة بدون دعم', 'quantity' => '٢٠٠', 'unit_price' => '٤٠'],
+                    // «٣ ك | ٧٧٧ بلاوظ | ٣٤٢ ج»
+                    ['code' => null, 'name' => '٧٧٧ بلاوظ', 'quantity' => '٣ ك', 'unit_price' => '٣٤٢ ج'],
+                    // «٢٠٠ | كبولى حوز سيوستة بدون دعم | ٤٠ ج الجوز»
+                    ['code' => null, 'name' => 'كبولى حوز سيوستة بدون دعم', 'quantity' => '٢٠٠', 'unit_price' => '٤٠ ج الجوز'],
+                ],
+            ]),
+        ]);
+    }
+
+    /**
+     * نفس الفاتورة بس الموديل خد آخر سطر («احمد مجرول») كاسم عميل
+     * وساب السطور كلها في الأصناف — ده اللي حصل على السيرفر بالظبط.
+     */
+    private function fakeMisreadParty(): void
+    {
+        Prism::fake([
+            StructuredResponseFake::make()->withStructured([
+                'party_name' => 'احمد مجرول',
+                'party_code' => null,
+                'party_phone' => null,
+                'number' => null,
+                'date' => null,
+                'currency' => null,
+                'exchange_rate' => null,
+                'discount' => null,
+                'shipping_cost' => null,
+                'customs_cost' => null,
+                'clearance_cost' => null,
+                'notes' => null,
+                'items' => [
+                    ['code' => null, 'name' => 'وليد الثلاثين', 'quantity' => null, 'unit_price' => null],
+                    ['code' => null, 'name' => 'الفاروق فضى', 'quantity' => '١ ك', 'unit_price' => null],
+                    ['code' => null, 'name' => '٧٧٧ بلاوظ', 'quantity' => '٣ ك', 'unit_price' => '٣٤٢ ج'],
+                    ['code' => null, 'name' => 'كبولى حوز سيوستة', 'quantity' => '٢٠٠', 'unit_price' => '٤٠ ج'],
+                    ['code' => null, 'name' => 'احمد مجرول', 'quantity' => '٢ ك', 'unit_price' => '٩٠ ج'],
                 ],
             ]),
         ]);

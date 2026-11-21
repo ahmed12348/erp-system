@@ -4,7 +4,6 @@ namespace App\Ai;
 
 use App\Models\Invoice;
 use Prism\Prism\Schema\ArraySchema;
-use Prism\Prism\Schema\NumberSchema;
 use Prism\Prism\Schema\ObjectSchema;
 use Prism\Prism\Schema\StringSchema;
 
@@ -31,12 +30,12 @@ class InvoiceSchema
                 new StringSchema('party_phone', 'تليفون المورد أو التاجر لو مكتوب', nullable: true),
                 new StringSchema('number', 'رقم الفاتورة زي ما هو مكتوب', nullable: true),
                 new StringSchema('date', 'تاريخ الفاتورة بصيغة YYYY-MM-DD', nullable: true),
-                new StringSchema('currency', 'عملة الفاتورة: EGP أو USD أو EUR أو TRY', nullable: true),
-                new NumberSchema('exchange_rate', 'سعر صرف العملة مقابل الجنيه المصري لو مكتوب', nullable: true),
-                new NumberSchema('discount', 'الخصم على إجمالي الفاتورة', nullable: true),
-                new NumberSchema('shipping_cost', 'مصاريف الشحن', nullable: true),
-                new NumberSchema('customs_cost', 'الجمارك', nullable: true),
-                new NumberSchema('clearance_cost', 'مصاريف التخليص', nullable: true),
+                new StringSchema('currency', 'عملة الفاتورة: EGP أو USD أو EUR أو TRY. سيبها فاضية لو مش مكتوبة', nullable: true),
+                new StringSchema('exchange_rate', 'سعر صرف العملة مقابل الجنيه المصري لو مكتوب', nullable: true),
+                new StringSchema('discount', 'الخصم على إجمالي الفاتورة زي ما هو مكتوب', nullable: true),
+                new StringSchema('shipping_cost', 'مصاريف الشحن زي ما هي مكتوبة', nullable: true),
+                new StringSchema('customs_cost', 'الجمارك زي ما هي مكتوبة', nullable: true),
+                new StringSchema('clearance_cost', 'مصاريف التخليص زي ما هي مكتوبة', nullable: true),
                 new StringSchema('notes', 'أي ملاحظات مكتوبة على الفاتورة', nullable: true),
                 new ArraySchema(
                     name: 'items',
@@ -47,8 +46,19 @@ class InvoiceSchema
                         properties: [
                             new StringSchema('code', 'كود الصنف لو مكتوب', nullable: true),
                             new StringSchema('name', 'اسم الصنف زي ما هو مكتوب', nullable: true),
-                            new NumberSchema('quantity', 'الكمية', nullable: true),
-                            new NumberSchema('unit_price', 'سعر الوحدة قبل الخصم', nullable: true),
+                            /*
+                             * الكمية والسعر نص مش رقم عن قصد.
+                             *
+                             * على الورق المكتوب بخط اليد الخانة نادرًا ما
+                             * بتبقى رقم نضيف: «٣ ك»، «٤٠ ج»، «٦٠ الجوز».
+                             * لو طلبنا رقم، الموديل مابيعرفش يطلّع رقم
+                             * صالح من الكلام ده فبيسيبها فاضية — وده
+                             * بالظبط اللي خلّى عمود السعر يرجع فاضي كله.
+                             * بناخد النص زي ما هو ونطلّع منه الرقم على
+                             * السيرفر بـ ArabicText::number().
+                             */
+                            new StringSchema('quantity', 'الكمية زي ما هي مكتوبة بالظبط، بوحدتها لو مكتوبة معاها (مثال: «٣ ك»)', nullable: true),
+                            new StringSchema('unit_price', 'سعر الوحدة زي ما هو مكتوب بالظبط، بأي حروف معاه (مثال: «٤٠ ج» أو «٦٠ الجوز»)', nullable: true),
                         ],
                         requiredFields: ['code', 'name', 'quantity', 'unit_price'],
                     ),
@@ -88,10 +98,12 @@ class InvoiceSchema
             قواعد لازم تلتزم بيها:
             - رجّع اللي مكتوب على الورق بالظبط. لو حاجة مش واضحة أو مش موجودة،
               سيبها null. ماتخترعش ولا قيمة.
-            - الكميات والأسعار أرقام مجرّدة من غير رمز عملة ومن غير فاصلة
-              آلاف — يعني 1250.50 مش "1,250.50 ج.م".
-            - الأرقام الهندية (٠١٢٣٤٥٦٧٨٩) حوّلها لاتينية: «٤٠» تبقى 40،
-              و«٣٤٢» تبقى 342.
+            - **الكمية والسعر رجّعهم نص زي ما هما مكتوبين بالظبط**، بأي حروف
+              أو رموز معاهم. «٤٠ ج» رجّعها «٤٠ ج»، و«٣ ك» رجّعها «٣ ك».
+              ماتحوّلش ولا تنضّف ولا تسيبها فاضية عشان فيها حروف — النظام
+              هو اللي بيطلّع الرقم منها.
+            - **السعر مهم: لازم تملا `unit_price` لكل سطر فيه رقم في خانة
+              السعر.** ماتسيبهاش فاضية إلا لو الخانة فاضية فعلاً على الورق.
             - التاريخ بصيغة YYYY-MM-DD. لو مكتوب 13/11/2026 يبقى 2026-11-13.
             - سعر الوحدة هو السعر قبل الخصم. لو الفاتورة مكتوب فيها الإجمالي
               بس، اقسمه على الكمية.
@@ -117,8 +129,13 @@ class InvoiceSchema
           **اسم العميل / الصنف**، بعدين **السعر**. مفيش خانة كود صنف خالص،
           فسيب `code` فاضي دايمًا.
         - **أول سطر في خانة «اسم العميل / الصنف» هو اسم العميل، مش صنف.**
-          حطّه في `party_name` وماتحطّهوش في `items`. السطور اللي بعده بس
-          هي الأصناف.
+          حطّه في `party_name` وماتحطّهوش في `items`. السطور اللي بعده
+          **كلها** أصناف.
+        - **آخر سطر مكتوب صنف زي أي صنف — ماتاخدهوش كاسم عميل أبدًا.**
+          اسم العميل في الأول بس. لو لقيت ٥ سطور مكتوبة، يبقى واحد اسم
+          عميل و٤ أصناف — مش ٤ أصناف وآخر واحد عميل.
+        - السعر مكتوب في خانة لوحده على الشمال، وغالبًا بأرقام هندية ومعاه
+          «ج» أو «جنيه». هات الرقم بحروفه زي ما هو.
         - الوحدات مختصرة بحرف: «ك» يعني كرتونة. «٣ ك» يعني الكمية 3.
           حط الرقم في `quantity` والكلام الباقي سيبه في اسم الصنف.
         - ساعات السعر مكتوب للجوز (الاتنين) ومكتوب جنبه «الجوز». رجّع الرقم
