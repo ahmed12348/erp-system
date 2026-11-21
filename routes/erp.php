@@ -5,8 +5,10 @@ use App\Http\Controllers\Erp\CategoryController;
 use App\Http\Controllers\Erp\CustomerController;
 use App\Http\Controllers\Erp\CustomerPaymentController;
 use App\Http\Controllers\Erp\DashboardController;
+use App\Http\Controllers\Erp\DraftInvoiceController;
 use App\Http\Controllers\Erp\EtaController;
 use App\Http\Controllers\Erp\InventoryController;
+use App\Http\Controllers\Erp\ProductAliasController;
 use App\Http\Controllers\Erp\ProductController;
 use App\Http\Controllers\Erp\PurchaseInvoiceController;
 use App\Http\Controllers\Erp\ReportController;
@@ -34,6 +36,18 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::get('customers/{customer}/statement', [CustomerController::class, 'statement'])->name('customers.statement');
     Route::post('customers/{customer}/payments', [CustomerPaymentController::class, 'store'])->name('customers.payments.store');
 
+    /*
+     * الفواتير الممسوحة — مسودات لحد ما المستخدم يراجع ويأكّد.
+     * قبل `sales/{sale}` عشان «drafts» ما تتقراش كرقم فاتورة.
+     */
+    Route::get('sales/drafts/{draft}', [DraftInvoiceController::class, 'showSale'])->name('sales.drafts.show');
+    Route::put('sales/drafts/{draft}', [DraftInvoiceController::class, 'updateSale'])->name('sales.drafts.update');
+    Route::post('sales/drafts/{draft}/confirm', [DraftInvoiceController::class, 'confirmSale'])->name('sales.drafts.confirm');
+    Route::get('purchases/drafts/{draft}', [DraftInvoiceController::class, 'showPurchase'])->name('purchases.drafts.show');
+    Route::put('purchases/drafts/{draft}', [DraftInvoiceController::class, 'updatePurchase'])->name('purchases.drafts.update');
+    Route::post('purchases/drafts/{draft}/confirm', [DraftInvoiceController::class, 'confirmPurchase'])->name('purchases.drafts.confirm');
+    Route::delete('drafts/{draft}', [DraftInvoiceController::class, 'destroy'])->name('drafts.destroy');
+
     // المبيعات
     Route::get('sales', [SaleInvoiceController::class, 'index'])->name('sales.index');
     Route::get('sales/create', [SaleInvoiceController::class, 'create'])->name('sales.create');
@@ -59,6 +73,10 @@ Route::middleware(['auth', 'verified'])->group(function () {
     // المخزون
     Route::get('inventory', [InventoryController::class, 'index'])->name('inventory.index');
     Route::get('inventory/{product}', [InventoryController::class, 'show'])->name('inventory.show');
+
+    // الأسماء البديلة للصنف — اللي النظام بيتعلّمها من الفواتير الممسوحة
+    Route::post('products/{product}/aliases', [ProductAliasController::class, 'store'])->name('products.aliases.store');
+    Route::delete('product-aliases/{alias}', [ProductAliasController::class, 'destroy'])->name('products.aliases.destroy');
 
     // الأصناف — كتالوج البضاعة نفسه (الأسعار والوحدات وحد الطلب)
     Route::get('products', [ProductController::class, 'index'])->name('products.index');

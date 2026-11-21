@@ -1,11 +1,12 @@
 <script setup lang="ts">
-import { Head, Link, router } from '@inertiajs/vue3';
+import { Head, Link, router, usePage } from '@inertiajs/vue3';
 import { Plus, Receipt, Search } from '@lucide/vue';
 import { watchDebounced } from '@vueuse/core';
-import { reactive } from 'vue';
+import { computed, reactive } from 'vue';
 import EmptyState from '@/components/EmptyState.vue';
 import EtaBadge from '@/components/EtaBadge.vue';
 import PageHeader from '@/components/PageHeader.vue';
+import ScanInvoiceDialog from '@/components/ScanInvoiceDialog.vue';
 import Pagination from '@/components/Pagination.vue';
 import type { PaginatorMeta } from '@/components/Pagination.vue';
 import SectionCard from '@/components/SectionCard.vue';
@@ -18,6 +19,7 @@ type Row = {
     id: number;
     number: string;
     type: string;
+    status: string;
     date: string;
     customer: string | null;
     warehouse: string | null;
@@ -44,12 +46,17 @@ defineOptions({
     }),
 });
 
+const page = usePage();
+
+const aiEnabled = computed(() => page.props.aiEnabled === true);
+
 const filters = reactive({
     search: props.filters.search ?? '',
     customer_id: props.filters.customer_id ?? '',
     warehouse_id: props.filters.warehouse_id ?? '',
     eta: props.filters.eta ?? '',
     payment: props.filters.payment ?? '',
+    status: props.filters.status ?? '',
     from: props.filters.from ?? '',
     to: props.filters.to ?? '',
 });
@@ -79,6 +86,7 @@ const SELECT_CLASS =
             :description="`${formatNumber(totals.count)} فاتورة في النتيجة الحالية`"
         >
             <template #actions>
+                <ScanInvoiceDialog v-if="aiEnabled" type="sale" />
                 <Button as-child>
                     <Link href="/sales/create">
                         <Plus class="size-4" />
@@ -187,6 +195,17 @@ const SELECT_CLASS =
                         <option value="paid">مسدّدة</option>
                     </select>
 
+                    <select
+                        v-model="filters.status"
+                        :class="SELECT_CLASS"
+                        data-test="sales-status"
+                        @change="apply"
+                    >
+                        <option value="">كل الفواتير</option>
+                        <option value="confirmed">المؤكّدة</option>
+                        <option value="draft">المسودات</option>
+                    </select>
+
                     <Input
                         v-model="filters.from"
                         type="date"
@@ -245,12 +264,24 @@ const SELECT_CLASS =
                             <td
                                 class="px-5 py-3 font-medium whitespace-nowrap tabular-nums"
                             >
+                                <!-- المسودة بتودّي على صفحة المراجعة مش العرض -->
                                 <Link
-                                    :href="`/sales/${row.id}`"
+                                    :href="
+                                        row.status === 'draft'
+                                            ? `/sales/drafts/${row.id}`
+                                            : `/sales/${row.id}`
+                                    "
                                     class="hover:text-primary hover:underline"
                                 >
                                     {{ row.number }}
                                 </Link>
+                                <span
+                                    v-if="row.status === 'draft'"
+                                    class="ms-2 rounded-full bg-yellow-400/15 px-1.5 py-0.5 text-[10px] font-semibold text-yellow-700 dark:text-yellow-500"
+                                    data-test="draft-badge"
+                                >
+                                    مسودة
+                                </span>
                                 <span
                                     v-if="row.type === 'sale_return'"
                                     class="ms-2 rounded-full bg-status-warning/10 px-1.5 py-0.5 text-[10px] font-semibold text-status-warning"

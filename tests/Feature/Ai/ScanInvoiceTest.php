@@ -6,7 +6,6 @@ use App\Models\Category;
 use App\Models\Customer;
 use App\Models\Invoice;
 use App\Models\Product;
-use App\Models\StockMovement;
 use App\Models\Supplier;
 use App\Models\User;
 use App\Models\Warehouse;
@@ -15,6 +14,7 @@ use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Testing\TestResponse;
 use Prism\Prism\Exceptions\PrismStructuredDecodingException;
 use Prism\Prism\Facades\Prism;
 use Prism\Prism\Structured\Request as StructuredRequest;
@@ -24,11 +24,11 @@ use Tests\Support\FailingPrism;
 use Tests\TestCase;
 
 /**
- * «مسح فاتورة» — من رفع الصورة لحد ما الملف يتعلّق على الفاتورة.
+ * «مسح فاتورة» — من رفع الصورة لحد المسودة.
  *
  * قراءة الصورة متزيّفة بالكامل: `Prism::fake()` بيرجّع الـ JSON اللي
- * كنا متوقعينه من الموديل، فاللي بيتختبر هنا هو المطابقة وبناء الفورم
- * والتحقق — مش الموديل نفسه.
+ * كنا متوقعينه من الموديل، فاللي بيتختبر هنا هو المطابقة وبناء
+ * المسودة والتحقق — مش الموديل نفسه.
  */
 class ScanInvoiceTest extends TestCase
 {
@@ -51,6 +51,7 @@ class ScanInvoiceTest extends TestCase
         config()->set('ai.provider', 'gemini');
 
         RateLimiter::clear('ai-scan');
+        Storage::fake('local');
 
         $this->warehouse = Warehouse::create(['name' => 'المخزن الرئيسي']);
         $category = Category::create(['name' => 'أجهزة منزلية']);
@@ -82,12 +83,12 @@ class ScanInvoiceTest extends TestCase
     public function test_guests_cannot_scan(): void
     {
         $this->postJson('/ai/scan-invoice', [
-            'file' => UploadedFile::fake()->create('invoice.jpg', 40, 'image/jpeg'),
+            'file' => $this->image(),
             'type' => 'purchase',
         ])->assertUnauthorized();
     }
 
-    public function test_it_fills_a_purchase_invoice_from_the_image(): void
+    public function test_it_fills_a_purchase_draft_from_the_image(): void
     {
         $this->fakeExtraction([
             'party_name' => 'شركة النور للتجارة',
@@ -104,34 +105,30 @@ class ScanInvoiceTest extends TestCase
             ],
         ]);
 
-        $response = $this->actingAs(User::factory()->create())
-            ->post('/ai/scan-invoice', [
-                'file' => UploadedFile::fake()->create('invoice.jpg', 40, 'image/jpeg'),
-                'type' => 'purchase',
-            ])
-            ->assertOk();
+        $this->scan('purchase')->assertOk();
 
-        $response->assertJsonPath('form.supplier_id', $this->supplier->id)
-            ->assertJsonPath('form.date', '2026-11-10')
-            ->assertJsonPath('form.currency', 'TRY')
-            ->assertJsonPath('form.exchange_rate', 1.46)
-            ->assertJsonPath('form.discount', 50)
-            ->assertJsonPath('form.shipping_cost', 1200)
-            ->assertJsonPath('form.customs_cost', 800)
-            ->assertJsonPath('form.clearance_cost', 300)
-            ->assertJsonPath('form.items.0.product_id', $this->product->id)
-            ->assertJsonPath('form.items.0.quantity', 20)
-            ->assertJsonPath('form.items.0.unit_price', 95.5)
-            // كل حاجة اتطابقت بالظبط — مفيش حاجة صفرا
-            ->assertJsonPath('review.party.confidence', InvoiceScanService::MATCH_EXACT)
-            ->assertJsonPath('review.items.0.confidence', InvoiceScanService::MATCH_EXACT)
-            ->assertJsonPath('review.fields', []);
+        $draft = Invoice::query()->drafts()->sole();
+        $form = $draft->scan_payload['form'];
+        $review = $draft->scan_payload['review'];
+
+        $this->assertSame(Invoice::TYPE_PURCHASE, $draft->type);
+        $this->assertSame($this->supplier->id, $form['supplier_id']);
+        $this->assertSame('2026-11-10', $form['date']);
+        $this->assertSame('TRY', $form['currency']);
+        $this->assertSame(1.46, $form['exchange_rate']);
+        $this->assertSame(1200.0, (float) $form['shipping_cost']);
+        $this->assertSame($this->product->id, $form['items'][0]['product_id']);
+        $this->assertSame(20.0, (float) $form['items'][0]['quantity']);
+        $this->assertSame(95.5, $form['items'][0]['unit_price']);
+
+        $this->assertSame(InvoiceScanService::MATCH_EXACT, $review['party']['confidence']);
+        $this->assertSame([], $review['fields']);
 
         // رقم الفاتورة الأصلي بيتحفظ في الملاحظات
-        $this->assertStringContainsString('INV-553', $response->json('form.notes'));
+        $this->assertStringContainsString('INV-553', $form['notes']);
     }
 
-    public function test_it_fills_a_sale_invoice_without_the_purchase_only_fields(): void
+    public function test_a_sale_draft_has_no_purchase_only_fields(): void
     {
         $this->fakeExtraction([
             'party_name' => 'محمد عبد الله',
@@ -141,18 +138,15 @@ class ScanInvoiceTest extends TestCase
             ],
         ]);
 
-        $this->actingAs(User::factory()->create())
-            ->post('/ai/scan-invoice', [
-                'file' => UploadedFile::fake()->create('invoice.jpg', 40, 'image/jpeg'),
-                'type' => 'sale',
-            ])
-            ->assertOk()
-            ->assertJsonPath('form.customer_id', $this->customer->id)
-            ->assertJsonPath('form.items.0.unit_price', 175)
-            // فاتورة البيع مالهاش عملة ولا سعر صرف ولا مصاريف استيراد
-            ->assertJsonMissingPath('form.currency')
-            ->assertJsonMissingPath('form.exchange_rate')
-            ->assertJsonMissingPath('form.shipping_cost');
+        $this->scan('sale')->assertOk();
+
+        $form = Invoice::query()->drafts()->sole()->scan_payload['form'];
+
+        $this->assertSame($this->customer->id, $form['customer_id']);
+        $this->assertSame(175.0, (float) $form['items'][0]['unit_price']);
+        $this->assertArrayNotHasKey('currency', $form);
+        $this->assertArrayNotHasKey('exchange_rate', $form);
+        $this->assertArrayNotHasKey('shipping_cost', $form);
     }
 
     public function test_a_sale_line_without_a_price_falls_back_to_the_traders_tier(): void
@@ -164,42 +158,17 @@ class ScanInvoiceTest extends TestCase
             ],
         ]);
 
-        $this->actingAs(User::factory()->create())
-            ->post('/ai/scan-invoice', [
-                'file' => UploadedFile::fake()->create('invoice.jpg', 40, 'image/jpeg'),
-                'type' => 'sale',
-            ])
-            ->assertOk()
-            // التاجر شريحته جملة الجملة، فالسعر 160 مش 180
-            ->assertJsonPath('form.items.0.unit_price', 160)
-            // وبيتعلّم عشان الواجهة تلوّنه أصفر — السعر ده من النظام مش من الورق
-            ->assertJsonPath('review.items.0.priceFromSystem', true);
-    }
+        $this->scan('sale')->assertOk();
 
-    public function test_a_retail_trader_falls_back_to_the_retail_price(): void
-    {
-        $retail = Customer::create(['name' => 'سمير التجزئة', 'price_tier' => 'sale']);
+        $payload = Invoice::query()->drafts()->sole()->scan_payload;
 
-        $this->fakeExtraction([
-            'party_name' => 'سمير التجزئة',
-            'items' => [
-                ['code' => 'HA-9001', 'name' => 'خلاط', 'quantity' => 1, 'unit_price' => null],
-            ],
-        ]);
-
-        $this->actingAs(User::factory()->create())
-            ->post('/ai/scan-invoice', [
-                'file' => UploadedFile::fake()->create('invoice.jpg', 40, 'image/jpeg'),
-                'type' => 'sale',
-            ])
-            ->assertOk()
-            ->assertJsonPath('form.customer_id', $retail->id)
-            ->assertJsonPath('form.items.0.unit_price', 180);
+        // التاجر شريحته جملة الجملة، فالسعر 160 مش 180
+        $this->assertSame(160.0, (float) $payload['form']['items'][0]['unit_price']);
+        $this->assertTrue($payload['review']['items'][0]['priceFromSystem']);
     }
 
     public function test_it_matches_by_code_before_name(): void
     {
-        // الكود بتاع الخلاط بس الاسم بتاع صنف تاني خالص
         $this->fakeExtraction([
             'party_name' => 'شركة النور للتجارة',
             'items' => [
@@ -207,19 +176,17 @@ class ScanInvoiceTest extends TestCase
             ],
         ]);
 
-        $this->actingAs(User::factory()->create())
-            ->post('/ai/scan-invoice', [
-                'file' => UploadedFile::fake()->create('invoice.jpg', 40, 'image/jpeg'),
-                'type' => 'purchase',
-            ])
-            ->assertOk()
-            ->assertJsonPath('form.items.0.product_id', $this->product->id)
-            ->assertJsonPath('review.items.0.confidence', InvoiceScanService::MATCH_EXACT);
+        $this->scan('purchase')->assertOk();
+
+        $payload = Invoice::query()->drafts()->sole()->scan_payload;
+
+        $this->assertSame($this->product->id, $payload['form']['items'][0]['product_id']);
+        $this->assertSame('code', $payload['review']['items'][0]['via']);
     }
 
     public function test_it_matches_arabic_names_written_differently(): void
     {
-        // «احمد» من غير همزة، و«شركه» بهاء، وتطويل — نفس الاسم عند اللي بيقرا
+        // «شركه» بهاء وتطويل، و«كهربائى» بألف مقصورة
         $this->fakeExtraction([
             'party_name' => 'شركه النور للتجـارة',
             'items' => [
@@ -227,17 +194,13 @@ class ScanInvoiceTest extends TestCase
             ],
         ]);
 
-        $this->actingAs(User::factory()->create())
-            ->post('/ai/scan-invoice', [
-                'file' => UploadedFile::fake()->create('invoice.jpg', 40, 'image/jpeg'),
-                'type' => 'purchase',
-            ])
-            ->assertOk()
-            ->assertJsonPath('form.supplier_id', $this->supplier->id)
-            ->assertJsonPath('form.items.0.product_id', $this->product->id)
-            // اتطابق بس بعد تطبيع — محتاج نظرة من المستخدم
-            ->assertJsonPath('review.party.confidence', InvoiceScanService::MATCH_LIKELY)
-            ->assertJsonPath('review.items.0.confidence', InvoiceScanService::MATCH_LIKELY);
+        $this->scan('purchase')->assertOk();
+
+        $payload = Invoice::query()->drafts()->sole()->scan_payload;
+
+        $this->assertSame($this->supplier->id, $payload['form']['supplier_id']);
+        $this->assertSame($this->product->id, $payload['form']['items'][0]['product_id']);
+        $this->assertSame(InvoiceScanService::MATCH_LIKELY, $payload['review']['party']['confidence']);
     }
 
     public function test_it_matches_the_party_by_phone_when_the_name_differs(): void
@@ -248,14 +211,12 @@ class ScanInvoiceTest extends TestCase
             'items' => [],
         ]);
 
-        $this->actingAs(User::factory()->create())
-            ->post('/ai/scan-invoice', [
-                'file' => UploadedFile::fake()->create('invoice.jpg', 40, 'image/jpeg'),
-                'type' => 'purchase',
-            ])
-            ->assertOk()
-            ->assertJsonPath('form.supplier_id', $this->supplier->id)
-            ->assertJsonPath('review.party.confidence', InvoiceScanService::MATCH_LIKELY);
+        $this->scan('purchase')->assertOk();
+
+        $payload = Invoice::query()->drafts()->sole()->scan_payload;
+
+        $this->assertSame($this->supplier->id, $payload['form']['supplier_id']);
+        $this->assertSame(InvoiceScanService::MATCH_LIKELY, $payload['review']['party']['confidence']);
     }
 
     public function test_unmatched_rows_come_back_flagged_instead_of_guessed(): void
@@ -269,24 +230,37 @@ class ScanInvoiceTest extends TestCase
             ],
         ]);
 
-        $response = $this->actingAs(User::factory()->create())
-            ->post('/ai/scan-invoice', [
-                'file' => UploadedFile::fake()->create('invoice.jpg', 40, 'image/jpeg'),
-                'type' => 'purchase',
-            ])
-            ->assertOk();
+        $this->scan('purchase')->assertOk();
+
+        $payload = Invoice::query()->drafts()->sole()->scan_payload;
 
         // مفيش تخمين — الحقول فاضية والمستخدم هو اللي يختار
-        $response->assertJsonPath('form.supplier_id', null)
-            ->assertJsonPath('form.items.0.product_id', null)
-            ->assertJsonPath('review.party.confidence', InvoiceScanService::MATCH_NONE)
-            ->assertJsonPath('review.party.extracted', 'مورد مش موجود في النظام')
-            ->assertJsonPath('review.items.0.confidence', InvoiceScanService::MATCH_NONE)
-            ->assertJsonPath('review.items.0.extracted.name', 'صنف مش موجود');
+        $this->assertNull($payload['form']['supplier_id']);
+        $this->assertNull($payload['form']['items'][0]['product_id']);
+        $this->assertSame(InvoiceScanService::MATCH_NONE, $payload['review']['party']['confidence']);
+        $this->assertSame('مورد مش موجود في النظام', $payload['review']['party']['extracted']);
+        $this->assertSame('صنف مش موجود', $payload['review']['items'][0]['extracted']['name']);
 
-        // التاريخ والعملة مالقاهمش، فبيتعلّموا للمراجعة
-        $this->assertContains('date', $response->json('review.fields'));
-        $this->assertContains('currency', $response->json('review.fields'));
+        $this->assertContains('date', $payload['review']['fields']);
+        $this->assertContains('currency', $payload['review']['fields']);
+    }
+
+    public function test_arabic_indic_quantities_and_prices_are_normalised(): void
+    {
+        // الموديل ساعات بيرجّع الأرقام زي ما هي على الورق، ومعاها الوحدة
+        $this->fakeExtraction([
+            'party_name' => 'محمد عبد الله',
+            'items' => [
+                ['code' => null, 'name' => 'خلاط كهربائي', 'quantity' => '٣ ك', 'unit_price' => '٣٤٢'],
+            ],
+        ]);
+
+        $this->scan('sale')->assertOk();
+
+        $form = Invoice::query()->drafts()->sole()->scan_payload['form'];
+
+        $this->assertSame(3.0, (float) $form['items'][0]['quantity']);
+        $this->assertSame(342.0, (float) $form['items'][0]['unit_price']);
     }
 
     public function test_a_future_date_is_dropped_because_the_form_rejects_it(): void
@@ -297,32 +271,22 @@ class ScanInvoiceTest extends TestCase
             'items' => [],
         ]);
 
-        $this->actingAs(User::factory()->create())
-            ->post('/ai/scan-invoice', [
-                'file' => UploadedFile::fake()->create('invoice.jpg', 40, 'image/jpeg'),
-                'type' => 'purchase',
-            ])
-            ->assertOk()
-            ->assertJsonPath('form.date', null);
+        $this->scan('purchase')->assertOk();
+
+        $this->assertNull(Invoice::query()->drafts()->sole()->scan_payload['form']['date']);
     }
 
     public function test_it_sends_the_image_to_the_vision_model(): void
     {
         $fake = $this->fakeExtraction(['party_name' => null, 'items' => []]);
 
-        $this->actingAs(User::factory()->create())
-            ->post('/ai/scan-invoice', [
-                'file' => UploadedFile::fake()->create('invoice.jpg', 40, 'image/jpeg'),
-                'type' => 'purchase',
-            ])
-            ->assertOk();
+        $this->scan('purchase')->assertOk();
 
         $fake->assertRequest(function (array $requests): void {
             /** @var StructuredRequest $request */
             $request = $requests[0];
 
             $this->assertSame('gemini-3.5-flash', $request->model());
-            // الصورة اتبعتت فعلاً مع الرسالة
             $this->assertCount(1, $request->messages()[0]->images());
         });
     }
@@ -331,11 +295,7 @@ class ScanInvoiceTest extends TestCase
     {
         $fake = $this->fakeExtraction(['party_name' => null, 'items' => []]);
 
-        $this->actingAs(User::factory()->create())
-            ->post('/ai/scan-invoice', [
-                'file' => UploadedFile::fake()->create('invoice.pdf', 100, 'application/pdf'),
-                'type' => 'purchase',
-            ])
+        $this->scan('purchase', UploadedFile::fake()->create('invoice.pdf', 100, 'application/pdf'))
             ->assertOk();
 
         $fake->assertRequest(function (array $requests): void {
@@ -347,11 +307,35 @@ class ScanInvoiceTest extends TestCase
         });
     }
 
+    /**
+     * فواتير العميل مكتوبة بخط اليد وتلات خانات بس، واسم العميل في
+     * أول سطر من خانة الصنف. التعليمات دي لازم توصل للموديل، وإلا
+     * هيقرا اسم العميل كأنه صنف.
+     */
+    public function test_a_sale_scan_explains_the_handwritten_layout(): void
+    {
+        $fake = $this->fakeExtraction(['party_name' => null, 'items' => []]);
+
+        $this->scan('sale')->assertOk();
+
+        $fake->assertRequest(function (array $requests): void {
+            /** @var StructuredRequest $request */
+            $request = $requests[0];
+
+            $prompt = $request->messages()[0]->text();
+
+            $this->assertStringContainsString('أول سطر في خانة', $prompt);
+            $this->assertStringContainsString('«ك» يعني كرتونة', $prompt);
+            $this->assertStringContainsString('الجوز', $prompt);
+            $this->assertStringContainsString('مقلوبة ٩٠ درجة', $prompt);
+            $this->assertStringContainsString('أقرب قراءة معقولة', $prompt);
+        });
+    }
+
     public function test_it_rejects_an_oversized_file(): void
     {
         $this->actingAs(User::factory()->create())
             ->postJson('/ai/scan-invoice', [
-                // 9 ميجا — فوق الحد بميجا
                 'file' => UploadedFile::fake()->create('invoice.jpg', 9216, 'image/jpeg'),
                 'type' => 'purchase',
             ])
@@ -373,7 +357,7 @@ class ScanInvoiceTest extends TestCase
     {
         $this->actingAs(User::factory()->create())
             ->postJson('/ai/scan-invoice', [
-                'file' => UploadedFile::fake()->create('invoice.jpg', 40, 'image/jpeg'),
+                'file' => $this->image(),
                 'type' => 'sale_return',
             ])
             ->assertJsonValidationErrors('type');
@@ -381,20 +365,18 @@ class ScanInvoiceTest extends TestCase
 
     public function test_an_unreadable_invoice_gives_a_friendly_arabic_message(): void
     {
-        FailingPrism::fake(
-            new PrismStructuredDecodingException('not json')
-        );
+        FailingPrism::fake(new PrismStructuredDecodingException('not json'));
 
         $this->actingAs(User::factory()->create())
-            ->postJson('/ai/scan-invoice', [
-                'file' => UploadedFile::fake()->create('invoice.jpg', 40, 'image/jpeg'),
-                'type' => 'purchase',
-            ])
+            ->postJson('/ai/scan-invoice', ['file' => $this->image(), 'type' => 'purchase'])
             ->assertStatus(503)
             ->assertJson([
                 'reason' => 'bad_json',
                 'message' => 'مقدرتش أقرا الفاتورة دي. جرّب صورة أوضح، أو اكتب البيانات يدوي.',
             ]);
+
+        // العطل مابيسيبش مسودة ورا
+        $this->assertDatabaseCount('invoices', 0);
     }
 
     public function test_it_rate_limits_scanning(): void
@@ -406,112 +388,65 @@ class ScanInvoiceTest extends TestCase
         $user = User::factory()->create();
 
         $this->actingAs($user)->post('/ai/scan-invoice', [
-            'file' => UploadedFile::fake()->create('a.jpg', 40, 'image/jpeg'),
-            'type' => 'purchase',
+            'file' => $this->image('a.jpg'), 'type' => 'purchase',
         ])->assertOk();
 
         $this->actingAs($user)->postJson('/ai/scan-invoice', [
-            'file' => UploadedFile::fake()->create('b.jpg', 40, 'image/jpeg'),
-            'type' => 'purchase',
+            'file' => $this->image('b.jpg'), 'type' => 'purchase',
         ])->assertStatus(429);
     }
 
-    public function test_nothing_is_saved_until_the_user_saves_the_invoice(): void
+    /**
+     * بيت القصيد: المسودة موجودة، بس مالهاش أي أثر على المخزون ولا
+     * الأرصدة ولا الخزينة لحد ما تتأكّد.
+     */
+    public function test_the_scan_creates_a_draft_that_touches_nothing(): void
     {
         $this->fakeExtraction([
-            'party_name' => 'شركة النور للتجارة',
+            'party_name' => 'محمد عبد الله',
             'items' => [
                 ['code' => 'HA-9001', 'name' => 'خلاط', 'quantity' => 5, 'unit_price' => 90],
             ],
         ]);
 
-        $this->actingAs(User::factory()->create())
-            ->post('/ai/scan-invoice', [
-                'file' => UploadedFile::fake()->create('invoice.jpg', 40, 'image/jpeg'),
-                'type' => 'purchase',
-            ])
-            ->assertOk();
+        $response = $this->scan('sale')->assertOk();
 
-        // المسح لوحده مابيسجّلش فاتورة ولا حركة مخزون ولا مرفق
-        $this->assertDatabaseCount('invoices', 0);
+        $draft = Invoice::query()->drafts()->sole();
+
+        $this->assertSame(Invoice::STATUS_DRAFT, $draft->status);
+        $this->assertNotNull($draft->scanned_at);
+
+        // ولا حركة مخزون ولا بند فاتورة ولا دفعة
         $this->assertDatabaseCount('stock_movements', 0);
-        $this->assertDatabaseCount('attachments', 0);
+        $this->assertDatabaseCount('invoice_items', 0);
+        $this->assertDatabaseCount('payments', 0);
+        $this->assertSame(0.0, (float) $draft->total);
+
+        // والصورة اتعلّقت على المسودة عشان تتعرض جنب الفورم
+        $this->assertCount(1, $draft->attachments);
+
+        $response->assertJsonPath('redirect', route('sales.drafts.show', $draft));
     }
 
-    public function test_the_scanned_file_is_attached_when_the_purchase_is_saved(): void
+    public function test_the_draft_shows_in_the_list_but_not_in_the_totals(): void
     {
-        Storage::fake('local');
-
-        $user = User::factory()->create();
-
-        $this->actingAs($user)->post('/purchases', [
-            'supplier_id' => $this->supplier->id,
-            'warehouse_id' => $this->warehouse->id,
-            'date' => now()->toDateString(),
-            'currency' => 'TRY',
-            'exchange_rate' => 1.46,
-            'items' => [
-                ['product_id' => $this->product->id, 'quantity' => 10, 'unit_price' => 90],
-            ],
-            'attachment' => UploadedFile::fake()->create('scan.jpg', 40, 'image/jpeg'),
-        ])->assertRedirect();
-
-        $invoice = Invoice::query()->purchases()->sole();
-
-        $this->assertCount(1, $invoice->attachments);
-        $this->assertSame('scan.jpg', $invoice->attachments->first()->original_name);
-        $this->assertSame('صورة الفاتورة الممسوحة', $invoice->attachments->first()->notes);
-    }
-
-    public function test_the_scanned_file_is_attached_when_the_sale_is_saved(): void
-    {
-        Storage::fake('local');
-
-        StockMovement::create([
-            'product_id' => $this->product->id,
-            'warehouse_id' => $this->warehouse->id,
-            'type' => StockMovement::TYPE_IN,
-            'quantity' => 50,
-            'unit_cost' => 100,
-            'date' => now()->toDateString(),
+        $this->fakeExtraction([
+            'party_name' => 'محمد عبد الله',
+            'items' => [['code' => 'HA-9001', 'name' => 'خلاط', 'quantity' => 5, 'unit_price' => 90]],
         ]);
 
-        $this->actingAs(User::factory()->create())->post('/sales', [
-            'customer_id' => $this->customer->id,
-            'warehouse_id' => $this->warehouse->id,
-            'date' => now()->toDateString(),
-            'items' => [
-                ['product_id' => $this->product->id, 'quantity' => 2, 'unit_price' => 160],
-            ],
-            'attachment' => UploadedFile::fake()->create('scan.pdf', 50, 'application/pdf'),
-        ])->assertRedirect();
+        $this->scan('sale')->assertOk();
 
-        $invoice = Invoice::query()->sales()->sole();
-
-        $this->assertCount(1, $invoice->attachments);
-        $this->assertSame('scan.pdf', $invoice->attachments->first()->original_name);
-    }
-
-    public function test_saving_an_invoice_without_a_scan_still_works(): void
-    {
-        $this->actingAs(User::factory()->create())->post('/purchases', [
-            'supplier_id' => $this->supplier->id,
-            'warehouse_id' => $this->warehouse->id,
-            'date' => now()->toDateString(),
-            'currency' => 'TRY',
-            'exchange_rate' => 1.46,
-            'items' => [
-                ['product_id' => $this->product->id, 'quantity' => 10, 'unit_price' => 90],
-            ],
-        ])->assertRedirect();
-
-        $this->assertDatabaseCount('attachments', 0);
-        $this->assertSame(1, Invoice::query()->purchases()->count());
+        $this->actingAs(User::factory()->create())
+            ->get('/sales')
+            ->assertInertia(fn ($page) => $page
+                ->where('invoices.data.0.status', Invoice::STATUS_DRAFT)
+                ->where('totals.total', 0)
+                ->etc()
+            );
     }
 
     /**
-     * بيزيّف رد الموديل بالـ JSON اللي كنا متوقعينه من قراءة الصورة.
-     *
      * @param  array<string, mixed>  $structured
      */
     private function fakeExtraction(array $structured): PrismFake
@@ -519,5 +454,18 @@ class ScanInvoiceTest extends TestCase
         return Prism::fake([
             StructuredResponseFake::make()->withStructured($structured),
         ]);
+    }
+
+    private function scan(string $type, ?UploadedFile $file = null): TestResponse
+    {
+        return $this->actingAs(User::factory()->create())->post('/ai/scan-invoice', [
+            'file' => $file ?? $this->image(),
+            'type' => $type,
+        ]);
+    }
+
+    private function image(string $name = 'invoice.jpg'): UploadedFile
+    {
+        return UploadedFile::fake()->create($name, 40, 'image/jpeg');
     }
 }

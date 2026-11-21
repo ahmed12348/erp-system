@@ -39,6 +39,7 @@ class Invoice extends Model
         'date', 'due_date', 'currency', 'exchange_rate', 'subtotal', 'discount',
         'tax', 'shipping_cost', 'customs_cost', 'clearance_cost',
         'total', 'paid', 'status', 'eta_status', 'eta_uuid', 'notes',
+        'scan_payload', 'scanned_at',
     ];
 
     protected function casts(): array
@@ -55,6 +56,8 @@ class Invoice extends Model
             'clearance_cost' => 'decimal:2',
             'total' => 'decimal:2',
             'paid' => 'decimal:2',
+            'scan_payload' => 'array',
+            'scanned_at' => 'datetime',
         ];
     }
 
@@ -118,5 +121,21 @@ class Invoice extends Model
     public function scopeConfirmed($query)
     {
         return $query->where('status', self::STATUS_CONFIRMED);
+    }
+
+    /**
+     * المسودات — فواتير اتمسحت من صورة ولسه ما اتأكّدتش.
+     *
+     * مابتدخلش في أي رصيد ولا تقرير: كل الاستعلامات دي بتفلتر على
+     * `confirmed` أصلاً.
+     */
+    public function scopeDrafts($query)
+    {
+        return $query->where('status', self::STATUS_DRAFT);
+    }
+
+    public function isDraft(): bool
+    {
+        return $this->status === self::STATUS_DRAFT;
     }
 }

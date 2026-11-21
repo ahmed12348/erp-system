@@ -48,6 +48,10 @@ class SalesQueryService
                 fn (Builder $query) => $query->whereColumn('paid', '<', 'total')
             )
             ->when(
+                filled($filters['status'] ?? null),
+                fn (Builder $query) => $query->where('status', $filters['status'])
+            )
+            ->when(
                 ($filters['payment'] ?? null) === 'paid',
                 fn (Builder $query) => $query->whereColumn('paid', '>=', 'total')
             )
@@ -78,6 +82,8 @@ class SalesQueryService
 
         $query = Invoice::query()
             ->where('type', Invoice::TYPE_SALE)
+            // المسودات لسه ما اتأكّدتش، فما بتدخلش في أي إجمالي
+            ->confirmed()
             ->when(
                 filled($filters['from'] ?? null),
                 fn (Builder $q) => $q->where('date', '>=', Carbon::parse($filters['from'])->toDateString())

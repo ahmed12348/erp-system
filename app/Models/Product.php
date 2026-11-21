@@ -34,6 +34,16 @@ class Product extends Model
         ];
     }
 
+    /**
+     * الأسماء البديلة اللي اتعلّمها النظام من الفواتير الممسوحة.
+     *
+     * @return HasMany<ProductAlias, $this>
+     */
+    public function aliases(): HasMany
+    {
+        return $this->hasMany(ProductAlias::class)->latest();
+    }
+
     /** @return BelongsTo<Category, $this> */
     public function category(): BelongsTo
     {

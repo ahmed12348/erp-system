@@ -35,7 +35,10 @@ class InvoiceScanService
     /** مفيش مطابقة — المستخدم لازم يختار */
     public const MATCH_NONE = 'none';
 
-    public function __construct(private readonly AiService $ai) {}
+    public function __construct(
+        private readonly AiService $ai,
+        private readonly AliasService $aliases,
+    ) {}
 
     /**
      * @return array<string, mixed>
@@ -158,8 +161,23 @@ class InvoiceScanService
 
         $match = null;
         $confidence = self::MATCH_NONE;
+        $via = null;
 
-        if ($name !== null) {
+        /*
+         * الاسم البديل الأول — ده اسم المستخدم صحّحه بإيده قبل كده،
+         * فهو أقوى من أي مقارنة نص.
+         */
+        if ($candidates->first() instanceof Customer) {
+            $learned = $this->aliases->matchCustomer($name);
+
+            if ($learned !== null && $candidates->contains('id', $learned->id)) {
+                $match = $learned;
+                $confidence = self::MATCH_EXACT;
+                $via = 'alias';
+            }
+        }
+
+        if ($match === null && $name !== null) {
             $exact = $candidates->first(fn ($party): bool => $party->name === $name);
 
             if ($exact !== null) {
@@ -199,6 +217,7 @@ class InvoiceScanService
                 'confidence' => $confidence,
                 'extracted' => $name,
                 'matched' => $match?->name,
+                'via' => $via,
             ],
         ];
     }
@@ -234,10 +253,11 @@ class InvoiceScanService
                 continue;
             }
 
-            [$product, $confidence] = $this->matchProduct($code, $name, $bySku, $byName, $byNormalized);
+            [$product, $confidence, $via] = $this->matchProduct($code, $name, $bySku, $byName, $byNormalized);
 
-            $quantity = $this->positive($row['quantity'] ?? null) ?? 1;
-            $extractedPrice = $this->amount($row['unit_price'] ?? null);
+            // الكميات والأسعار ساعات بترجع كنص فيه أرقام هندية أو وحدة
+            $quantity = $this->positive(ArabicText::number($row['quantity'] ?? null)) ?? 1;
+            $extractedPrice = $this->amount(ArabicText::number($row['unit_price'] ?? null));
 
             /*
              * السعر: اللي على الورق أولًا. لو مفيش، وكان الصنف اتطابق،
@@ -258,6 +278,7 @@ class InvoiceScanService
                     'matched' => $product?->name,
                     'matchedSku' => $product?->sku,
                     'unit' => $product?->unit,
+                    'via' => $via,
                     'priceFromSystem' => $priceFromSystem,
                     'missingPrice' => $price === null,
                 ],
@@ -271,7 +292,7 @@ class InvoiceScanService
      * @param  \Illuminate\Support\Collection<string, Product>  $bySku
      * @param  \Illuminate\Support\Collection<string, Product>  $byName
      * @param  \Illuminate\Support\Collection<string, Product>  $byNormalized
-     * @return array{0: Product|null, 1: string}
+     * @return array{0: Product|null, 1: string, 2: string|null}
      */
     private function matchProduct(
         ?string $code,
@@ -280,30 +301,42 @@ class InvoiceScanService
         $byName,
         $byNormalized,
     ): array {
-        // الكود الأول — أدق حاجة على الفاتورة
+        /*
+         * الاسم البديل الأول — المستخدم صحّح الاسم ده بإيده قبل كده،
+         * فهو أقوى دليل عندنا، أقوى حتى من الكود المكتوب على الورق.
+         */
+        foreach ([$name, $code] as $candidate) {
+            $learned = $this->aliases->matchProduct($candidate);
+
+            if ($learned !== null) {
+                return [$learned, self::MATCH_EXACT, 'alias'];
+            }
+        }
+
+        // الكود — أدق حاجة على الفاتورة المطبوعة
         if ($code !== null) {
             $product = $bySku->get(mb_strtolower($code));
 
             if ($product !== null) {
-                return [$product, self::MATCH_EXACT];
+                return [$product, self::MATCH_EXACT, 'code'];
             }
         }
 
         if ($name === null) {
-            return [null, self::MATCH_NONE];
+            return [null, self::MATCH_NONE, null];
         }
 
         $product = $byName->get($name);
 
         if ($product !== null) {
-            return [$product, self::MATCH_EXACT];
+            return [$product, self::MATCH_EXACT, 'name'];
         }
 
         // ساعات اسم الصنف نفسه بيتكتب في خانة الكود
         $product = $bySku->get(mb_strtolower($name));
 
         if ($product !== null) {
-            return [$product, self::MATCH_LIKELY];
+            return [$product, self::MATCH_LIKELY, 'code'];
         }
 
         $normalized = ArabicText::normalize($name);
@@ -311,8 +344,8 @@ class InvoiceScanService
         $product = $normalized === '' ? null : $byNormalized->get($normalized);
 
         return $product !== null
-            ? [$product, self::MATCH_LIKELY]
-            : [null, self::MATCH_NONE];
+            ? [$product, self::MATCH_LIKELY, 'name']
+            : [null, self::MATCH_NONE, null];
     }
 
     /**

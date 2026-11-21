@@ -31,6 +31,16 @@ class Customer extends Model
         return $this->belongsTo(SalesRep::class);
     }
 
+    /**
+     * الأسماء البديلة اللي اتعلّمها النظام من الفواتير الممسوحة.
+     *
+     * @return HasMany<CustomerAlias, $this>
+     */
+    public function aliases(): HasMany
+    {
+        return $this->hasMany(CustomerAlias::class)->latest();
+    }
+
     /** @param  Builder<self>  $query */
     public function scopeActive(Builder $query): void
     {

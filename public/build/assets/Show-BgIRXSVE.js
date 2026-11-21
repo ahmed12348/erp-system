@@ -1,0 +1,1253 @@
+import {
+    Dn as e,
+    Kt as t,
+    M as ee,
+    O as n,
+    Q as r,
+    Qt as i,
+    R as a,
+    Tn as o,
+    X as s,
+    Xn as te,
+    Y as c,
+    Z as l,
+    at as u,
+    fr as d,
+    i as f,
+    it as p,
+    lr as m,
+    o as h,
+    or as g,
+    r as ne,
+    st as _,
+} from './dist-C0kHilBU.js';
+import { t as v } from './button-BRBVuDNP.js';
+import { t as y } from './Label-BhHH3wmI.js';
+import { t as b } from './Input-CsBjGzWv.js';
+import { _ as x, g as re, v as ie } from './app-DkL2j24G.js';
+import { t as S } from './PageHeader-FN2NW817.js';
+import { t as C } from './InputError-_9qlcKk2.js';
+import { t as w } from './Spinner-DyunG8av.js';
+import { t as T } from './SectionCard-sO5uXxKO.js';
+import {
+    a as E,
+    i as D,
+    n as O,
+    o as k,
+    r as A,
+    t as j,
+} from './dialog-sj_P-Xqv.js';
+var M = { class: `flex flex-1 flex-col gap-5 p-4 md:p-6` },
+    N = { class: `space-y-2` },
+    P = { class: `space-y-2` },
+    F = { class: `space-y-2` },
+    I = { class: `space-y-2` },
+    L = { key: 0, class: `space-y-2` },
+    R = [`value`],
+    z = { class: `space-y-2` },
+    B = { class: `grid gap-4 sm:grid-cols-2 xl:grid-cols-4` },
+    V = { class: `rounded-xl border border-border bg-card p-5 shadow-soft` },
+    H = { class: `mt-2 text-xl font-bold tabular-nums` },
+    U = { class: `mt-1 text-xs text-muted-foreground` },
+    W = { class: `rounded-xl border border-border bg-card p-5 shadow-soft` },
+    G = { class: `mt-2 text-xl font-bold text-status-good tabular-nums` },
+    ae = { class: `rounded-xl border border-border bg-card p-5 shadow-soft` },
+    K = {
+        class: `mt-2 text-xl font-bold tabular-nums`,
+        'data-test': `supplier-balance`,
+    },
+    q = { class: `rounded-xl border border-border bg-card p-5 shadow-soft` },
+    J = { class: `mt-2 text-xl font-bold tabular-nums` },
+    oe = { class: `mt-1 text-xs text-muted-foreground` },
+    se = { class: `scrollbar-thin overflow-x-auto` },
+    ce = { class: `w-full text-sm` },
+    le = { class: `divide-y divide-border` },
+    ue = { class: `bg-muted/40` },
+    de = { class: `px-5 py-2.5 font-semibold tabular-nums` },
+    fe = {
+        class: `px-5 py-3 whitespace-nowrap text-muted-foreground tabular-nums`,
+    },
+    pe = { class: `px-5 py-3` },
+    me = { key: 1 },
+    he = { class: `px-5 py-3 text-muted-foreground tabular-nums` },
+    ge = { class: `px-5 py-3 whitespace-nowrap text-status-good tabular-nums` },
+    _e = { class: `px-5 py-3 whitespace-nowrap tabular-nums` },
+    Y = { class: `px-5 py-3 font-semibold whitespace-nowrap tabular-nums` },
+    ve = { class: `border-t-2 border-border bg-muted/40` },
+    ye = { class: `font-semibold` },
+    be = { class: `px-5 py-3 tabular-nums`, 'data-test': `supplier-closing` },
+    X = `h-9 w-full rounded-md border border-input bg-transparent px-3 text-sm`,
+    Z = _({
+        layout: (e) => ({ breadcrumbs: e.breadcrumbs }),
+        __name: `Show`,
+        props: {
+            supplier: {},
+            summary: {},
+            statement: {},
+            invoices: {},
+            openInvoices: {},
+            breadcrumbs: {},
+        },
+        setup(_) {
+            let Z = _,
+                Q = te(!1),
+                $ = h({
+                    amount: ``,
+                    method: `bank`,
+                    date: new Date().toISOString().slice(0, 10),
+                    exchange_rate: Z.invoices[0]?.exchangeRate ?? 1,
+                    reference: ``,
+                    notes: ``,
+                    invoice_id: ``,
+                });
+            function xe() {
+                $.transform((e) => ({
+                    ...e,
+                    invoice_id: e.invoice_id === `` ? null : e.invoice_id,
+                })).post(`/suppliers/${Z.supplier.id}/payments`, {
+                    preserveScroll: !0,
+                    onSuccess: () => {
+                        ($.reset(),
+                            ($.date = new Date().toISOString().slice(0, 10)),
+                            (Q.value = !1));
+                    },
+                });
+            }
+            return (te, h) => (
+                t(),
+                r(
+                    a,
+                    null,
+                    [
+                        u(g(ne), { title: _.supplier.name }, null, 8, [
+                            `title`,
+                        ]),
+                        c(`div`, M, [
+                            u(
+                                S,
+                                {
+                                    title: _.supplier.name,
+                                    description: `${_.supplier.country ?? ``} · التعامل بالـ ${_.supplier.currency}`,
+                                },
+                                {
+                                    actions: o(() => [
+                                        u(
+                                            g(k),
+                                            {
+                                                open: Q.value,
+                                                'onUpdate:open': (h[8] ||= (
+                                                    e,
+                                                ) => (Q.value = e)),
+                                            },
+                                            {
+                                                default: o(() => [
+                                                    u(
+                                                        g(v),
+                                                        {
+                                                            'data-test': `open-supplier-payment`,
+                                                            onClick: (h[0] ||= (
+                                                                e,
+                                                            ) =>
+                                                                (Q.value = !0)),
+                                                        },
+                                                        {
+                                                            default: o(() => [
+                                                                ...(h[9] ||= [
+                                                                    p(
+                                                                        ` تسجيل دفعة للمورد `,
+                                                                        -1,
+                                                                    ),
+                                                                ]),
+                                                            ]),
+                                                            _: 1,
+                                                        },
+                                                    ),
+                                                    u(
+                                                        g(E),
+                                                        {
+                                                            class: `sm:max-w-md`,
+                                                        },
+                                                        {
+                                                            default: o(() => [
+                                                                u(g(O), null, {
+                                                                    default: o(
+                                                                        () => [
+                                                                            u(
+                                                                                g(
+                                                                                    j,
+                                                                                ),
+                                                                                null,
+                                                                                {
+                                                                                    default:
+                                                                                        o(
+                                                                                            () => [
+                                                                                                p(
+                                                                                                    `دفعة إلى ` +
+                                                                                                        d(
+                                                                                                            _
+                                                                                                                .supplier
+                                                                                                                .name,
+                                                                                                        ),
+                                                                                                    1,
+                                                                                                ),
+                                                                                            ],
+                                                                                        ),
+                                                                                    _: 1,
+                                                                                },
+                                                                            ),
+                                                                            u(
+                                                                                g(
+                                                                                    D,
+                                                                                ),
+                                                                                null,
+                                                                                {
+                                                                                    default:
+                                                                                        o(
+                                                                                            () => [
+                                                                                                p(
+                                                                                                    ` المستحق حالياً ` +
+                                                                                                        d(
+                                                                                                            g(
+                                                                                                                x,
+                                                                                                            )(
+                                                                                                                _
+                                                                                                                    .summary
+                                                                                                                    .balance,
+                                                                                                                _
+                                                                                                                    .supplier
+                                                                                                                    .currency,
+                                                                                                                2,
+                                                                                                            ),
+                                                                                                        ),
+                                                                                                    1,
+                                                                                                ),
+                                                                                            ],
+                                                                                        ),
+                                                                                    _: 1,
+                                                                                },
+                                                                            ),
+                                                                        ],
+                                                                    ),
+                                                                    _: 1,
+                                                                }),
+                                                                c(
+                                                                    `form`,
+                                                                    {
+                                                                        class: `space-y-4`,
+                                                                        onSubmit:
+                                                                            ee(
+                                                                                xe,
+                                                                                [
+                                                                                    `prevent`,
+                                                                                ],
+                                                                            ),
+                                                                    },
+                                                                    [
+                                                                        c(
+                                                                            `div`,
+                                                                            N,
+                                                                            [
+                                                                                u(
+                                                                                    g(
+                                                                                        y,
+                                                                                    ),
+                                                                                    {
+                                                                                        for: `amount`,
+                                                                                    },
+                                                                                    {
+                                                                                        default:
+                                                                                            o(
+                                                                                                () => [
+                                                                                                    p(
+                                                                                                        ` المبلغ (` +
+                                                                                                            d(
+                                                                                                                _
+                                                                                                                    .supplier
+                                                                                                                    .currency,
+                                                                                                            ) +
+                                                                                                            `) `,
+                                                                                                        1,
+                                                                                                    ),
+                                                                                                ],
+                                                                                            ),
+                                                                                        _: 1,
+                                                                                    },
+                                                                                ),
+                                                                                u(
+                                                                                    g(
+                                                                                        b,
+                                                                                    ),
+                                                                                    {
+                                                                                        id: `amount`,
+                                                                                        modelValue:
+                                                                                            g(
+                                                                                                $,
+                                                                                            )
+                                                                                                .amount,
+                                                                                        'onUpdate:modelValue':
+                                                                                            (h[1] ||=
+                                                                                                (
+                                                                                                    e,
+                                                                                                ) =>
+                                                                                                    (g(
+                                                                                                        $,
+                                                                                                    ).amount =
+                                                                                                        e)),
+                                                                                        type: `number`,
+                                                                                        step: `0.01`,
+                                                                                        min: `0.01`,
+                                                                                        required: ``,
+                                                                                        dir: `ltr`,
+                                                                                        class: `text-start`,
+                                                                                        'data-test': `supplier-payment-amount`,
+                                                                                    },
+                                                                                    null,
+                                                                                    8,
+                                                                                    [
+                                                                                        `modelValue`,
+                                                                                    ],
+                                                                                ),
+                                                                                u(
+                                                                                    C,
+                                                                                    {
+                                                                                        message:
+                                                                                            g(
+                                                                                                $,
+                                                                                            )
+                                                                                                .errors
+                                                                                                .amount,
+                                                                                    },
+                                                                                    null,
+                                                                                    8,
+                                                                                    [
+                                                                                        `message`,
+                                                                                    ],
+                                                                                ),
+                                                                            ],
+                                                                        ),
+                                                                        c(
+                                                                            `div`,
+                                                                            P,
+                                                                            [
+                                                                                u(
+                                                                                    g(
+                                                                                        y,
+                                                                                    ),
+                                                                                    {
+                                                                                        for: `exchange_rate`,
+                                                                                    },
+                                                                                    {
+                                                                                        default:
+                                                                                            o(
+                                                                                                () => [
+                                                                                                    ...(h[10] ||=
+                                                                                                        [
+                                                                                                            p(
+                                                                                                                `سعر الصرف للجنيه`,
+                                                                                                                -1,
+                                                                                                            ),
+                                                                                                        ]),
+                                                                                                ],
+                                                                                            ),
+                                                                                        _: 1,
+                                                                                    },
+                                                                                ),
+                                                                                u(
+                                                                                    g(
+                                                                                        b,
+                                                                                    ),
+                                                                                    {
+                                                                                        id: `exchange_rate`,
+                                                                                        modelValue:
+                                                                                            g(
+                                                                                                $,
+                                                                                            )
+                                                                                                .exchange_rate,
+                                                                                        'onUpdate:modelValue':
+                                                                                            (h[2] ||=
+                                                                                                (
+                                                                                                    e,
+                                                                                                ) =>
+                                                                                                    (g(
+                                                                                                        $,
+                                                                                                    ).exchange_rate =
+                                                                                                        e)),
+                                                                                        type: `number`,
+                                                                                        step: `0.0001`,
+                                                                                        min: `0.0001`,
+                                                                                        dir: `ltr`,
+                                                                                        class: `text-start`,
+                                                                                    },
+                                                                                    null,
+                                                                                    8,
+                                                                                    [
+                                                                                        `modelValue`,
+                                                                                    ],
+                                                                                ),
+                                                                                u(
+                                                                                    C,
+                                                                                    {
+                                                                                        message:
+                                                                                            g(
+                                                                                                $,
+                                                                                            )
+                                                                                                .errors
+                                                                                                .exchange_rate,
+                                                                                    },
+                                                                                    null,
+                                                                                    8,
+                                                                                    [
+                                                                                        `message`,
+                                                                                    ],
+                                                                                ),
+                                                                            ],
+                                                                        ),
+                                                                        c(
+                                                                            `div`,
+                                                                            F,
+                                                                            [
+                                                                                u(
+                                                                                    g(
+                                                                                        y,
+                                                                                    ),
+                                                                                    {
+                                                                                        for: `method`,
+                                                                                    },
+                                                                                    {
+                                                                                        default:
+                                                                                            o(
+                                                                                                () => [
+                                                                                                    ...(h[11] ||=
+                                                                                                        [
+                                                                                                            p(
+                                                                                                                `طريقة الدفع`,
+                                                                                                                -1,
+                                                                                                            ),
+                                                                                                        ]),
+                                                                                                ],
+                                                                                            ),
+                                                                                        _: 1,
+                                                                                    },
+                                                                                ),
+                                                                                e(
+                                                                                    c(
+                                                                                        `select`,
+                                                                                        {
+                                                                                            id: `method`,
+                                                                                            'onUpdate:modelValue':
+                                                                                                (h[3] ||=
+                                                                                                    (
+                                                                                                        e,
+                                                                                                    ) =>
+                                                                                                        (g(
+                                                                                                            $,
+                                                                                                        ).method =
+                                                                                                            e)),
+                                                                                            class: m(
+                                                                                                X,
+                                                                                            ),
+                                                                                        },
+                                                                                        [
+                                                                                            ...(h[12] ||=
+                                                                                                [
+                                                                                                    c(
+                                                                                                        `option`,
+                                                                                                        {
+                                                                                                            value: `bank`,
+                                                                                                        },
+                                                                                                        `تحويل بنكي`,
+                                                                                                        -1,
+                                                                                                    ),
+                                                                                                    c(
+                                                                                                        `option`,
+                                                                                                        {
+                                                                                                            value: `cash`,
+                                                                                                        },
+                                                                                                        `نقدي`,
+                                                                                                        -1,
+                                                                                                    ),
+                                                                                                    c(
+                                                                                                        `option`,
+                                                                                                        {
+                                                                                                            value: `check`,
+                                                                                                        },
+                                                                                                        `شيك`,
+                                                                                                        -1,
+                                                                                                    ),
+                                                                                                ]),
+                                                                                        ],
+                                                                                        512,
+                                                                                    ),
+                                                                                    [
+                                                                                        [
+                                                                                            n,
+                                                                                            g(
+                                                                                                $,
+                                                                                            )
+                                                                                                .method,
+                                                                                        ],
+                                                                                    ],
+                                                                                ),
+                                                                                u(
+                                                                                    C,
+                                                                                    {
+                                                                                        message:
+                                                                                            g(
+                                                                                                $,
+                                                                                            )
+                                                                                                .errors
+                                                                                                .method,
+                                                                                    },
+                                                                                    null,
+                                                                                    8,
+                                                                                    [
+                                                                                        `message`,
+                                                                                    ],
+                                                                                ),
+                                                                            ],
+                                                                        ),
+                                                                        c(
+                                                                            `div`,
+                                                                            I,
+                                                                            [
+                                                                                u(
+                                                                                    g(
+                                                                                        y,
+                                                                                    ),
+                                                                                    {
+                                                                                        for: `date`,
+                                                                                    },
+                                                                                    {
+                                                                                        default:
+                                                                                            o(
+                                                                                                () => [
+                                                                                                    ...(h[13] ||=
+                                                                                                        [
+                                                                                                            p(
+                                                                                                                `التاريخ`,
+                                                                                                                -1,
+                                                                                                            ),
+                                                                                                        ]),
+                                                                                                ],
+                                                                                            ),
+                                                                                        _: 1,
+                                                                                    },
+                                                                                ),
+                                                                                u(
+                                                                                    g(
+                                                                                        b,
+                                                                                    ),
+                                                                                    {
+                                                                                        id: `date`,
+                                                                                        modelValue:
+                                                                                            g(
+                                                                                                $,
+                                                                                            )
+                                                                                                .date,
+                                                                                        'onUpdate:modelValue':
+                                                                                            (h[4] ||=
+                                                                                                (
+                                                                                                    e,
+                                                                                                ) =>
+                                                                                                    (g(
+                                                                                                        $,
+                                                                                                    ).date =
+                                                                                                        e)),
+                                                                                        type: `date`,
+                                                                                        required: ``,
+                                                                                    },
+                                                                                    null,
+                                                                                    8,
+                                                                                    [
+                                                                                        `modelValue`,
+                                                                                    ],
+                                                                                ),
+                                                                                u(
+                                                                                    C,
+                                                                                    {
+                                                                                        message:
+                                                                                            g(
+                                                                                                $,
+                                                                                            )
+                                                                                                .errors
+                                                                                                .date,
+                                                                                    },
+                                                                                    null,
+                                                                                    8,
+                                                                                    [
+                                                                                        `message`,
+                                                                                    ],
+                                                                                ),
+                                                                            ],
+                                                                        ),
+                                                                        _
+                                                                            .openInvoices
+                                                                            .length
+                                                                            ? (t(),
+                                                                              r(
+                                                                                  `div`,
+                                                                                  L,
+                                                                                  [
+                                                                                      u(
+                                                                                          g(
+                                                                                              y,
+                                                                                          ),
+                                                                                          {
+                                                                                              for: `invoice_id`,
+                                                                                          },
+                                                                                          {
+                                                                                              default:
+                                                                                                  o(
+                                                                                                      () => [
+                                                                                                          ...(h[14] ||=
+                                                                                                              [
+                                                                                                                  p(
+                                                                                                                      `خصم من فاتورة (اختياري)`,
+                                                                                                                      -1,
+                                                                                                                  ),
+                                                                                                              ]),
+                                                                                                      ],
+                                                                                                  ),
+                                                                                              _: 1,
+                                                                                          },
+                                                                                      ),
+                                                                                      e(
+                                                                                          c(
+                                                                                              `select`,
+                                                                                              {
+                                                                                                  id: `invoice_id`,
+                                                                                                  'onUpdate:modelValue':
+                                                                                                      (h[5] ||=
+                                                                                                          (
+                                                                                                              e,
+                                                                                                          ) =>
+                                                                                                              (g(
+                                                                                                                  $,
+                                                                                                              ).invoice_id =
+                                                                                                                  e)),
+                                                                                                  class: m(
+                                                                                                      X,
+                                                                                                  ),
+                                                                                              },
+                                                                                              [
+                                                                                                  (h[15] ||=
+                                                                                                      c(
+                                                                                                          `option`,
+                                                                                                          {
+                                                                                                              value: ``,
+                                                                                                          },
+                                                                                                          ` دفعة عامة على الحساب `,
+                                                                                                          -1,
+                                                                                                      )),
+                                                                                                  (t(
+                                                                                                      !0,
+                                                                                                  ),
+                                                                                                  r(
+                                                                                                      a,
+                                                                                                      null,
+                                                                                                      i(
+                                                                                                          _.openInvoices,
+                                                                                                          (
+                                                                                                              e,
+                                                                                                          ) => (
+                                                                                                              t(),
+                                                                                                              r(
+                                                                                                                  `option`,
+                                                                                                                  {
+                                                                                                                      key: e.id,
+                                                                                                                      value: e.id,
+                                                                                                                  },
+                                                                                                                  d(
+                                                                                                                      e.label,
+                                                                                                                  ),
+                                                                                                                  9,
+                                                                                                                  R,
+                                                                                                              )
+                                                                                                          ),
+                                                                                                      ),
+                                                                                                      128,
+                                                                                                  )),
+                                                                                              ],
+                                                                                              512,
+                                                                                          ),
+                                                                                          [
+                                                                                              [
+                                                                                                  n,
+                                                                                                  g(
+                                                                                                      $,
+                                                                                                  )
+                                                                                                      .invoice_id,
+                                                                                              ],
+                                                                                          ],
+                                                                                      ),
+                                                                                      u(
+                                                                                          C,
+                                                                                          {
+                                                                                              message:
+                                                                                                  g(
+                                                                                                      $,
+                                                                                                  )
+                                                                                                      .errors
+                                                                                                      .invoice_id,
+                                                                                          },
+                                                                                          null,
+                                                                                          8,
+                                                                                          [
+                                                                                              `message`,
+                                                                                          ],
+                                                                                      ),
+                                                                                  ],
+                                                                              ))
+                                                                            : l(
+                                                                                  ``,
+                                                                                  !0,
+                                                                              ),
+                                                                        c(
+                                                                            `div`,
+                                                                            z,
+                                                                            [
+                                                                                u(
+                                                                                    g(
+                                                                                        y,
+                                                                                    ),
+                                                                                    {
+                                                                                        for: `reference`,
+                                                                                    },
+                                                                                    {
+                                                                                        default:
+                                                                                            o(
+                                                                                                () => [
+                                                                                                    ...(h[16] ||=
+                                                                                                        [
+                                                                                                            p(
+                                                                                                                `رقم التحويل / الشيك`,
+                                                                                                                -1,
+                                                                                                            ),
+                                                                                                        ]),
+                                                                                                ],
+                                                                                            ),
+                                                                                        _: 1,
+                                                                                    },
+                                                                                ),
+                                                                                u(
+                                                                                    g(
+                                                                                        b,
+                                                                                    ),
+                                                                                    {
+                                                                                        id: `reference`,
+                                                                                        modelValue:
+                                                                                            g(
+                                                                                                $,
+                                                                                            )
+                                                                                                .reference,
+                                                                                        'onUpdate:modelValue':
+                                                                                            (h[6] ||=
+                                                                                                (
+                                                                                                    e,
+                                                                                                ) =>
+                                                                                                    (g(
+                                                                                                        $,
+                                                                                                    ).reference =
+                                                                                                        e)),
+                                                                                        dir: `ltr`,
+                                                                                        class: `text-start`,
+                                                                                    },
+                                                                                    null,
+                                                                                    8,
+                                                                                    [
+                                                                                        `modelValue`,
+                                                                                    ],
+                                                                                ),
+                                                                            ],
+                                                                        ),
+                                                                        u(
+                                                                            g(
+                                                                                A,
+                                                                            ),
+                                                                            {
+                                                                                class: `gap-2`,
+                                                                            },
+                                                                            {
+                                                                                default:
+                                                                                    o(
+                                                                                        () => [
+                                                                                            u(
+                                                                                                g(
+                                                                                                    v,
+                                                                                                ),
+                                                                                                {
+                                                                                                    type: `button`,
+                                                                                                    variant: `outline`,
+                                                                                                    onClick:
+                                                                                                        (h[7] ||=
+                                                                                                            (
+                                                                                                                e,
+                                                                                                            ) =>
+                                                                                                                (Q.value =
+                                                                                                                    !1)),
+                                                                                                },
+                                                                                                {
+                                                                                                    default:
+                                                                                                        o(
+                                                                                                            () => [
+                                                                                                                ...(h[17] ||=
+                                                                                                                    [
+                                                                                                                        p(
+                                                                                                                            ` إلغاء `,
+                                                                                                                            -1,
+                                                                                                                        ),
+                                                                                                                    ]),
+                                                                                                            ],
+                                                                                                        ),
+                                                                                                    _: 1,
+                                                                                                },
+                                                                                            ),
+                                                                                            u(
+                                                                                                g(
+                                                                                                    v,
+                                                                                                ),
+                                                                                                {
+                                                                                                    type: `submit`,
+                                                                                                    disabled:
+                                                                                                        g(
+                                                                                                            $,
+                                                                                                        )
+                                                                                                            .processing,
+                                                                                                    'data-test': `submit-supplier-payment`,
+                                                                                                },
+                                                                                                {
+                                                                                                    default:
+                                                                                                        o(
+                                                                                                            () => [
+                                                                                                                g(
+                                                                                                                    $,
+                                                                                                                )
+                                                                                                                    .processing
+                                                                                                                    ? (t(),
+                                                                                                                      s(
+                                                                                                                          g(
+                                                                                                                              w,
+                                                                                                                          ),
+                                                                                                                          {
+                                                                                                                              key: 0,
+                                                                                                                          },
+                                                                                                                      ))
+                                                                                                                    : l(
+                                                                                                                          ``,
+                                                                                                                          !0,
+                                                                                                                      ),
+                                                                                                                (h[18] ||=
+                                                                                                                    p(
+                                                                                                                        ` حفظ الدفعة `,
+                                                                                                                        -1,
+                                                                                                                    )),
+                                                                                                            ],
+                                                                                                        ),
+                                                                                                    _: 1,
+                                                                                                },
+                                                                                                8,
+                                                                                                [
+                                                                                                    `disabled`,
+                                                                                                ],
+                                                                                            ),
+                                                                                        ],
+                                                                                    ),
+                                                                                _: 1,
+                                                                            },
+                                                                        ),
+                                                                    ],
+                                                                    32,
+                                                                ),
+                                                            ]),
+                                                            _: 1,
+                                                        },
+                                                    ),
+                                                ]),
+                                                _: 1,
+                                            },
+                                            8,
+                                            [`open`],
+                                        ),
+                                    ]),
+                                    _: 1,
+                                },
+                                8,
+                                [`title`, `description`],
+                            ),
+                            c(`div`, B, [
+                                c(`div`, V, [
+                                    (h[19] ||= c(
+                                        `p`,
+                                        {
+                                            class: `text-sm text-muted-foreground`,
+                                        },
+                                        `إجمالي المشتريات`,
+                                        -1,
+                                    )),
+                                    c(
+                                        `p`,
+                                        H,
+                                        d(
+                                            g(x)(
+                                                _.summary.purchases,
+                                                _.supplier.currency,
+                                                2,
+                                            ),
+                                        ),
+                                        1,
+                                    ),
+                                    c(
+                                        `p`,
+                                        U,
+                                        d(g(x)(_.summary.purchasesEgp)),
+                                        1,
+                                    ),
+                                ]),
+                                c(`div`, W, [
+                                    (h[20] ||= c(
+                                        `p`,
+                                        {
+                                            class: `text-sm text-muted-foreground`,
+                                        },
+                                        `المدفوع`,
+                                        -1,
+                                    )),
+                                    c(
+                                        `p`,
+                                        G,
+                                        d(
+                                            g(x)(
+                                                _.summary.paid,
+                                                _.supplier.currency,
+                                                2,
+                                            ),
+                                        ),
+                                        1,
+                                    ),
+                                ]),
+                                c(`div`, ae, [
+                                    (h[21] ||= c(
+                                        `p`,
+                                        {
+                                            class: `text-sm text-muted-foreground`,
+                                        },
+                                        `المستحق للمورد`,
+                                        -1,
+                                    )),
+                                    c(
+                                        `p`,
+                                        K,
+                                        d(
+                                            g(x)(
+                                                _.summary.balance,
+                                                _.supplier.currency,
+                                                2,
+                                            ),
+                                        ),
+                                        1,
+                                    ),
+                                ]),
+                                c(`div`, q, [
+                                    (h[22] ||= c(
+                                        `p`,
+                                        {
+                                            class: `text-sm text-muted-foreground`,
+                                        },
+                                        `عدد الفواتير`,
+                                        -1,
+                                    )),
+                                    c(
+                                        `p`,
+                                        J,
+                                        d(g(ie)(_.summary.invoiceCount)),
+                                        1,
+                                    ),
+                                    c(
+                                        `p`,
+                                        oe,
+                                        ` رصيد افتتاحي ` +
+                                            d(
+                                                g(x)(
+                                                    _.supplier.openingBalance,
+                                                    _.supplier.currency,
+                                                    2,
+                                                ),
+                                            ),
+                                        1,
+                                    ),
+                                ]),
+                            ]),
+                            u(
+                                T,
+                                {
+                                    title: `كشف حساب المورد`,
+                                    description: `كل المبالغ بالـ ${_.supplier.currency}`,
+                                    flush: ``,
+                                },
+                                {
+                                    default: o(() => [
+                                        c(`div`, se, [
+                                            c(`table`, ce, [
+                                                (h[25] ||= c(
+                                                    `thead`,
+                                                    {
+                                                        class: `border-b border-border text-xs text-muted-foreground`,
+                                                    },
+                                                    [
+                                                        c(`tr`, null, [
+                                                            c(
+                                                                `th`,
+                                                                {
+                                                                    class: `px-5 py-2.5 text-start font-medium`,
+                                                                },
+                                                                ` التاريخ `,
+                                                            ),
+                                                            c(
+                                                                `th`,
+                                                                {
+                                                                    class: `px-5 py-2.5 text-start font-medium`,
+                                                                },
+                                                                ` البيان `,
+                                                            ),
+                                                            c(
+                                                                `th`,
+                                                                {
+                                                                    class: `px-5 py-2.5 text-start font-medium`,
+                                                                },
+                                                                ` المرجع `,
+                                                            ),
+                                                            c(
+                                                                `th`,
+                                                                {
+                                                                    class: `px-5 py-2.5 text-start font-medium`,
+                                                                },
+                                                                ` مدين `,
+                                                            ),
+                                                            c(
+                                                                `th`,
+                                                                {
+                                                                    class: `px-5 py-2.5 text-start font-medium`,
+                                                                },
+                                                                ` دائن `,
+                                                            ),
+                                                            c(
+                                                                `th`,
+                                                                {
+                                                                    class: `px-5 py-2.5 text-start font-medium`,
+                                                                },
+                                                                ` الرصيد `,
+                                                            ),
+                                                        ]),
+                                                    ],
+                                                    -1,
+                                                )),
+                                                c(`tbody`, le, [
+                                                    c(`tr`, ue, [
+                                                        (h[23] ||= c(
+                                                            `td`,
+                                                            {
+                                                                class: `px-5 py-2.5 text-muted-foreground`,
+                                                                colspan: `5`,
+                                                            },
+                                                            ` رصيد افتتاحي `,
+                                                            -1,
+                                                        )),
+                                                        c(
+                                                            `td`,
+                                                            de,
+                                                            d(
+                                                                g(x)(
+                                                                    _.statement
+                                                                        .opening,
+                                                                    _.supplier
+                                                                        .currency,
+                                                                    2,
+                                                                ),
+                                                            ),
+                                                            1,
+                                                        ),
+                                                    ]),
+                                                    (t(!0),
+                                                    r(
+                                                        a,
+                                                        null,
+                                                        i(
+                                                            _.statement.rows,
+                                                            (e) => (
+                                                                t(),
+                                                                r(
+                                                                    `tr`,
+                                                                    {
+                                                                        key: `${e.kind}-${e.id}`,
+                                                                        class: `transition-colors hover:bg-accent/60`,
+                                                                    },
+                                                                    [
+                                                                        c(
+                                                                            `td`,
+                                                                            fe,
+                                                                            d(
+                                                                                g(
+                                                                                    re,
+                                                                                )(
+                                                                                    e.date,
+                                                                                ),
+                                                                            ),
+                                                                            1,
+                                                                        ),
+                                                                        c(
+                                                                            `td`,
+                                                                            pe,
+                                                                            [
+                                                                                e.link
+                                                                                    ? (t(),
+                                                                                      s(
+                                                                                          g(
+                                                                                              f,
+                                                                                          ),
+                                                                                          {
+                                                                                              key: 0,
+                                                                                              href: e.link,
+                                                                                              class: `hover:underline`,
+                                                                                          },
+                                                                                          {
+                                                                                              default:
+                                                                                                  o(
+                                                                                                      () => [
+                                                                                                          p(
+                                                                                                              d(
+                                                                                                                  e.description,
+                                                                                                              ),
+                                                                                                              1,
+                                                                                                          ),
+                                                                                                      ],
+                                                                                                  ),
+                                                                                              _: 2,
+                                                                                          },
+                                                                                          1032,
+                                                                                          [
+                                                                                              `href`,
+                                                                                          ],
+                                                                                      ))
+                                                                                    : (t(),
+                                                                                      r(
+                                                                                          `span`,
+                                                                                          me,
+                                                                                          d(
+                                                                                              e.description,
+                                                                                          ),
+                                                                                          1,
+                                                                                      )),
+                                                                            ],
+                                                                        ),
+                                                                        c(
+                                                                            `td`,
+                                                                            he,
+                                                                            d(
+                                                                                e.reference,
+                                                                            ),
+                                                                            1,
+                                                                        ),
+                                                                        c(
+                                                                            `td`,
+                                                                            ge,
+                                                                            d(
+                                                                                e.debit >
+                                                                                    0
+                                                                                    ? g(
+                                                                                          x,
+                                                                                      )(
+                                                                                          e.debit,
+                                                                                          _
+                                                                                              .supplier
+                                                                                              .currency,
+                                                                                          2,
+                                                                                      )
+                                                                                    : `—`,
+                                                                            ),
+                                                                            1,
+                                                                        ),
+                                                                        c(
+                                                                            `td`,
+                                                                            _e,
+                                                                            d(
+                                                                                e.credit >
+                                                                                    0
+                                                                                    ? g(
+                                                                                          x,
+                                                                                      )(
+                                                                                          e.credit,
+                                                                                          _
+                                                                                              .supplier
+                                                                                              .currency,
+                                                                                          2,
+                                                                                      )
+                                                                                    : `—`,
+                                                                            ),
+                                                                            1,
+                                                                        ),
+                                                                        c(
+                                                                            `td`,
+                                                                            Y,
+                                                                            d(
+                                                                                g(
+                                                                                    x,
+                                                                                )(
+                                                                                    e.balance,
+                                                                                    _
+                                                                                        .supplier
+                                                                                        .currency,
+                                                                                    2,
+                                                                                ),
+                                                                            ),
+                                                                            1,
+                                                                        ),
+                                                                    ],
+                                                                )
+                                                            ),
+                                                        ),
+                                                        128,
+                                                    )),
+                                                ]),
+                                                c(`tfoot`, ve, [
+                                                    c(`tr`, ye, [
+                                                        (h[24] ||= c(
+                                                            `td`,
+                                                            {
+                                                                colspan: `5`,
+                                                                class: `px-5 py-3`,
+                                                            },
+                                                            ` الرصيد الختامي `,
+                                                            -1,
+                                                        )),
+                                                        c(
+                                                            `td`,
+                                                            be,
+                                                            d(
+                                                                g(x)(
+                                                                    _.statement
+                                                                        .closing,
+                                                                    _.supplier
+                                                                        .currency,
+                                                                    2,
+                                                                ),
+                                                            ),
+                                                            1,
+                                                        ),
+                                                    ]),
+                                                ]),
+                                            ]),
+                                        ]),
+                                    ]),
+                                    _: 1,
+                                },
+                                8,
+                                [`description`],
+                            ),
+                        ]),
+                    ],
+                    64,
+                )
+            );
+        },
+    });
+export { Z as default };

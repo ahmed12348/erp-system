@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { router } from '@inertiajs/vue3';
 import { FileText, ScanLine, Upload } from '@lucide/vue';
 import { computed, ref } from 'vue';
 import { Button } from '@/components/ui/button';
@@ -12,23 +13,27 @@ import {
 } from '@/components/ui/dialog';
 import { Spinner } from '@/components/ui/spinner';
 import { AiError, aiRequest } from '@/lib/ai';
-import type { ScanResult } from '@/composables/useInvoiceScan';
 
 /**
- * «مسح فاتورة» — بياخد صورة أو PDF ويرجّع بيانات الفورم.
+ * «مسح فاتورة» — بيرفع صورة أو PDF وبيودّيك على المسودة.
  *
- * الكمبوننت ده مابيحفظش حاجة ومابيعرفش شكل الفورم. بيرفع الملف،
- * بيستنى القراءة، وبيبعت النتيجة لصفحة الفاتورة اللي هي اللي بتملا
- * خاناتها. ده اللي خلّاه يشتغل مع فاتورة الشراء والبيع من غير فرق.
+ * الكمبوننت ده مابيعرفش حاجة عن شكل الفاتورة: بيرفع الملف، والسيرفر
+ * بيقراه ويعمل مسودة ويرجّع لينكها، وإحنا بنروح هناك. عشان كده هو
+ * نفسه بيشتغل على صفحة البيع وصفحة الشراء وصفحات القوايم.
  */
+type ScanResponse = {
+    draftId: number;
+    redirect: string;
+};
 
-const props = defineProps<{
-    type: 'purchase' | 'sale';
-}>();
-
-const emit = defineEmits<{
-    scanned: [result: ScanResult, file: File];
-}>();
+const props = withDefaults(
+    defineProps<{
+        type: 'purchase' | 'sale';
+        /** على صفحات القوايم الزرار بيبقى جنب «فاتورة جديدة» */
+        variant?: 'outline' | 'ghost';
+    }>(),
+    { variant: 'outline' },
+);
 
 /** نفس حدود المرفقات في النظام */
 const MAX_BYTES = 8 * 1024 * 1024;
@@ -96,14 +101,19 @@ async function scan() {
     body.append('type', props.type);
 
     try {
-        const result = await aiRequest<ScanResult>('/ai/scan-invoice', {
+        /*
+         * المسح بيعمل مسودة على السيرفر وبيرجّع لينكها. المسودة
+         * ما بتلمسش مخزون ولا أرصدة — هي بس اللي اتقرا من الصورة
+         * مستنية مراجعة.
+         */
+        const result = await aiRequest<ScanResponse>('/ai/scan-invoice', {
             method: 'POST',
             body,
         });
 
-        emit('scanned', result, file);
-
         open.value = false;
+
+        router.visit(result.redirect);
     } catch (e) {
         error.value =
             e instanceof AiError
@@ -118,7 +128,7 @@ async function scan() {
 <template>
     <Button
         type="button"
-        variant="outline"
+        :variant="variant"
         size="sm"
         data-test="scan-invoice-button"
         @click="openDialog"
@@ -132,8 +142,8 @@ async function scan() {
             <DialogHeader class="text-start">
                 <DialogTitle>مسح {{ label }}</DialogTitle>
                 <DialogDescription>
-                    ارفع صورة أو PDF، والبيانات هتتملا في الفورم. مش هيتحفظ حاجة
-                    غير لما تراجع وتضغط حفظ.
+                    ارفع صورة أو PDF. هتتعمل **مسودة** تقدر تراجعها قبل ما
+                    تتأكّد — المخزون والأرصدة ما بيتحركوش غير بعد التأكيد.
                 </DialogDescription>
             </DialogHeader>
 

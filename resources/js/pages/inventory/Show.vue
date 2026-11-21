@@ -4,6 +4,7 @@ import { History } from '@lucide/vue';
 import { ref } from 'vue';
 import EmptyState from '@/components/EmptyState.vue';
 import PageHeader from '@/components/PageHeader.vue';
+import ProductAliases from '@/components/ProductAliases.vue';
 import SectionCard from '@/components/SectionCard.vue';
 import { formatDateShort, formatMoney, formatQuantity } from '@/lib/format';
 import type { BreadcrumbItem } from '@/types';
@@ -29,6 +30,13 @@ const props = defineProps<{
         balance: number;
         link: string | null;
         reference: string | null;
+    }[];
+    /** الأسماء اللي اتعلّمها النظام من الفواتير الممسوحة */
+    aliases: {
+        id: number;
+        alias: string;
+        addedBy: string | null;
+        addedAt: string | null;
     }[];
     warehouses: { id: number; name: string }[];
     filters: { warehouse_id: number | null };
@@ -110,6 +118,8 @@ const TYPE_LABELS: Record<string, string> = {
                 </p>
             </div>
         </div>
+
+        <ProductAliases :product-id="product.id" :aliases="aliases" />
 
         <SectionCard title="حركة الصنف" flush>
             <template #actions>

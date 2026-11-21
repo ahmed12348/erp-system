@@ -1,26 +1,26 @@
 import { ref } from 'vue';
 
 /**
- * حالة «مسح فاتورة» جوه فورم الفاتورة.
+ * حالة مراجعة فاتورة ممسوحة.
  *
- * الفكرة إن المسح بيملا الفورم العادي وخلاص — مفيش فورم تاني ولا مسار
- * حفظ تاني. اللي الكومبوزابل ده بيزوّده حاجتين بس:
+ * المسح بيعمل مسودة على السيرفر، وصفحة المسودة بتعرض الفورم العادي
+ * متملّي. الكومبوزابل ده بيمسك حاجة واحدة بس: **الخانات اللي لسه
+ * محتاجة مراجعة**، عشان تتلوّن أصفر لحد ما المستخدم يعدّلها أو
+ * يأكّدها.
  *
- *  1. الملف اللي المستخدم رفعه، عشان يتبعت مع الحفظ ويتعلّق على الفاتورة.
- *     المتصفح ماسكه في الذاكرة، فمفيش ملفات مؤقتة على السيرفر.
- *  2. الحقول اللي محتاجة مراجعة، عشان تتلوّن أصفر لحد ما المستخدم يعدّلها
- *     أو يأكّدها.
- *
- * الحالة جوه الكمبوننت مش على مستوى الموديول — كل صفحة فاتورة ليها
- * مسحتها هي.
+ * الحالة جوه الكمبوننت مش على مستوى الموديول — كل مسودة ليها مراجعتها.
  */
 
 export type MatchConfidence = 'exact' | 'likely' | 'none';
+
+/** إزاي اتطابق: اسم بديل اتعلّمناه، ولا كود، ولا اسم */
+export type MatchVia = 'alias' | 'code' | 'name' | null;
 
 export type ScanPartyReview = {
     confidence: MatchConfidence;
     extracted: string | null;
     matched: string | null;
+    via: MatchVia;
 };
 
 export type ScanItemReview = {
@@ -29,6 +29,7 @@ export type ScanItemReview = {
     matched: string | null;
     matchedSku: string | null;
     unit: string | null;
+    via: MatchVia;
     /** السعر جه من كتالوج النظام مش من الورق */
     priceFromSystem: boolean;
     /** مفيش سعر لا من الورق ولا من النظام */
@@ -42,45 +43,40 @@ export type ScanReview = {
     items: ScanItemReview[];
 };
 
-export type ScanResult = {
-    type: 'purchase' | 'sale';
-    form: Record<string, unknown>;
-    review: ScanReview;
-};
-
 /** مفتاح الحقل بتاع بند — عشان التلوين */
 export function itemKey(index: number, field: string): string {
     return `items.${index}.${field}`;
 }
 
 export function useInvoiceScan() {
-    /** الملف المرفوع — بيتبعت مع الحفظ */
-    const file = ref<File | null>(null);
     const review = ref<ScanReview | null>(null);
 
     /** الحقول اللي لسه محتاجة مراجعة */
     const pending = ref(new Set<string>());
 
     /**
-     * بيسجّل نتيجة المسح ويحدّد الحقول اللي هتتلوّن.
+     * بيحدّد الخانات اللي هتتلوّن من نتيجة المسح.
      */
-    function applyReview(result: ScanResult, uploaded: File) {
-        file.value = uploaded;
-        review.value = result.review;
+    function seed(incoming: ScanReview | null, type: 'purchase' | 'sale') {
+        review.value = incoming;
+
+        if (!incoming) {
+            pending.value = new Set();
+
+            return;
+        }
 
         const keys = new Set<string>();
 
         // الطرف التاني: أي حاجة غير مطابقة تمام محتاجة نظرة
-        if (result.review.party.confidence !== 'exact') {
-            keys.add(
-                result.type === 'purchase' ? 'supplier_id' : 'customer_id',
-            );
+        if (incoming.party.confidence !== 'exact') {
+            keys.add(type === 'purchase' ? 'supplier_id' : 'customer_id');
         }
 
         // الحقول اللي مالقاهاش على الورق
-        result.review.fields.forEach((field) => keys.add(field));
+        incoming.fields.forEach((field) => keys.add(field));
 
-        result.review.items.forEach((item, index) => {
+        incoming.items.forEach((item, index) => {
             if (item.confidence !== 'exact') {
                 keys.add(itemKey(index, 'product_id'));
             }
@@ -117,21 +113,18 @@ export function useInvoiceScan() {
             : '';
     }
 
-    /** بيتمسح لما المستخدم يشيل المرفق */
-    function reset() {
-        file.value = null;
-        review.value = null;
-        pending.value = new Set();
+    /** اللي كان مكتوب على الورق في السطر ده */
+    function rawItem(index: number): ScanItemReview | null {
+        return review.value?.items[index] ?? null;
     }
 
     return {
-        file,
         review,
         pending,
-        applyReview,
+        seed,
         confirm,
         needsReview,
         reviewClass,
-        reset,
+        rawItem,
     };
 }

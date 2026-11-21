@@ -1,10 +1,11 @@
 <script setup lang="ts">
-import { Head, Link, router } from '@inertiajs/vue3';
+import { Head, Link, router, usePage } from '@inertiajs/vue3';
 import { Plus, Search, ShoppingCart } from '@lucide/vue';
 import { watchDebounced } from '@vueuse/core';
 import { computed, reactive } from 'vue';
 import EmptyState from '@/components/EmptyState.vue';
 import PageHeader from '@/components/PageHeader.vue';
+import ScanInvoiceDialog from '@/components/ScanInvoiceDialog.vue';
 import Pagination from '@/components/Pagination.vue';
 import type { PaginatorMeta } from '@/components/Pagination.vue';
 import SectionCard from '@/components/SectionCard.vue';
@@ -16,6 +17,7 @@ import type { BreadcrumbItem } from '@/types';
 type Row = {
     id: number;
     number: string;
+    status: string;
     date: string;
     supplier: string | null;
     country: string | null;
@@ -42,10 +44,15 @@ defineOptions({
     }),
 });
 
+const page = usePage();
+
+const aiEnabled = computed(() => page.props.aiEnabled === true);
+
 const filters = reactive({
     search: props.filters.search ?? '',
     supplier_id: props.filters.supplier_id ?? '',
     currency: props.filters.currency ?? '',
+    status: props.filters.status ?? '',
     from: props.filters.from ?? '',
     to: props.filters.to ?? '',
 });
@@ -80,6 +87,7 @@ const SELECT_CLASS =
             :description="`${formatNumber(invoices.total)} فاتورة استيراد`"
         >
             <template #actions>
+                <ScanInvoiceDialog v-if="aiEnabled" type="purchase" />
                 <Button as-child>
                     <Link href="/purchases/create">
                         <Plus class="size-4" />
@@ -131,6 +139,17 @@ const SELECT_CLASS =
                         <option value="EUR">يورو</option>
                         <option value="TRY">ليرة تركية</option>
                         <option value="EGP">جنيه مصري</option>
+                    </select>
+
+                    <select
+                        v-model="filters.status"
+                        :class="SELECT_CLASS"
+                        data-test="purchases-status"
+                        @change="apply"
+                    >
+                        <option value="">كل الفواتير</option>
+                        <option value="confirmed">المؤكّدة</option>
+                        <option value="draft">المسودات</option>
                     </select>
 
                     <Input
@@ -194,12 +213,24 @@ const SELECT_CLASS =
                             <td
                                 class="px-5 py-3 font-medium whitespace-nowrap tabular-nums"
                             >
+                                <!-- المسودة بتودّي على صفحة المراجعة مش العرض -->
                                 <Link
-                                    :href="`/purchases/${row.id}`"
+                                    :href="
+                                        row.status === 'draft'
+                                            ? `/purchases/drafts/${row.id}`
+                                            : `/purchases/${row.id}`
+                                    "
                                     class="hover:text-primary hover:underline"
                                 >
                                     {{ row.number }}
                                 </Link>
+                                <span
+                                    v-if="row.status === 'draft'"
+                                    class="ms-2 rounded-full bg-yellow-400/15 px-1.5 py-0.5 text-[10px] font-semibold text-yellow-700 dark:text-yellow-500"
+                                    data-test="draft-badge"
+                                >
+                                    مسودة
+                                </span>
                             </td>
                             <td class="max-w-48 truncate px-5 py-3">
                                 {{ row.supplier ?? '—' }}

@@ -34,13 +34,14 @@ class SaleInvoiceController extends Controller
 
     public function index(Request $request): Response
     {
-        $filters = $request->only(['search', 'customer_id', 'warehouse_id', 'eta', 'payment', 'from', 'to']);
+        $filters = $request->only(['search', 'customer_id', 'warehouse_id', 'eta', 'payment', 'status', 'from', 'to']);
 
         return Inertia::render('sales/Index', [
             'invoices' => $this->sales->paginate($filters)->through(fn (Invoice $invoice) => [
                 'id' => $invoice->id,
                 'number' => $invoice->number,
                 'type' => $invoice->type,
+                'status' => $invoice->status,
                 'date' => $invoice->date->toDateString(),
                 'customer' => $invoice->customer?->name,
                 'warehouse' => $invoice->warehouse?->name,

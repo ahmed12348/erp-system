@@ -6,14 +6,11 @@ import EmptyState from '@/components/EmptyState.vue';
 import InputError from '@/components/InputError.vue';
 import PageHeader from '@/components/PageHeader.vue';
 import ScanInvoiceDialog from '@/components/ScanInvoiceDialog.vue';
-import ScanReviewNotice from '@/components/ScanReviewNotice.vue';
 import SectionCard from '@/components/SectionCard.vue';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Spinner } from '@/components/ui/spinner';
-import { itemKey, useInvoiceScan } from '@/composables/useInvoiceScan';
-import type { ScanResult } from '@/composables/useInvoiceScan';
 import { formatMoney, formatNumber, formatQuantity } from '@/lib/format';
 import type { BreadcrumbItem } from '@/types';
 
@@ -58,6 +55,11 @@ defineOptions({
  * على نظام فاضي الفورم ده مالوش معنى — مفيش تجار ولا مخازن ولا أصناف
  * نختار منهم. بنوضّح الناقص بدل ما نعرض قوايم فاضية.
  */
+const page = usePage();
+
+/** زرار «مسح فاتورة» بيختفي لو المساعد مقفول */
+const aiEnabled = computed(() => page.props.aiEnabled === true);
+
 const missing = computed(() => {
     const items: string[] = [];
 
@@ -132,22 +134,8 @@ function onProductChange(line: Line) {
     }
 }
 
-/*
- * المسح بيحط التاجر والأسعار مع بعض، وده بيوقّع الـ watch اللي تحت
- * فيمسح الأسعار اللي اتقرت من الورق ويحطّ أسعار الكتالوج مكانها.
- * فبنوقّفه دورة واحدة بعد المسح — السيرفر أصلاً بيرجّع سعر الشريحة
- * للسطور اللي الفاتورة مش مكتوب فيها سعر.
- */
-let skipRepricing = false;
-
 // تغيير التاجر بيعيد تسعير كل السطور حسب شريحته
 watch(selectedCustomer, () => {
-    if (skipRepricing) {
-        skipRepricing = false;
-
-        return;
-    }
-
     form.items.forEach((line) => {
         const product = productsById.value.get(Number(line.product_id));
 
@@ -221,69 +209,11 @@ const shortLines = computed(() =>
         }),
 );
 
-/*
- * «مسح فاتورة» — بيملا نفس الفورم اللي فوق، والملف بيفضل في المتصفح
- * لحد الحفظ عشان يتعلّق على الفاتورة.
- */
-const page = usePage();
-const aiEnabled = computed(() => page.props.aiEnabled === true);
-
-const scan = useInvoiceScan();
-
-function applyScan(result: ScanResult, file: File) {
-    const data = result.form as {
-        customer_id: number | null;
-        date: string | null;
-        discount: number | null;
-        notes: string | null;
-        items: {
-            product_id: number | null;
-            quantity: number | null;
-            unit_price: number | null;
-            discount: number;
-        }[];
-    };
-
-    if (data.customer_id && Number(form.customer_id) !== data.customer_id) {
-        // الأسعار جاية مع المسح، فمش عايزين إعادة التسعير تمسحها
-        skipRepricing = true;
-        form.customer_id = data.customer_id;
-    }
-
-    if (data.date) {
-        form.date = data.date;
-    }
-
-    form.discount = data.discount ?? 0;
-
-    if (data.notes) {
-        form.notes = data.notes;
-    }
-
-    if (data.items.length) {
-        form.items = data.items.map((item) => ({
-            product_id: item.product_id ?? '',
-            quantity: item.quantity ?? 1,
-            unit_price: item.unit_price ?? '',
-            discount: 0,
-        }));
-    }
-
-    form.clearErrors();
-    scan.applyReview(result, file);
-}
-
-function dropScan() {
-    scan.reset();
-}
-
 function submit() {
     form.transform((data) => ({
         ...data,
         due_date: data.due_date === '' ? null : data.due_date,
         items: data.items.filter((line) => line.product_id !== ''),
-        // من غير ملف الطلب بيفضل JSON عادي زي ما كان
-        ...(scan.file.value ? { attachment: scan.file.value } : {}),
     })).post('/sales', { preserveScroll: true });
 }
 
@@ -326,17 +256,9 @@ const SELECT_CLASS =
             description="اختر التاجر والمخزن وأضف الأصناف — الأسعار بتتملا حسب شريحة التاجر"
         >
             <template v-if="aiEnabled" #actions>
-                <ScanInvoiceDialog type="sale" @scanned="applyScan" />
+                <ScanInvoiceDialog type="sale" />
             </template>
         </PageHeader>
-
-        <ScanReviewNotice
-            v-if="scan.review.value && scan.file.value"
-            :review="scan.review.value"
-            :file-name="scan.file.value.name"
-            :pending-count="scan.pending.value.size"
-            @remove="dropScan"
-        />
 
         <div class="grid gap-5 lg:grid-cols-3">
             <!-- بيانات الفاتورة -->
@@ -347,13 +269,9 @@ const SELECT_CLASS =
                         <select
                             id="customer_id"
                             v-model="form.customer_id"
-                            :class="[
-                                SELECT_CLASS,
-                                scan.reviewClass('customer_id'),
-                            ]"
+                            :class="SELECT_CLASS"
                             required
                             data-test="invoice-customer"
-                            @change="scan.confirm('customer_id')"
                         >
                             <option value="" disabled>اختر التاجر</option>
                             <option
@@ -364,18 +282,6 @@ const SELECT_CLASS =
                                 {{ c.name }}{{ c.city ? ` — ${c.city}` : '' }}
                             </option>
                         </select>
-                        <p
-                            v-if="
-                                scan.needsReview('customer_id') &&
-                                scan.review.value?.party.extracted
-                            "
-                            class="text-xs text-muted-foreground"
-                            data-test="scan-customer-hint"
-                        >
-                            مكتوب على الفاتورة: «{{
-                                scan.review.value.party.extracted
-                            }}»
-                        </p>
                         <p
                             v-if="selectedCustomer"
                             class="text-xs text-muted-foreground"
@@ -420,8 +326,6 @@ const SELECT_CLASS =
                                 v-model="form.date"
                                 type="date"
                                 required
-                                :class="scan.reviewClass('date')"
-                                @input="scan.confirm('date')"
                             />
                             <InputError :message="form.errors.date" />
                         </div>
@@ -498,19 +402,9 @@ const SELECT_CLASS =
                                 <td class="px-3 py-2">
                                     <select
                                         v-model="line.product_id"
-                                        :class="[
-                                            SELECT_CLASS,
-                                            scan.reviewClass(
-                                                itemKey(index, 'product_id'),
-                                            ),
-                                        ]"
+                                        :class="SELECT_CLASS"
                                         :data-test="`line-product-${index}`"
-                                        @change="
-                                            onProductChange(line);
-                                            scan.confirm(
-                                                itemKey(index, 'product_id'),
-                                            );
-                                        "
+                                        @change="onProductChange(line)"
                                     >
                                         <option value="" disabled>
                                             اختر الصنف
@@ -523,24 +417,6 @@ const SELECT_CLASS =
                                             {{ p.name }} ({{ p.sku }})
                                         </option>
                                     </select>
-                                    <!-- اللي مكتوب على الورق، عشان المستخدم
-                                         يختار من غير ما يرجّع للصورة -->
-                                    <p
-                                        v-if="
-                                            scan.needsReview(
-                                                itemKey(index, 'product_id'),
-                                            ) && scan.review.value?.items[index]
-                                        "
-                                        class="mt-1 text-xs text-muted-foreground"
-                                        :data-test="`scan-line-hint-${index}`"
-                                    >
-                                        على الفاتورة: «{{
-                                            scan.review.value.items[index]
-                                                .extracted.name ??
-                                            scan.review.value.items[index]
-                                                .extracted.code
-                                        }}»
-                                    </p>
                                     <p
                                         v-if="
                                             availableFor(line.product_id) !==
@@ -594,18 +470,8 @@ const SELECT_CLASS =
                                         step="0.01"
                                         min="0"
                                         dir="ltr"
-                                        :class="[
-                                            'text-start',
-                                            scan.reviewClass(
-                                                itemKey(index, 'unit_price'),
-                                            ),
-                                        ]"
+                                        class="text-start"
                                         :data-test="`line-price-${index}`"
-                                        @input="
-                                            scan.confirm(
-                                                itemKey(index, 'unit_price'),
-                                            )
-                                        "
                                     />
                                 </td>
                                 <td class="px-3 py-2">

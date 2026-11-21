@@ -38,7 +38,7 @@ class PurchaseInvoiceController extends Controller
 
     public function index(Request $request): Response
     {
-        $filters = $request->only(['search', 'supplier_id', 'currency', 'from', 'to']);
+        $filters = $request->only(['search', 'supplier_id', 'currency', 'status', 'from', 'to']);
 
         $query = Invoice::query()
             ->where('type', Invoice::TYPE_PURCHASE)
@@ -50,6 +50,7 @@ class PurchaseInvoiceController extends Controller
             }))
             ->when(filled($filters['supplier_id'] ?? null), fn (Builder $q) => $q->where('supplier_id', $filters['supplier_id']))
             ->when(filled($filters['currency'] ?? null), fn (Builder $q) => $q->where('currency', $filters['currency']))
+            ->when(filled($filters['status'] ?? null), fn (Builder $q) => $q->where('status', $filters['status']))
             ->when(filled($filters['from'] ?? null), fn (Builder $q) => $q->where('date', '>=', Carbon::parse($filters['from'])->toDateString()))
             ->when(filled($filters['to'] ?? null), fn (Builder $q) => $q->where('date', '<', Carbon::parse($filters['to'])->addDay()->toDateString()))
             ->latest('date')
@@ -59,6 +60,7 @@ class PurchaseInvoiceController extends Controller
             'invoices' => $query->paginate(20)->withQueryString()->through(fn (Invoice $invoice) => [
                 'id' => $invoice->id,
                 'number' => $invoice->number,
+                'status' => $invoice->status,
                 'date' => $invoice->date->toDateString(),
                 'supplier' => $invoice->supplier?->name,
                 'country' => $invoice->supplier?->country,

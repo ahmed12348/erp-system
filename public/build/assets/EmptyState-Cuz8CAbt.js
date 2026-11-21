@@ -1,1 +1,233 @@
-import{$t as e,Kt as t,Q as n,Tn as r,X as i,Y as a,Z as o,at as s,fr as c,i as l,it as u,lr as d,nn as f,or as p,st as m}from"./dist-C0kHilBU.js";import{t as h}from"./button-BRBVuDNP.js";import{t as g}from"./createLucideIcon-C6NZ5pDL.js";import{t as _}from"./plus-DGsV77u5.js";var v=g({name:`inbox`,size:24,node:[[`polyline`,{points:`22 12 16 12 14 15 10 15 8 12 2 12`,key:`o97t9d`}],[`path`,{d:`M5.45 5.11 2 12v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6l-3.45-6.89A2 2 0 0 0 16.76 4H7.24a2 2 0 0 0-1.79 1.11z`,key:`oot6mr`}]]}),y={key:1,class:`mt-3 flex flex-wrap items-center justify-center gap-2`},b=m({__name:`EmptyState`,props:{title:{},description:{},icon:{type:[Function,Object]},action:{},secondary:{},large:{type:Boolean}},setup(m){return(g,b)=>(t(),n(`div`,{class:d([`flex flex-col items-center justify-center gap-2 px-6 text-center`,m.large?`py-16`:`py-12`])},[a(`span`,{class:d([`flex items-center justify-center rounded-full bg-muted text-muted-foreground`,m.large?`size-14`:`size-11`])},[(t(),i(f(m.icon??p(v)),{class:d(m.large?`size-6`:`size-5`)},null,8,[`class`]))],2),a(`p`,{class:d([`font-medium`,m.large?`text-base`:`text-sm`])},c(m.title),3),m.description?(t(),n(`p`,{key:0,class:d([`max-w-sm text-muted-foreground`,m.large?`text-sm`:`text-xs`])},c(m.description),3)):o(``,!0),m.action||m.secondary||g.$slots.default?(t(),n(`div`,y,[m.action?(t(),i(p(h),{key:0,"as-child":``,size:m.large?`default`:`sm`},{default:r(()=>[s(p(l),{href:m.action.href},{default:r(()=>[(t(),i(f(m.action.icon??p(_)),{class:`size-4`})),u(` `+c(m.action.label),1)]),_:1},8,[`href`])]),_:1},8,[`size`])):o(``,!0),m.secondary?(t(),i(p(h),{key:1,"as-child":``,variant:`outline`,size:m.large?`default`:`sm`},{default:r(()=>[s(p(l),{href:m.secondary.href},{default:r(()=>[m.secondary.icon?(t(),i(f(m.secondary.icon),{key:0,class:`size-4`})):o(``,!0),u(` `+c(m.secondary.label),1)]),_:1},8,[`href`])]),_:1},8,[`size`])):o(``,!0),e(g.$slots,`default`)])):o(``,!0)],2))}});export{b as t};
+import {
+    $t as e,
+    Kt as t,
+    Q as n,
+    Tn as r,
+    X as i,
+    Y as a,
+    Z as o,
+    at as s,
+    fr as c,
+    i as l,
+    it as u,
+    lr as d,
+    nn as f,
+    or as p,
+    st as m,
+} from './dist-C0kHilBU.js';
+import { t as h } from './button-BRBVuDNP.js';
+import { t as g } from './createLucideIcon-C6NZ5pDL.js';
+import { t as _ } from './plus-DGsV77u5.js';
+var v = g({
+        name: `inbox`,
+        size: 24,
+        node: [
+            [
+                `polyline`,
+                { points: `22 12 16 12 14 15 10 15 8 12 2 12`, key: `o97t9d` },
+            ],
+            [
+                `path`,
+                {
+                    d: `M5.45 5.11 2 12v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6l-3.45-6.89A2 2 0 0 0 16.76 4H7.24a2 2 0 0 0-1.79 1.11z`,
+                    key: `oot6mr`,
+                },
+            ],
+        ],
+    }),
+    y = {
+        key: 1,
+        class: `mt-3 flex flex-wrap items-center justify-center gap-2`,
+    },
+    b = m({
+        __name: `EmptyState`,
+        props: {
+            title: {},
+            description: {},
+            icon: { type: [Function, Object] },
+            action: {},
+            secondary: {},
+            large: { type: Boolean },
+        },
+        setup(m) {
+            return (g, b) => (
+                t(),
+                n(
+                    `div`,
+                    {
+                        class: d([
+                            `flex flex-col items-center justify-center gap-2 px-6 text-center`,
+                            m.large ? `py-16` : `py-12`,
+                        ]),
+                    },
+                    [
+                        a(
+                            `span`,
+                            {
+                                class: d([
+                                    `flex items-center justify-center rounded-full bg-muted text-muted-foreground`,
+                                    m.large ? `size-14` : `size-11`,
+                                ]),
+                            },
+                            [
+                                (t(),
+                                i(
+                                    f(m.icon ?? p(v)),
+                                    { class: d(m.large ? `size-6` : `size-5`) },
+                                    null,
+                                    8,
+                                    [`class`],
+                                )),
+                            ],
+                            2,
+                        ),
+                        a(
+                            `p`,
+                            {
+                                class: d([
+                                    `font-medium`,
+                                    m.large ? `text-base` : `text-sm`,
+                                ]),
+                            },
+                            c(m.title),
+                            3,
+                        ),
+                        m.description
+                            ? (t(),
+                              n(
+                                  `p`,
+                                  {
+                                      key: 0,
+                                      class: d([
+                                          `max-w-sm text-muted-foreground`,
+                                          m.large ? `text-sm` : `text-xs`,
+                                      ]),
+                                  },
+                                  c(m.description),
+                                  3,
+                              ))
+                            : o(``, !0),
+                        m.action || m.secondary || g.$slots.default
+                            ? (t(),
+                              n(`div`, y, [
+                                  m.action
+                                      ? (t(),
+                                        i(
+                                            p(h),
+                                            {
+                                                key: 0,
+                                                'as-child': ``,
+                                                size: m.large
+                                                    ? `default`
+                                                    : `sm`,
+                                            },
+                                            {
+                                                default: r(() => [
+                                                    s(
+                                                        p(l),
+                                                        { href: m.action.href },
+                                                        {
+                                                            default: r(() => [
+                                                                (t(),
+                                                                i(
+                                                                    f(
+                                                                        m.action
+                                                                            .icon ??
+                                                                            p(
+                                                                                _,
+                                                                            ),
+                                                                    ),
+                                                                    {
+                                                                        class: `size-4`,
+                                                                    },
+                                                                )),
+                                                                u(
+                                                                    ` ` +
+                                                                        c(
+                                                                            m
+                                                                                .action
+                                                                                .label,
+                                                                        ),
+                                                                    1,
+                                                                ),
+                                                            ]),
+                                                            _: 1,
+                                                        },
+                                                        8,
+                                                        [`href`],
+                                                    ),
+                                                ]),
+                                                _: 1,
+                                            },
+                                            8,
+                                            [`size`],
+                                        ))
+                                      : o(``, !0),
+                                  m.secondary
+                                      ? (t(),
+                                        i(
+                                            p(h),
+                                            {
+                                                key: 1,
+                                                'as-child': ``,
+                                                variant: `outline`,
+                                                size: m.large
+                                                    ? `default`
+                                                    : `sm`,
+                                            },
+                                            {
+                                                default: r(() => [
+                                                    s(
+                                                        p(l),
+                                                        {
+                                                            href: m.secondary
+                                                                .href,
+                                                        },
+                                                        {
+                                                            default: r(() => [
+                                                                m.secondary.icon
+                                                                    ? (t(),
+                                                                      i(
+                                                                          f(
+                                                                              m
+                                                                                  .secondary
+                                                                                  .icon,
+                                                                          ),
+                                                                          {
+                                                                              key: 0,
+                                                                              class: `size-4`,
+                                                                          },
+                                                                      ))
+                                                                    : o(``, !0),
+                                                                u(
+                                                                    ` ` +
+                                                                        c(
+                                                                            m
+                                                                                .secondary
+                                                                                .label,
+                                                                        ),
+                                                                    1,
+                                                                ),
+                                                            ]),
+                                                            _: 1,
+                                                        },
+                                                        8,
+                                                        [`href`],
+                                                    ),
+                                                ]),
+                                                _: 1,
+                                            },
+                                            8,
+                                            [`size`],
+                                        ))
+                                      : o(``, !0),
+                                  e(g.$slots, `default`),
+                              ]))
+                            : o(``, !0),
+                    ],
+                    2,
+                )
+            );
+        },
+    });
+export { b as t };
