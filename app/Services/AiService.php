@@ -187,28 +187,29 @@ class AiService
         $model = (string) config("ai.models.{$this->modelKey($operation)}");
         $fallback = (string) config('ai.models.fallback');
 
-        // الأساسي، وبعدين هو تاني (إعادة المحاولة على 503)
-        $plan = [$model, $model];
+        // البديل مالوش لازمة لو هو نفسه الأساسي
+        $hasFallback = $fallback !== '' && $fallback !== $model;
 
-        // وبعدين البديل — إلا لو هو نفسه الأساسي، فمفيش فايدة
-        if ($fallback !== '' && $fallback !== $model) {
-            $plan[] = $fallback;
-        }
+        // الأساسي، وبعدين هو تاني (إعادة المحاولة على 503)، وبعدين البديل
+        $plan = $hasFallback ? [$model, $model, $fallback] : [$model, $model];
 
         $last = null;
+        $index = 0;
 
-        foreach ($plan as $candidate) {
+        while ($index < count($plan)) {
+            $candidate = $plan[$index];
+
             try {
                 return $call($candidate, $this->sliceFor($deadline, $operation, $context));
             } catch (AiUnavailableException $e) {
-                // الميزانية خلصت — مفيش محاولات تانية
+                // الميزانية خلصت — مفيش وقت لمحاولة تانية أصلاً
                 throw $e;
             } catch (Throwable $e) {
                 $last = $e;
                 $reason = AiUnavailableException::from($e)->reason;
 
-                // الزحمة والموديل الناقص بس هما اللي يستاهلوا محاولة تانية
-                if (! in_array($reason, ['overloaded', 'model_not_found'], true)) {
+                // الزحمة والموديل الناقص والتأخير بس هما اللي يستاهلوا محاولة تانية
+                if (! in_array($reason, ['overloaded', 'model_not_found', 'timeout'], true)) {
                     break;
                 }
 
@@ -217,6 +218,19 @@ class AiService
                     'model' => $candidate,
                     'reason' => $reason,
                 ]);
+
+                /*
+                 * الموديل اللي اتأخر مرة هيتأخر تاني، فإعادة المحاولة عليه
+                 * بتاكل اللي فاضل من الميزانية من غير فايدة. بنقفز للبديل
+                 * الأخف على طول — ولو الوقت خلص، `sliceFor` هي اللي هتوقف
+                 * المحاولة دي من أصلها.
+                 */
+                $next = $reason === 'timeout' && $hasFallback
+                    ? count($plan) - 1
+                    : $index + 1;
+
+                // لازم نتقدّم خطوة على الأقل عشان ما ندورش في مكاننا
+                $index = max($next, $index + 1);
             }
         }
 

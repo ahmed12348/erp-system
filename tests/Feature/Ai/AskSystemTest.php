@@ -152,7 +152,12 @@ class AskSystemTest extends TestCase
             ->assertJsonCount(0, 'messages');
     }
 
-    public function test_it_uses_gemini_3_5_flash_by_default(): void
+    /**
+     * المحادثة على الموديل الخفيف: بالقياس على السيرفر، النداء على
+     * flash بياخد ~14 ثانية وعلى flash-lite أقل من ثانية، والرقم جاي
+     * من الأداة مش من الموديل أصلاً.
+     */
+    public function test_chat_uses_the_light_model_by_default(): void
     {
         $fake = Prism::fake([TextResponseFake::make()->withText('تمام.')]);
 
@@ -163,7 +168,7 @@ class AskSystemTest extends TestCase
             /** @var TextRequest $request */
             $request = $requests[0];
 
-            $this->assertSame('gemini-3.5-flash', $request->model());
+            $this->assertSame('gemini-3.5-flash-lite', $request->model());
         });
     }
 
@@ -325,6 +330,9 @@ class AskSystemTest extends TestCase
 
     public function test_an_overloaded_provider_is_retried_then_falls_back(): void
     {
+        // لازم يبقى فيه بديل مختلف عن الأساسي عشان الرجوع يبان
+        config()->set('ai.models.chat', 'gemini-3.5-flash');
+
         $fake = SequencedPrism::fake([
             // الأساسي مزحوم مرتين
             new PrismProviderOverloadedException('Gemini overloaded'),
@@ -346,8 +354,60 @@ class AskSystemTest extends TestCase
         );
     }
 
+    /**
+     * الموديل اللي اتأخر مرة هيتأخر تاني، فإعادة المحاولة عليه بتاكل
+     * الميزانية من غير فايدة — بنقفز للبديل الأخف على طول.
+     */
+    public function test_a_slow_model_falls_back_without_retrying_itself(): void
+    {
+        // الأساسي بطيء، فبنخلّيه flash والبديل flash-lite
+        config()->set('ai.models.chat', 'gemini-3.5-flash');
+
+        $fake = SequencedPrism::fake([
+            new ConnectionException('cURL error 28: Operation timed out'),
+            TextResponseFake::make()->withText('رد من الموديل الأخف.'),
+        ]);
+
+        $this->actingAs(User::factory()->create())
+            ->postJson('/ai/chat', ['message' => 'سؤال'])
+            ->assertOk()
+            ->assertJsonPath('reply.content', 'رد من الموديل الأخف.');
+
+        // محاولتين بس — من غير إعادة محاولة على الموديل البطيء
+        $this->assertSame(
+            ['gemini-3.5-flash', 'gemini-3.5-flash-lite'],
+            $fake->models(),
+        );
+    }
+
+    public function test_a_timeout_does_not_fall_back_when_the_budget_is_gone(): void
+    {
+        config()->set('ai.models.chat', 'gemini-3.5-flash');
+
+        /*
+         * الميزانية 4.5 ثانية، والنداء الأول بياكل 0.6 منها — فيفضل
+         * 3.9، أقل من الحد الأدنى اللي يستاهل نداء جديد (4).
+         */
+        config()->set('ai.budget', 4.5);
+
+        $fake = SequencedPrism::fake([
+            new ConnectionException('cURL error 28: Operation timed out'),
+            TextResponseFake::make()->withText('ما يوصلش هنا.'),
+        ], delayMs: 600);
+
+        $this->actingAs(User::factory()->create())
+            ->postJson('/ai/chat', ['message' => 'سؤال'])
+            ->assertStatus(503)
+            ->assertJson(['reason' => 'timeout']);
+
+        // جرّب الأساسي بس — مفيش وقت للبديل
+        $this->assertSame(['gemini-3.5-flash'], $fake->models());
+    }
+
     public function test_a_missing_model_falls_back_instead_of_failing(): void
     {
+        config()->set('ai.models.chat', 'gemini-3.5-flash');
+
         $fake = SequencedPrism::fake([
             // زي ما بيحصل للحسابات الجديدة لما الموديل مش متاح
             new PrismException('Gemini Error: [404] models/x is not found'),

@@ -33,8 +33,10 @@ class SequencedPrism extends PrismFake
 
     /**
      * @param  array<int, TextResponse|StructuredResponse|Throwable>  $script
+     * @param  int  $delayMs  وقت بيتحرق قبل كل نتيجة — عشان نختبر
+     *                        الميزانية، اللي بتتقاس بساعة الحيط الحقيقية
      */
-    public function __construct(array $script)
+    public function __construct(array $script, private readonly int $delayMs = 0)
     {
         parent::__construct([]);
 
@@ -44,9 +46,9 @@ class SequencedPrism extends PrismFake
     /**
      * @param  array<int, TextResponse|StructuredResponse|Throwable>  $script
      */
-    public static function fake(array $script): self
+    public static function fake(array $script, int $delayMs = 0): self
     {
-        $fake = new self($script);
+        $fake = new self($script, $delayMs);
 
         app()->instance(PrismManager::class, new class($fake) extends PrismManager
         {
@@ -102,6 +104,10 @@ class SequencedPrism extends PrismFake
         $outcome = $this->script[$this->position];
 
         $this->position++;
+
+        if ($this->delayMs > 0) {
+            usleep($this->delayMs * 1000);
+        }
 
         if ($outcome instanceof Throwable) {
             throw $outcome;
