@@ -21,4 +21,5 @@ Route::middleware(['auth'])->group(function () {
 });
 
 require __DIR__.'/erp.php';
+require __DIR__.'/assistant.php';
 require __DIR__.'/settings.php';

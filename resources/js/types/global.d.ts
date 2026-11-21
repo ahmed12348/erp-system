@@ -24,6 +24,7 @@ declare module '@inertiajs/core' {
             currentTeam: Team | null;
             teams: Team[];
             lowStockCount: number;
+            aiEnabled: boolean;
             today: string;
             [key: string]: unknown;
         };

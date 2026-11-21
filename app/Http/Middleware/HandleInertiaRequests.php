@@ -2,6 +2,7 @@
 
 namespace App\Http\Middleware;
 
+use App\Services\AiService;
 use App\Services\InventoryService;
 use Illuminate\Http\Request;
 use Inertia\Middleware;
@@ -51,6 +52,9 @@ class HandleInertiaRequests extends Middleware
                     'manageUsers' => false,
                 ],
             ],
+            // بيخفي زرار «اسأل السيستم» و«مسح فاتورة» لو المساعد مقفول أو
+            // مفيش مفتاح API متظبّط — بدل ما المستخدم يضغط ويلاقي رسالة عطل
+            'aiEnabled' => fn (): bool => $user !== null && app(AiService::class)->isEnabled(),
             'sidebarOpen' => ! $request->hasCookie('sidebar_state') || $request->cookie('sidebar_state') === 'true',
             // بيغذّي عدّاد الجرس في الشريط العلوي — lazy عشان ما يتحسبش لو مفيش مستخدم
             'lowStockCount' => fn () => $user ? app(InventoryService::class)->lowStockCount() : 0,

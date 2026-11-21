@@ -5,9 +5,12 @@ namespace App\Providers;
 use App\Enums\ErpAbility;
 use App\Models\User;
 use Carbon\CarbonImmutable;
+use Illuminate\Cache\RateLimiting\Limit;
+use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Date;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Gate;
+use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\ServiceProvider;
 use Illuminate\Validation\Rules\Password;
@@ -31,7 +34,33 @@ class AppServiceProvider extends ServiceProvider
         $this->configureDefaults();
         $this->configureOAuth();
         $this->configureAbilities();
+        $this->configureAiRateLimits();
         Schema::defaultStringLength(191);
+    }
+
+    /**
+     * حدود استخدام المساعد الذكي — لكل مستخدم على حدة.
+     *
+     * نداء الموديل بيكلّف فلوس وبيستهلك حصة، فمستخدم واحد ماينفعش
+     * يستنزفها على الباقيين. الرد عربي عشان الواجهة تعرضه زي ما هو.
+     */
+    protected function configureAiRateLimits(): void
+    {
+        $limits = [
+            'ai-chat' => ['أسئلة كتير ورا بعض. استنى دقيقة وجرّب تاني.', 'chat'],
+            'ai-scan' => ['مسحت فواتير كتير ورا بعض. استنى دقيقة وجرّب تاني.', 'scan'],
+        ];
+
+        foreach ($limits as $name => [$message, $key]) {
+            RateLimiter::for($name, fn (Request $request) => Limit::perMinute(
+                (int) config("ai.rate_limits.{$key}")
+            )
+                ->by((string) $request->user()?->id)
+                ->response(fn () => response()->json([
+                    'message' => $message,
+                    'reason' => 'throttled',
+                ], 429)));
+        }
     }
 
     /**

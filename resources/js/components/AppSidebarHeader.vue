@@ -2,6 +2,7 @@
 import { usePage } from '@inertiajs/vue3';
 import { computed } from 'vue';
 import AppearanceToggle from '@/components/AppearanceToggle.vue';
+import AskSystemButton from '@/components/AskSystemButton.vue';
 import Breadcrumbs from '@/components/Breadcrumbs.vue';
 import LowStockBell from '@/components/LowStockBell.vue';
 import { SidebarTrigger } from '@/components/ui/sidebar';
@@ -42,6 +43,7 @@ const today = computed(() => formatDateLong(page.props.today));
             >
                 {{ today }}
             </span>
+            <AskSystemButton />
             <LowStockBell />
             <AppearanceToggle />
         </div>
