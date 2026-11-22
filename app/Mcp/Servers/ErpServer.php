@@ -3,12 +3,15 @@
 namespace App\Mcp\Servers;
 
 use App\Mcp\Tools\InvoiceLookup;
+use App\Mcp\Tools\LastLogin;
 use App\Mcp\Tools\LowStockProducts;
+use App\Mcp\Tools\RecentActivity;
 use App\Mcp\Tools\SalesSummary;
 use App\Mcp\Tools\StockLookup;
 use App\Mcp\Tools\TopDebtors;
 use App\Mcp\Tools\TopProducts;
 use App\Mcp\Tools\TraderBalance;
+use App\Mcp\Tools\WhoDid;
 use Laravel\Mcp\Server;
 use Laravel\Mcp\Server\Attributes\Instructions;
 use Laravel\Mcp\Server\Attributes\Name;
@@ -39,6 +42,9 @@ class ErpServer extends Server
         TopProducts::class,
         StockLookup::class,
         InvoiceLookup::class,
+        RecentActivity::class,
+        LastLogin::class,
+        WhoDid::class,
     ];
 
     protected array $resources = [

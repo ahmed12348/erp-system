@@ -4,6 +4,7 @@ namespace App\Models;
 
 use App\Concerns\HasErpRole;
 use App\Concerns\HasTeams;
+use App\Concerns\RecordsActivity;
 use Database\Factories\UserFactory;
 use Illuminate\Contracts\Auth\MustVerifyEmail;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
@@ -19,6 +20,7 @@ use Laravel\Fortify\PasskeyAuthenticatable;
 use Laravel\Fortify\TwoFactorAuthenticatable;
 use Laravel\Passport\Contracts\OAuthenticatable;
 use Laravel\Passport\HasApiTokens;
+use Spatie\Activitylog\Models\Concerns\CausesActivity;
 use Spatie\Permission\Traits\HasRoles;
 
 /**
@@ -44,10 +46,19 @@ use Spatie\Permission\Traits\HasRoles;
 class User extends Authenticatable implements MustVerifyEmail, OAuthenticatable, PasskeyUser
 {
     /** @use HasFactory<UserFactory> */
-    use HasApiTokens, HasErpRole, HasFactory, HasRoles, HasTeams, Notifiable, PasskeyAuthenticatable, TwoFactorAuthenticatable {
+    use CausesActivity, HasApiTokens, HasErpRole, HasFactory, HasRoles, HasTeams, Notifiable, PasskeyAuthenticatable, RecordsActivity, TwoFactorAuthenticatable {
         // فرق التطبيق (team_members) لها الأولوية على خاصية الفرق في spatie/permission المعطّلة
         HasTeams::teams insteadof HasRoles;
     }
+
+    /** اسم السجل في سجل النشاط */
+    protected $activityLog = 'user';
+
+    /*
+     * الاسم والإيميل بس — الباسورد والتوكنات عمرها ما تدخل السجل،
+     * و`last_login_at` بيتغيّر كل دخول فتسجيله كتعديل بيغرق السجل.
+     */
+    protected $activityFields = ['name', 'email'];
 
     /**
      * Get the attributes that should be cast.
@@ -60,6 +71,7 @@ class User extends Authenticatable implements MustVerifyEmail, OAuthenticatable,
             'email_verified_at' => 'datetime',
             'password' => 'hashed',
             'two_factor_confirmed_at' => 'datetime',
+            'last_login_at' => 'datetime',
         ];
     }
 

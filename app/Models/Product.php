@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Concerns\RecordsActivity;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -9,6 +10,14 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class Product extends Model
 {
+    use RecordsActivity;
+
+    /** اسم السجل في سجل النشاط */
+    protected $activityLog = 'product';
+
+    /** الحقول اللي بيتسجّل تغيّرها — مش كل الأعمدة */
+    protected $activityFields = ['sku', 'name', 'unit', 'category_id', 'purchase_price', 'sale_price', 'wholesale_price', 'min_stock', 'is_active'];
+
     /** الوحدات الجاهزة في فورم الصنف — المستخدم يقدر يكتب غيرها */
     public const UNITS = ['قطعة', 'كرتونة', 'كيلو', 'طن', 'متر', 'لتر', 'علبة', 'شيكارة'];
 

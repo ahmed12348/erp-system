@@ -3,12 +3,17 @@
 namespace App\Providers;
 
 use App\Enums\ErpAbility;
+use App\Listeners\RecordAuthActivity;
 use App\Models\User;
 use Carbon\CarbonImmutable;
+use Illuminate\Auth\Events\Failed;
+use Illuminate\Auth\Events\Login;
+use Illuminate\Auth\Events\Logout;
 use Illuminate\Cache\RateLimiting\Limit;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Date;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Event;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Support\Facades\Schema;
@@ -35,7 +40,18 @@ class AppServiceProvider extends ServiceProvider
         $this->configureOAuth();
         $this->configureAbilities();
         $this->configureAiRateLimits();
+        $this->configureActivityLog();
         Schema::defaultStringLength(191);
+    }
+
+    /**
+     * تسجيل الدخول والخروج والمحاولات الفاشلة في سجل النشاط.
+     */
+    protected function configureActivityLog(): void
+    {
+        Event::listen(Login::class, [RecordAuthActivity::class, 'handleLogin']);
+        Event::listen(Failed::class, [RecordAuthActivity::class, 'handleFailed']);
+        Event::listen(Logout::class, [RecordAuthActivity::class, 'handleLogout']);
     }
 
     /**

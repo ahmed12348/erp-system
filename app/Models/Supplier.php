@@ -2,12 +2,21 @@
 
 namespace App\Models;
 
+use App\Concerns\RecordsActivity;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class Supplier extends Model
 {
+    use RecordsActivity;
+
+    /** اسم السجل في سجل النشاط */
+    protected $activityLog = 'supplier';
+
+    /** الحقول اللي بيتسجّل تغيّرها — مش كل الأعمدة */
+    protected $activityFields = ['name', 'phone', 'country', 'currency', 'opening_balance', 'is_active'];
+
     protected $fillable = ['name', 'phone', 'country', 'currency', 'opening_balance', 'notes', 'is_active'];
 
     protected function casts(): array

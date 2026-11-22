@@ -47,6 +47,12 @@ class EtaService
                 'eta_uuid' => $this->fakeUuid(),
             ])->save();
 
+            // `eta_status` مش في حقول السجل، فبنسجّل الإرسال كحدث صريح
+            $invoice->recordActivity('eta_sent', [
+                'number' => $invoice->number,
+                'eta_uuid' => $invoice->eta_uuid,
+            ]);
+
             return $invoice->fresh();
         });
     }

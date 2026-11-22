@@ -107,7 +107,7 @@ class McpServerTest extends TestCase
         ]);
     }
 
-    public function test_the_server_exposes_the_seven_read_only_tools(): void
+    public function test_the_server_exposes_the_read_only_tools(): void
     {
         $names = collect($this->listTools())->pluck('name')->all();
 
@@ -119,6 +119,10 @@ class McpServerTest extends TestCase
             'top-products',
             'stock-lookup',
             'invoice-lookup',
+            // سجل النشاط — محكومة بصلاحية المستخدم جواها
+            'recent-activity',
+            'last-login',
+            'who-did',
         ], $names);
     }
 

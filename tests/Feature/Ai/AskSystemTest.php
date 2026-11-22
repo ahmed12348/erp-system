@@ -208,6 +208,7 @@ class AskSystemTest extends TestCase
             $this->assertEqualsCanonicalizing([
                 'low-stock-products', 'trader-balance', 'top-debtors',
                 'sales-summary', 'top-products', 'stock-lookup', 'invoice-lookup',
+                'recent-activity', 'last-login', 'who-did',
             ], $names);
 
             $system = collect($request->systemPrompts())
@@ -240,7 +241,12 @@ class AskSystemTest extends TestCase
                 ->map(fn ($prompt) => $prompt->content)
                 ->implode("\n");
 
-            $this->assertLessThan(900, mb_strlen($system));
+            /*
+             * السقف شايل قايمة الشاشات (٢٠٠ حرف تقريبًا). دفعناها عن
+             * قصد: من غيرها الموديل بيخترع شاشات ويبعت المستخدم يدوّر
+             * فيها، وده أغلى بكتير من التوكنز.
+             */
+            $this->assertLessThan(1400, mb_strlen($system));
 
             // الشرح الطويل بتاع سيرفر الـ MCP مابيتبعتش مع المحادثة
             $this->assertStringNotContainsString('سيرفر قراءة فقط', $system);

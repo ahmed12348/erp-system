@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Concerns\RecordsActivity;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -9,6 +10,14 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class Customer extends Model
 {
+    use RecordsActivity;
+
+    /** اسم السجل في سجل النشاط */
+    protected $activityLog = 'customer';
+
+    /** الحقول اللي بيتسجّل تغيّرها — مش كل الأعمدة */
+    protected $activityFields = ['name', 'phone', 'city', 'address', 'price_tier', 'credit_limit', 'sales_rep_id', 'is_active'];
+
     /** شرائح السعر المتاحة للتاجر */
     public const TIERS = ['sale', 'wholesale'];
 

@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Controllers\Erp\ActivityController;
 use App\Http\Controllers\Erp\AttachmentController;
 use App\Http\Controllers\Erp\CategoryController;
 use App\Http\Controllers\Erp\CustomerController;
@@ -114,6 +115,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::get('reps/{rep}', [SalesRepController::class, 'show'])->name('reps.show');
 
     // المستخدمين والأدوار — المدير لوحده
+    Route::get('activity', [ActivityController::class, 'index'])->name('activity.index');
     Route::get('users', [UserController::class, 'index'])->name('users.index');
     Route::post('users', [UserController::class, 'store'])->name('users.store');
     Route::put('users/{user}', [UserController::class, 'update'])->name('users.update');

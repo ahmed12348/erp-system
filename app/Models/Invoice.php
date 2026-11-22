@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Concerns\RecordsActivity;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
@@ -9,6 +10,14 @@ use Illuminate\Database\Eloquent\Relations\MorphMany;
 
 class Invoice extends Model
 {
+    use RecordsActivity;
+
+    /** اسم السجل في سجل النشاط */
+    protected $activityLog = 'invoice';
+
+    /** الحقول اللي بيتسجّل تغيّرها — مش كل الأعمدة */
+    protected $activityFields = ['number', 'type', 'status', 'date', 'customer_id', 'supplier_id', 'warehouse_id', 'total', 'paid', 'discount', 'currency', 'notes'];
+
     public const TYPE_SALE = 'sale';
 
     public const TYPE_PURCHASE = 'purchase';

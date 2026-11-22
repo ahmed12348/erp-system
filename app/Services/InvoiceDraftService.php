@@ -132,6 +132,17 @@ class InvoiceDraftService
                 ? $this->purchases->createPurchase($data, $user)
                 : $this->invoices->createSale($data, $user);
 
+            /*
+             * «أكّد» حدث مستقل عن «أضاف»: الفاتورة اتولدت دلوقتي، بس
+             * اللي حصل فعلاً إن مسودة ممسوحة اتراجعت واتأكّدت — وده
+             * اللي المدير بيدوّر عليه في السجل.
+             */
+            $confirmed->recordActivity('confirmed', [
+                'number' => $confirmed->number,
+                'from_draft' => $draft->number,
+                'total' => (float) $confirmed->total,
+            ]);
+
             // المرفق (صورة الفاتورة) بينتقل للفاتورة المؤكّدة
             foreach ($attachments as $attachment) {
                 $attachment->update([

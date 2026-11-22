@@ -3,6 +3,7 @@ import { Link } from '@inertiajs/vue3';
 import {
     Boxes,
     ChartNoAxesCombined,
+    History,
     LayoutDashboard,
     Package,
     ReceiptText,
@@ -68,6 +69,11 @@ const navGroups = computed<NavGroup[]>(() => [
                           title: 'المستخدمين',
                           href: '/users',
                           icon: ShieldCheck,
+                      },
+                      {
+                          title: 'سجل النشاط',
+                          href: '/activity',
+                          icon: History,
                       },
                   ]
                 : []),

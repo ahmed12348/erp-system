@@ -2,12 +2,21 @@
 
 namespace App\Models;
 
+use App\Concerns\RecordsActivity;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class SalesRep extends Model
 {
+    use RecordsActivity;
+
+    /** اسم السجل في سجل النشاط */
+    protected $activityLog = 'rep';
+
+    /** الحقول اللي بيتسجّل تغيّرها — مش كل الأعمدة */
+    protected $activityFields = ['name', 'commission_rate', 'is_active'];
+
     /** @param  Builder<self>  $query */
     public function scopeActive(Builder $query): void
     {

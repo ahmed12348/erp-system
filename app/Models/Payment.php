@@ -2,12 +2,21 @@
 
 namespace App\Models;
 
+use App\Concerns\RecordsActivity;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\MorphMany;
 
 class Payment extends Model
 {
+    use RecordsActivity;
+
+    /** اسم السجل في سجل النشاط */
+    protected $activityLog = 'payment';
+
+    /** الحقول اللي بيتسجّل تغيّرها — مش كل الأعمدة */
+    protected $activityFields = ['type', 'amount', 'currency', 'method', 'date', 'reference', 'customer_id', 'supplier_id', 'invoice_id', 'notes'];
+
     public const TYPE_RECEIPT = 'receipt';           // تحصيل من تاجر
 
     public const TYPE_DISBURSEMENT = 'disbursement'; // دفع لمورد
