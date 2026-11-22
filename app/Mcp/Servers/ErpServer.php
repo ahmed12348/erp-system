@@ -2,11 +2,18 @@
 
 namespace App\Mcp\Servers;
 
+use App\Mcp\Tools\BestCustomers;
+use App\Mcp\Tools\FastMovingProducts;
+use App\Mcp\Tools\ForecastNeeds;
 use App\Mcp\Tools\InvoiceLookup;
 use App\Mcp\Tools\LastLogin;
 use App\Mcp\Tools\LowStockProducts;
 use App\Mcp\Tools\RecentActivity;
+use App\Mcp\Tools\RepsComparison;
+use App\Mcp\Tools\SalesBreakdown;
+use App\Mcp\Tools\SalesDecline;
 use App\Mcp\Tools\SalesSummary;
+use App\Mcp\Tools\SlowMovingProducts;
 use App\Mcp\Tools\StockLookup;
 use App\Mcp\Tools\TopDebtors;
 use App\Mcp\Tools\TopProducts;
@@ -29,19 +36,41 @@ use Laravel\Mcp\Server\Attributes\Version;
     - رصيد التاجر موجب يعني عليه فلوس للشركة.
     - رصيد المخزون = مجموع حركات المخزون، مفيش عمود رصيد مخزّن.
     - التواريخ بصيغة YYYY-MM-DD.
+    - الفواتير المؤكّدة بس هي اللي بتدخل الحسابات — المسودات بره كل حاجة.
     - لو المستخدم سأل سؤال مالي، رجّع الرقم زي ما الأداة رجّعته من غير
       ما تحسب تقديرات من عندك.
+
+    أدوات سجل النشاط محكومة بصلاحية المستخدم: المدير بيشوف نشاط أي حد،
+    وباقي الأدوار بيشوفوا نشاطهم هما بس.
     TXT)]
 class ErpServer extends Server
 {
+    /*
+     * كل الأدوات متاحة هنا. التقسيم على وكلاء بيحصل في لوحة «اسأل
+     * السيستم» بس — عميل الـ MCP (كلود) بيشوف المجموعة كاملة ويختار.
+     */
     protected array $tools = [
+        // المخزون
         LowStockProducts::class,
+        StockLookup::class,
+        SlowMovingProducts::class,
+        FastMovingProducts::class,
+        ForecastNeeds::class,
+
+        // المبيعات
+        SalesSummary::class,
+        SalesBreakdown::class,
+        SalesDecline::class,
+        TopProducts::class,
+        BestCustomers::class,
+        RepsComparison::class,
         TraderBalance::class,
         TopDebtors::class,
-        SalesSummary::class,
-        TopProducts::class,
-        StockLookup::class,
+
+        // الفواتير
         InvoiceLookup::class,
+
+        // سجل النشاط — محكومة بصلاحية المستخدم جواها
         RecentActivity::class,
         LastLogin::class,
         WhoDid::class,

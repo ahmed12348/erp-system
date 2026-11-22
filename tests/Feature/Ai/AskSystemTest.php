@@ -6,7 +6,6 @@ use App\Ai\ErpToolkit;
 use App\Models\Category;
 use App\Models\Product;
 use App\Models\StockMovement;
-use App\Models\User;
 use App\Models\Warehouse;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\Client\ConnectionException;
@@ -54,16 +53,21 @@ class AskSystemTest extends TestCase
         $this->getJson('/ai/chat')->assertUnauthorized();
     }
 
-    public function test_the_panel_loads_the_starter_questions(): void
+    public function test_the_panel_loads_the_tabs_and_their_starters(): void
     {
-        $this->actingAs(User::factory()->create())
+        $this->actingAs($this->admin())
             ->getJson('/ai/chat')
             ->assertOk()
             ->assertJson([
                 'messages' => [],
                 'enabled' => true,
+                // أول تبويب هو المفتوح افتراضيًا
+                'agent' => 'inventory',
             ])
-            ->assertJsonCount(4, 'starters');
+            ->assertJsonCount(4, 'agents')
+            ->assertJsonCount(4, 'agents.0.starters')
+            ->assertJsonPath('agents.0.label', 'المخازن')
+            ->assertJsonPath('agents.1.label', 'المبيعات');
     }
 
     public function test_it_answers_a_question(): void
@@ -72,7 +76,7 @@ class AskSystemTest extends TestCase
             TextResponseFake::make()->withText('عندك 3 أصناف تحت حد الطلب.'),
         ]);
 
-        $this->actingAs(User::factory()->create())
+        $this->actingAs($this->admin())
             ->postJson('/ai/chat', ['message' => 'إيه الأصناف اللي قربت تخلص؟'])
             ->assertOk()
             ->assertJson([
@@ -85,7 +89,7 @@ class AskSystemTest extends TestCase
 
     public function test_the_question_is_rejected_when_empty_or_too_long(): void
     {
-        $user = User::factory()->create();
+        $user = $this->admin();
 
         $this->actingAs($user)
             ->postJson('/ai/chat', ['message' => ''])
@@ -103,7 +107,7 @@ class AskSystemTest extends TestCase
             TextResponseFake::make()->withText('آخر دفعة كانت من أسبوع.'),
         ]);
 
-        $user = User::factory()->create();
+        $user = $this->admin();
 
         $this->actingAs($user)->postJson('/ai/chat', ['message' => 'رصيد أحمد كام؟']);
         $this->actingAs($user)->postJson('/ai/chat', ['message' => 'وآخر دفعة؟']);
@@ -124,7 +128,7 @@ class AskSystemTest extends TestCase
             TextResponseFake::make()->withText('آخر دفعة كانت من أسبوع.'),
         ]);
 
-        $user = User::factory()->create();
+        $user = $this->admin();
 
         $this->actingAs($user)->postJson('/ai/chat', ['message' => 'رصيد أحمد كام؟']);
         $this->actingAs($user)->postJson('/ai/chat', ['message' => 'وآخر دفعة؟']);
@@ -142,7 +146,7 @@ class AskSystemTest extends TestCase
     {
         Prism::fake([TextResponseFake::make()->withText('تمام.')]);
 
-        $user = User::factory()->create();
+        $user = $this->admin();
 
         $this->actingAs($user)->postJson('/ai/chat', ['message' => 'سؤال']);
         $this->actingAs($user)->deleteJson('/ai/chat')->assertOk();
@@ -161,7 +165,7 @@ class AskSystemTest extends TestCase
     {
         $fake = Prism::fake([TextResponseFake::make()->withText('تمام.')]);
 
-        $this->actingAs(User::factory()->create())
+        $this->actingAs($this->admin())
             ->postJson('/ai/chat', ['message' => 'سؤال']);
 
         $fake->assertRequest(function (array $requests): void {
@@ -179,7 +183,7 @@ class AskSystemTest extends TestCase
 
         $fake = Prism::fake([TextResponseFake::make()->withText('تمام.')]);
 
-        $this->actingAs(User::factory()->create())
+        $this->actingAs($this->admin())
             ->postJson('/ai/chat', ['message' => 'سؤال']);
 
         $fake->assertRequest(function (array $requests): void {
@@ -195,7 +199,7 @@ class AskSystemTest extends TestCase
     {
         $fake = Prism::fake([TextResponseFake::make()->withText('تمام.')]);
 
-        $this->actingAs(User::factory()->create())
+        $this->actingAs($this->admin())
             ->postJson('/ai/chat', ['message' => 'سؤال']);
 
         $fake->assertRequest(function (array $requests): void {
@@ -204,20 +208,24 @@ class AskSystemTest extends TestCase
 
             $names = array_map(fn ($tool) => $tool->name(), $request->tools());
 
-            // نفس أدوات سيرفر الـ MCP بالظبط
+            /*
+             * أدوات تبويب المخازن بس — مش كل أدوات النظام. ده بيت
+             * القصيد من التبويبات: مجموعة صغيرة مركّزة بدل سلّة كبيرة.
+             */
             $this->assertEqualsCanonicalizing([
-                'low-stock-products', 'trader-balance', 'top-debtors',
-                'sales-summary', 'top-products', 'stock-lookup', 'invoice-lookup',
-                'recent-activity', 'last-login', 'who-did',
+                'low-stock-products', 'stock-lookup', 'slow-moving-products',
+                'fast-moving-products', 'forecast-needs',
             ], $names);
 
             $system = collect($request->systemPrompts())
                 ->map(fn ($prompt) => $prompt->content)
                 ->implode("\n");
 
-            // أسلوب الرد المصري وقواعد قراءة الأرقام
+            // أسلوب الرد المصري والقاعدة الذهبية
             $this->assertStringContainsString('عامية مصرية', $system);
-            $this->assertStringContainsString('رصيد التاجر الموجب', $system);
+            $this->assertStringContainsString('القاعدة الذهبية', $system);
+            // وتخصص التبويب المفتوح — المخازن
+            $this->assertStringContainsString('تخصصك المخزن', $system);
         });
     }
 
@@ -230,7 +238,7 @@ class AskSystemTest extends TestCase
     {
         $fake = Prism::fake([TextResponseFake::make()->withText('تمام.')]);
 
-        $this->actingAs(User::factory()->create())
+        $this->actingAs($this->admin())
             ->postJson('/ai/chat', ['message' => 'سؤال']);
 
         $fake->assertRequest(function (array $requests): void {
@@ -246,7 +254,7 @@ class AskSystemTest extends TestCase
              * قصد: من غيرها الموديل بيخترع شاشات ويبعت المستخدم يدوّر
              * فيها، وده أغلى بكتير من التوكنز.
              */
-            $this->assertLessThan(1400, mb_strlen($system));
+            $this->assertLessThan(1800, mb_strlen($system));
 
             // الشرح الطويل بتاع سيرفر الـ MCP مابيتبعتش مع المحادثة
             $this->assertStringNotContainsString('سيرفر قراءة فقط', $system);
@@ -261,7 +269,7 @@ class AskSystemTest extends TestCase
     {
         $fake = Prism::fake([TextResponseFake::make()->withText('تمام.')]);
 
-        $this->actingAs(User::factory()->create())
+        $this->actingAs($this->admin())
             ->postJson('/ai/chat', ['message' => 'سؤال']);
 
         $fake->assertRequest(function (array $requests): void {
@@ -276,7 +284,7 @@ class AskSystemTest extends TestCase
     {
         $fake = Prism::fake([TextResponseFake::make()->withText('تمام.')]);
 
-        $this->actingAs(User::factory()->create())
+        $this->actingAs($this->admin())
             ->postJson('/ai/chat', ['message' => 'سؤال']);
 
         $fake->assertRequest(function (array $requests): void {
@@ -295,7 +303,7 @@ class AskSystemTest extends TestCase
     {
         $fake = Prism::fake([TextResponseFake::make()->withText('تمام.')]);
 
-        $this->actingAs(User::factory()->create())
+        $this->actingAs($this->admin())
             ->postJson('/ai/chat', ['message' => 'سؤال']);
 
         $fake->assertRequest(function (array $requests): void {
@@ -313,7 +321,7 @@ class AskSystemTest extends TestCase
 
         Prism::fake([TextResponseFake::make()->withText('تمام.')]);
 
-        $this->actingAs(User::factory()->create())
+        $this->actingAs($this->admin())
             ->postJson('/ai/chat', ['message' => 'سؤال'])
             ->assertStatus(503)
             ->assertJson([
@@ -328,7 +336,7 @@ class AskSystemTest extends TestCase
             new ConnectionException('cURL error 28: Operation timed out')
         );
 
-        $this->actingAs(User::factory()->create())
+        $this->actingAs($this->admin())
             ->postJson('/ai/chat', ['message' => 'سؤال'])
             ->assertStatus(503)
             ->assertJson(['reason' => 'timeout']);
@@ -347,7 +355,7 @@ class AskSystemTest extends TestCase
             TextResponseFake::make()->withText('رد من الموديل البديل.'),
         ]);
 
-        $this->actingAs(User::factory()->create())
+        $this->actingAs($this->admin())
             ->postJson('/ai/chat', ['message' => 'سؤال'])
             ->assertOk()
             ->assertJsonPath('reply.content', 'رد من الموديل البديل.');
@@ -374,7 +382,7 @@ class AskSystemTest extends TestCase
             TextResponseFake::make()->withText('رد من الموديل الأخف.'),
         ]);
 
-        $this->actingAs(User::factory()->create())
+        $this->actingAs($this->admin())
             ->postJson('/ai/chat', ['message' => 'سؤال'])
             ->assertOk()
             ->assertJsonPath('reply.content', 'رد من الموديل الأخف.');
@@ -401,7 +409,7 @@ class AskSystemTest extends TestCase
             TextResponseFake::make()->withText('ما يوصلش هنا.'),
         ], delayMs: 600);
 
-        $this->actingAs(User::factory()->create())
+        $this->actingAs($this->admin())
             ->postJson('/ai/chat', ['message' => 'سؤال'])
             ->assertStatus(503)
             ->assertJson(['reason' => 'timeout']);
@@ -421,7 +429,7 @@ class AskSystemTest extends TestCase
             TextResponseFake::make()->withText('رد من البديل.'),
         ]);
 
-        $this->actingAs(User::factory()->create())
+        $this->actingAs($this->admin())
             ->postJson('/ai/chat', ['message' => 'سؤال'])
             ->assertOk();
 
@@ -435,7 +443,7 @@ class AskSystemTest extends TestCase
             TextResponseFake::make()->withText('ما يوصلش هنا.'),
         ]);
 
-        $this->actingAs(User::factory()->create())
+        $this->actingAs($this->admin())
             ->postJson('/ai/chat', ['message' => 'سؤال'])
             ->assertStatus(503)
             ->assertJson(['reason' => 'rate_limited']);
@@ -456,7 +464,7 @@ class AskSystemTest extends TestCase
 
         Log::shouldReceive('warning')->zeroOrMoreTimes();
 
-        $this->actingAs(User::factory()->create())
+        $this->actingAs($this->admin())
             ->postJson('/ai/chat', ['message' => 'سؤال'])
             ->assertStatus(503);
     }
@@ -465,7 +473,7 @@ class AskSystemTest extends TestCase
     {
         FailingPrism::fake(PrismRateLimitedException::make([]));
 
-        $this->actingAs(User::factory()->create())
+        $this->actingAs($this->admin())
             ->postJson('/ai/chat', ['message' => 'سؤال'])
             ->assertStatus(503)
             ->assertJson(['reason' => 'rate_limited'])
@@ -481,7 +489,7 @@ class AskSystemTest extends TestCase
             'You exceeded your current quota, please check your plan and billing details.'
         ));
 
-        $this->actingAs(User::factory()->create())
+        $this->actingAs($this->admin())
             ->postJson('/ai/chat', ['message' => 'سؤال'])
             ->assertStatus(503)
             ->assertJson([
@@ -494,7 +502,7 @@ class AskSystemTest extends TestCase
     {
         FailingPrism::fake(new \RuntimeException('boom'));
 
-        $user = User::factory()->create();
+        $user = $this->admin();
 
         $this->actingAs($user)->postJson('/ai/chat', ['message' => 'سؤال وقع'])
             ->assertStatus(503);
@@ -510,7 +518,7 @@ class AskSystemTest extends TestCase
     {
         config()->set('prism.providers.gemini.api_key', '');
 
-        $user = User::factory()->create();
+        $user = $this->admin();
 
         $this->actingAs($user)
             ->getJson('/ai/chat')
@@ -531,7 +539,7 @@ class AskSystemTest extends TestCase
             TextResponseFake::make()->withText('اتنين.'),
         ]);
 
-        $user = User::factory()->create();
+        $user = $this->admin();
 
         $this->actingAs($user)->postJson('/ai/chat', ['message' => 'س'])->assertOk();
         $this->actingAs($user)->postJson('/ai/chat', ['message' => 'س'])->assertOk();

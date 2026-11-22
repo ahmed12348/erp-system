@@ -2,24 +2,28 @@
 
 namespace App\Services;
 
-use App\Ai\ErpToolkit;
+use App\Ai\AgentRegistry;
+use App\Ai\Agents\Agent;
 use App\Exceptions\AiUnavailableException;
 use Illuminate\Support\Facades\Session;
 
 /**
  * «اسأل السيستم» — محادثة قراءة فقط على بيانات النظام.
  *
- * المحادثة محفوظة في الجلسة بس: المستخدم يقفل الصفحة ويرجع يلاقيها،
- * ويعمل تسجيل خروج تتمسح. مفيش جدول ولا تنضيف دوري — وده كفاية
- * للمطلوب، والأسئلة ممكن تكون حساسة فمحلها مش قاعدة البيانات.
+ * المحادثة متقسّمة على وكلاء (تبويبات): كل واحد ليه تعليماته وأدواته
+ * وتاريخه المستقل. التقسيم مش شكلي — الموديل بياخد وصف كل أداة مع كل
+ * نداء، فمجموعة صغيرة مركّزة أسرع وأدق من عشرين أداة في سلّة واحدة.
+ *
+ * التاريخ محفوظ في الجلسة بس: المستخدم يقفل الصفحة ويرجع يلاقيه،
+ * ويعمل تسجيل خروج يتمسح.
  */
 class AskSystemService
 {
-    private const SESSION_KEY = 'ai.chat.messages';
+    private const SESSION_KEY = 'ai.chat';
 
     public function __construct(
         private readonly AiService $ai,
-        private readonly ErpToolkit $toolkit,
+        private readonly AgentRegistry $agents,
     ) {}
 
     /**
@@ -32,64 +36,65 @@ class AskSystemService
      *
      * @throws AiUnavailableException
      */
-    public function ask(string $question): array
+    public function ask(Agent $agent, string $question): array
     {
-        $history = $this->history();
+        $history = $this->history($agent);
         $history[] = ['role' => 'user', 'content' => $question];
 
         try {
             $answer = $this->ai->chat(
-                $this->systemPrompt(),
+                $this->systemPrompt($agent),
                 $this->trimmed($history),
-                $this->toolkit->tools(),
+                $this->agents->toolsFor($agent),
             );
         } catch (AiUnavailableException $e) {
-            $this->store($this->trimmed($history));
+            $this->store($agent, $this->trimmed($history));
 
             throw $e;
         }
 
         $history[] = ['role' => 'assistant', 'content' => $answer];
 
-        $this->store($this->trimmed($history));
+        $this->store($agent, $this->trimmed($history));
 
         return ['role' => 'assistant', 'content' => $answer];
     }
 
     /**
-     * رسايل المحادثة الحالية.
+     * رسايل تبويب واحد.
      *
      * @return array<int, array{role: string, content: string}>
      */
-    public function history(): array
+    public function history(Agent $agent): array
     {
         /** @var array<int, array{role: string, content: string}> $messages */
-        $messages = Session::get(self::SESSION_KEY, []);
+        $messages = Session::get($this->key($agent), []);
 
         return $messages;
     }
 
-    public function clear(): void
+    public function clear(Agent $agent): void
     {
-        Session::forget(self::SESSION_KEY);
+        Session::forget($this->key($agent));
     }
 
     /**
-     * تعليمات الموديل — مقصودة قصيرة.
+     * تعليمات الموديل — القواعد العامة + تخصص الوكيل.
      *
-     * كل سطر هنا بيتبعت مع كل جولة أدوات، يعني بيتحاسب عليه مرتين
-     * وتلاتة في السؤال الواحد. فبنسيب الشرح الطويل بتاع سيرفر الـ MCP
-     * بره: وصف كل أداة والـ schema بتاعها بيتبعتوا مع الأدوات نفسها
-     * وفيهم الكفاية، واللي فاضل هنا هو اللي الموديل مش هيعرفه منهم —
-     * أسلوب الرد، وإزاي يقرا الأرقام، وإنه بيقرا بس.
+     * مقصودة قصيرة: كل سطر بيتبعت مع كل جولة أدوات، يعني بيتحاسب عليه
+     * مرتين وتلاتة في السؤال الواحد. وصف كل أداة بيتبعت مع الأداة
+     * نفسها، فمالوش لازمة يتكرّر هنا.
      */
-    public function systemPrompt(): string
+    public function systemPrompt(Agent $agent): string
     {
         $screens = implode('، ', self::SCREENS);
+        $specialism = $agent->instructions();
 
         return <<<TXT
             إنت مساعد جوه نظام ERP لشركة توزيع مصرية. بتقرا البيانات بالأدوات
             وبترد على الموظفين.
+
+            {$specialism}
 
             الرد: عامية مصرية، جملتين أو تلاتة بالكتير، والقوايم نقط.
             ابدأ بالإجابة على طول من غير مقدمات.
@@ -97,10 +102,11 @@ class AskSystemService
             الأرقام: لاتينية دايمًا (0-9). الفلوس «12,500 ج.م» أو برمز العملة
             اللي الأداة رجّعته. التواريخ «13 نوفمبر 2026».
 
-            المعاني: رصيد التاجر الموجب يعني عليه فلوس للشركة. المبالغ بالجنيه
-            إلا لو الأداة كتبت العملة.
+            **القاعدة الذهبية**: كل رقم بتقوله لازم يكون جاي من أداة زي ما هي
+            رجّعته. ماتجمعش ولا تطرحش ولا تحسب نسبة ولا تقدّر من عندك — لو
+            الرقم اللي محتاجه مش في رد الأداة، قول إنه مش متاح. إنت بتشرح
+            وتوصّي، والحساب شغل النظام.
 
-            ممنوع: تخمّن رقم أو تحسبه بنفسك — استعمل الأداة أو قول مش عارف.
             إنت بتقرا بس، فأي طلب تعديل أو إضافة رُدّ عليه إن المستخدم يعملها
             من الشاشة.
 
@@ -144,8 +150,13 @@ class AskSystemService
         'الإعدادات: الملف الشخصي، الأمان، المظهر، الفرق',
     ];
 
+    private function key(Agent $agent): string
+    {
+        return self::SESSION_KEY.'.'.$agent->key();
+    }
+
     /**
-     * آخر ن رسالة بس بتتبعت للموديل — بيحدّ تكلفة التوكنز في محادثة طويلة.
+     * آخر ن رسالة بس بتتبعت للموديل — بيحدّ تكلفة التوكنز والوقت.
      *
      * @param  array<int, array{role: string, content: string}>  $history
      * @return array<int, array{role: string, content: string}>
@@ -160,8 +171,8 @@ class AskSystemService
     /**
      * @param  array<int, array{role: string, content: string}>  $history
      */
-    private function store(array $history): void
+    private function store(Agent $agent, array $history): void
     {
-        Session::put(self::SESSION_KEY, $history);
+        Session::put($this->key($agent), $history);
     }
 }

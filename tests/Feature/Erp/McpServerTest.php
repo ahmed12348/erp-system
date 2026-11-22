@@ -112,12 +112,22 @@ class McpServerTest extends TestCase
         $names = collect($this->listTools())->pluck('name')->all();
 
         $this->assertEqualsCanonicalizing([
+            // المخزون
             'low-stock-products',
+            'stock-lookup',
+            'slow-moving-products',
+            'fast-moving-products',
+            'forecast-needs',
+            // المبيعات
+            'sales-summary',
+            'sales-breakdown',
+            'sales-decline',
+            'top-products',
+            'best-customers',
+            'reps-comparison',
             'trader-balance',
             'top-debtors',
-            'sales-summary',
-            'top-products',
-            'stock-lookup',
+            // الفواتير
             'invoice-lookup',
             // سجل النشاط — محكومة بصلاحية المستخدم جواها
             'recent-activity',
@@ -251,15 +261,33 @@ class McpServerTest extends TestCase
     /**
      * @return list<array<string, mixed>>
      */
+    /**
+     * كل الأدوات — بتتبع الصفحات.
+     *
+     * `tools/list` بيرجّع صفحة ومعاها cursor، وإحنا بقينا أكتر من صفحة
+     * واحدة. العميل الحقيقي بيلف على الصفحات، فالاختبار بيعمل نفس
+     * الحاجة بدل ما يفحص أول صفحة ويفتكرها الكل.
+     */
     private function listTools(): array
     {
         Passport::actingAs(User::first(), [Registrar::OAUTH_SCOPE]);
 
-        return $this->withHeaders(['Accept' => 'application/json, text/event-stream'])
-            ->postJson('/mcp/erp', [
-                'jsonrpc' => '2.0',
-                'id' => 1,
-                'method' => 'tools/list',
-            ])->assertOk()->json('result.tools');
+        $tools = [];
+        $cursor = null;
+
+        do {
+            $payload = $this->withHeaders(['Accept' => 'application/json, text/event-stream'])
+                ->postJson('/mcp/erp', array_filter([
+                    'jsonrpc' => '2.0',
+                    'id' => 1,
+                    'method' => 'tools/list',
+                    'params' => $cursor ? ['cursor' => $cursor] : null,
+                ]))->assertOk()->json('result');
+
+            $tools = [...$tools, ...($payload['tools'] ?? [])];
+            $cursor = $payload['nextCursor'] ?? null;
+        } while ($cursor !== null);
+
+        return $tools;
     }
 }

@@ -18,8 +18,19 @@ import { useAskSystem } from '@/composables/useAskSystem';
  * فالناحية التانية هي الفاضية.
  */
 
-const { open, messages, starters, thinking, error, closePanel, send, reset } =
-    useAskSystem();
+const {
+    open,
+    agents,
+    active,
+    current,
+    messages,
+    thinking,
+    error,
+    closePanel,
+    selectAgent,
+    send,
+    reset,
+} = useAskSystem();
 
 const draft = ref('');
 const thread = ref<HTMLElement | null>(null);
@@ -37,6 +48,8 @@ async function scrollToEnd() {
 
 watch([() => messages.value.length, thinking], scrollToEnd);
 watch(open, (isOpen) => isOpen && scrollToEnd());
+// تبديل التبويب بيعرض محادثة تانية — بننزل لآخرها
+watch(active, scrollToEnd);
 
 async function submit() {
     const question = draft.value;
@@ -78,9 +91,38 @@ function onKeydown(event: KeyboardEvent) {
                     اسأل السيستم
                 </SheetTitle>
                 <SheetDescription class="text-xs">
-                    بيجاوب من بيانات النظام — بيقرا بس وما بيعدّلش حاجة.
+                    {{
+                        current?.description ??
+                        'بيجاوب من بيانات النظام — بيقرا بس وما بيعدّلش حاجة.'
+                    }}
                 </SheetDescription>
             </SheetHeader>
+
+            <!-- التبويبات: كل وكيل بأدواته وتاريخه -->
+            <div
+                v-if="agents.length > 1"
+                class="flex shrink-0 scrollbar-thin gap-1 overflow-x-auto border-b px-2 py-2"
+                role="tablist"
+            >
+                <button
+                    v-for="agent in agents"
+                    :key="agent.key"
+                    type="button"
+                    role="tab"
+                    :aria-selected="agent.key === active"
+                    :disabled="thinking"
+                    class="shrink-0 rounded-lg px-3 py-1.5 text-sm transition-colors disabled:opacity-50"
+                    :class="
+                        agent.key === active
+                            ? 'bg-primary font-medium text-primary-foreground'
+                            : 'text-muted-foreground hover:bg-accent hover:text-foreground'
+                    "
+                    :data-test="`ask-tab-${agent.key}`"
+                    @click="selectAgent(agent.key)"
+                >
+                    {{ agent.label }}
+                </button>
+            </div>
 
             <!-- المحادثة -->
             <div
@@ -94,7 +136,7 @@ function onKeydown(event: KeyboardEvent) {
                     </p>
                     <div class="flex flex-col gap-2">
                         <button
-                            v-for="starter in starters"
+                            v-for="starter in current?.starters ?? []"
                             :key="starter"
                             type="button"
                             class="rounded-lg border border-border bg-card px-3 py-2 text-start text-sm transition-colors hover:border-primary/50 hover:bg-accent disabled:pointer-events-none disabled:opacity-50"
