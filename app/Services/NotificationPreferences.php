@@ -83,13 +83,20 @@ class NotificationPreferences
             $channels = [];
 
             foreach (config('notifications.channels') as $channel => $meta) {
+                /*
+                 * القناة اللي مفاتيحها مش متظبّطة بتتخفي خالص — مش
+                 * بتظهر مقفولة. خيار معطّل بيخلّي المستخدم يسأل «ليه
+                 * ده مقفول؟»، والخيار اللي مش موجود مابيسألش.
+                 */
+                if (! $this->channelAvailable($channel)) {
+                    continue;
+                }
+
                 $channels[] = [
                     'key' => $channel,
                     'label' => $meta['label'],
                     'description' => $meta['description'],
                     'enabled' => (bool) ($current[$channel] ?? false),
-                    'available' => $this->channelAvailable($channel),
-                    'reason' => $this->unavailableReason($channel),
                 ];
             }
 
@@ -118,31 +125,46 @@ class NotificationPreferences
     /**
      * القناة متظبّطة على السيرفر؟
      *
-     * واتساب والـ push محتاجين مفاتيح. من غيرها بنعتبرهم مقفولين —
-     * أحسن من إن المستخدم يفعّلهم ومايوصلهوش حاجة ويفتكر النظام باظ.
+     * الجرس شغّال دايمًا — مش محتاج ولا إعداد. الباقي محتاج مفاتيح،
+     * ومن غيرها بيتخفي خالص: المستخدم مايشوفش خيار مش هيوصله حاجة
+     * منه، والنظام بيشتغل كامل من غير أي إعداد بريد أو push.
      */
     public function channelAvailable(string $channel): bool
     {
         return match ($channel) {
+            'database' => true,
+
+            /*
+             * البريد شغّال بس لو فيه ناقل حقيقي. `log` و`array` هما
+             * إعدادات التطوير — بيكتبوا في ملف مش بيبعتوا لحد.
+             */
+            'mail' => ! in_array(config('mail.default'), ['log', 'array', null], true)
+                && filled(config('mail.from.address')),
+
             'whatsapp' => filled(config('notifications.whatsapp.token'))
                 && filled(config('notifications.whatsapp.phone_number_id')),
+
             'push' => filled(config('notifications.push.public_key'))
                 && filled(config('notifications.push.private_key')),
-            default => true,
+
+            default => false,
         };
     }
 
-    private function unavailableReason(string $channel): ?string
+    /**
+     * القنوات اللي بره الجرس.
+     *
+     * متفصّلة عن الجرس لأن الجرس بيتبعت فورًا والباقي في الطابور.
+     *
+     * @return array<int, string>
+     */
+    public function externalChannels(): array
     {
-        if ($this->channelAvailable($channel)) {
-            return null;
-        }
-
-        return match ($channel) {
-            'whatsapp' => 'محتاج مفاتيح واتساب في إعدادات السيرفر.',
-            'push' => 'محتاج مفاتيح VAPID في إعدادات السيرفر.',
-            default => null,
-        };
+        return array_values(array_filter(
+            array_keys(config('notifications.channels')),
+            fn (string $channel): bool => $channel !== 'database'
+                && $this->channelAvailable($channel),
+        ));
     }
 
     /**

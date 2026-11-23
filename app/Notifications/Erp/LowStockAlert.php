@@ -3,6 +3,7 @@
 namespace App\Notifications\Erp;
 
 use App\Models\Product;
+use App\Notifications\Erp\Concerns\RestrictsChannels;
 use App\Services\NotificationPreferences;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
@@ -17,7 +18,7 @@ use Illuminate\Notifications\Notification;
  */
 class LowStockAlert extends Notification implements ShouldQueue
 {
-    use Queueable;
+    use Queueable, RestrictsChannels;
 
     public function __construct(
         public readonly Product $product,
@@ -35,8 +36,9 @@ class LowStockAlert extends Notification implements ShouldQueue
      */
     public function via(object $notifiable): array
     {
-        return app(NotificationPreferences::class)
-            ->channelsFor($notifiable, $this->type());
+        return $this->restrict(
+            app(NotificationPreferences::class)->channelsFor($notifiable, $this->type())
+        );
     }
 
     /**

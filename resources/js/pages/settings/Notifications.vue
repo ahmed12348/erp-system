@@ -13,8 +13,10 @@ import type { BreadcrumbItem } from '@/types';
  * إعدادات التنبيهات.
  *
  * جدول: صف لكل نوع تنبيه، وعمود لكل قناة. القناة اللي مفاتيحها مش
- * متظبّطة على السيرفر بتظهر مقفولة ومكتوب جنبها الناقص — بدل ما
- * المستخدم يفعّلها ومايوصلهوش حاجة ويفتكر النظام باظ.
+ * متظبّطة على السيرفر مابتظهرش خالص — لا عمود ولا قسم. خيار معطّل
+ * بيخلّي المستخدم يسأل «ليه ده مقفول؟»، واللي مش موجود مابيسألش.
+ *
+ * يعني على سيرفر من غير أي إعداد، الشاشة دي بتبقى عمود واحد: الجرس.
  */
 
 type Channel = {
@@ -22,8 +24,6 @@ type Channel = {
     label: string;
     description: string;
     enabled: boolean;
-    available: boolean;
-    reason: string | null;
 };
 
 type Row = {
@@ -171,7 +171,7 @@ async function disablePush() {
     <div class="flex flex-1 flex-col gap-5 p-4 md:p-6">
         <PageHeader
             title="إعدادات التنبيهات"
-            description="اختار تستقبل إيه وفين — كل مستخدم له إعداداته"
+            description="اختار تستقبل إيه وفين — جرس النظام شغّال دايمًا"
         />
 
         <SectionCard flush>
@@ -190,12 +190,6 @@ async function disablePush() {
                                 class="w-28 px-3 py-3 text-center font-medium"
                             >
                                 {{ channel.label }}
-                                <span
-                                    v-if="!channel.available"
-                                    class="block text-[10px] font-normal text-muted-foreground"
-                                >
-                                    مش متاح
-                                </span>
                             </th>
                         </tr>
                     </thead>
@@ -216,7 +210,6 @@ async function disablePush() {
                                     :model-value="
                                         state[row.key]?.[channel.key] ?? false
                                     "
-                                    :disabled="!channel.available"
                                     :aria-label="`${row.label} — ${channel.label}`"
                                     :data-test="`toggle-${row.key}-${channel.key}`"
                                     @update:model-value="
@@ -228,12 +221,6 @@ async function disablePush() {
                                             )
                                     "
                                 />
-                                <span
-                                    v-if="channel.reason"
-                                    class="mt-1 block text-[10px] text-muted-foreground"
-                                >
-                                    {{ channel.reason }}
-                                </span>
                             </td>
                         </tr>
                     </tbody>
@@ -251,23 +238,15 @@ async function disablePush() {
             </div>
         </SectionCard>
 
-        <!-- إشعارات المتصفح -->
-        <SectionCard title="إشعارات المتصفح">
+        <!-- إشعارات المتصفح — بتختفي خالص من غير مفاتيح VAPID -->
+        <SectionCard v-if="push.publicKey" title="إشعارات المتصفح">
             <div class="space-y-3">
                 <p class="text-sm text-muted-foreground">
                     بتوصلك حتى والنظام مقفول. لازم تسمح للمتصفح مرة واحدة من
                     الزرار ده — إحنا عمرنا ما بنطلب الإذن لوحدنا.
                 </p>
 
-                <p
-                    v-if="!push.publicKey"
-                    class="text-sm text-muted-foreground"
-                    data-test="push-unavailable"
-                >
-                    مفاتيح VAPID مش متظبّطة على السيرفر، فالإشعارات مقفولة.
-                </p>
-
-                <div v-else class="flex items-center gap-3">
+                <div class="flex items-center gap-3">
                     <Button
                         v-if="!pushOn"
                         variant="outline"
@@ -304,15 +283,9 @@ async function disablePush() {
             </div>
         </SectionCard>
 
-        <!-- واتساب -->
-        <SectionCard title="واتساب">
-            <p v-if="!whatsapp.available" class="text-sm text-muted-foreground">
-                مفاتيح واتساب مش متظبّطة على السيرفر، فالقناة دي مقفولة.
-            </p>
-            <p
-                v-else-if="!whatsapp.verified"
-                class="text-sm text-muted-foreground"
-            >
+        <!-- واتساب — بتختفي خالص من غير مفاتيح WHATSAPP_ -->
+        <SectionCard v-if="whatsapp.available" title="واتساب">
+            <p v-if="!whatsapp.verified" class="text-sm text-muted-foreground">
                 لازم تسجّل رقم واتساب وتأكّده من صفحة الملف الشخصي عشان
                 التنبيهات توصلك عليه.
             </p>

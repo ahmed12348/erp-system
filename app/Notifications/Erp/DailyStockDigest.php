@@ -3,6 +3,7 @@
 namespace App\Notifications\Erp;
 
 use App\Models\Product;
+use App\Notifications\Erp\Concerns\RestrictsChannels;
 use App\Services\NotificationPreferences;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
@@ -19,7 +20,7 @@ use Illuminate\Support\Collection;
  */
 class DailyStockDigest extends Notification implements ShouldQueue
 {
-    use Queueable;
+    use Queueable, RestrictsChannels;
 
     /**
      * @param  Collection<int, Product>  $products
@@ -31,8 +32,9 @@ class DailyStockDigest extends Notification implements ShouldQueue
      */
     public function via(object $notifiable): array
     {
-        return app(NotificationPreferences::class)
-            ->channelsFor($notifiable, 'daily_digest');
+        return $this->restrict(
+            app(NotificationPreferences::class)->channelsFor($notifiable, 'daily_digest')
+        );
     }
 
     /**

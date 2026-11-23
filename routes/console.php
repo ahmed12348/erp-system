@@ -1,39 +1,59 @@
 <?php
 
 use App\Models\TeamInvitation;
+use App\Services\StockAlertService;
+use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\Schedule;
 
-Schedule::call(function () {
+/*
+ * كل المهام هنا بتشتغل **جوّه نفس العملية**.
+ *
+ * `Schedule::command()` بيفتح عملية PHP جديدة عن طريق `proc_open`،
+ * و`proc_open` و`exec` مقفولين على الاستضافة المشتركة — يعني أي مهمة
+ * بـ `command()` مش هتشتغل أصلاً على السيرفر، وهتفشل في صمت.
+ *
+ * فكل حاجة هنا `->call()` أو `->job()`: إما نداء مباشر للخدمة، أو
+ * `Artisan::call()` اللي بينفّذ الأمر في نفس العملية. في اختبار
+ * (`ScheduleTest`) بيتأكّد إن مفيش ولا مهمة بتفتح عملية.
+ */
+
+Schedule::call(function (): void {
     TeamInvitation::query()
         ->whereNotNull('expires_at')
         ->where('expires_at', '<', now())
         ->delete();
-})->daily()->description('Delete expired team invitations');
+})->daily()->description('حذف الدعوات المنتهية');
 
 /*
- * ملخّص النواقص اليومي.
+ * ملخّص النواقص اليومي — بيروح على الجرس.
  *
- * التنبيهات في طابور، والاستضافة المشتركة مافيهاش عامل بيفضل شغّال.
- * فالجدولة بتشغّل الطابور لحد ما يفضى وتسيبه — كرون واحد كل دقيقة
- * بيغطّي الاتنين (`schedule:run` في الكرون، وهو بينادي ده).
+ * نداء مباشر للخدمة أوفر من `Artisan::call` لنفس الشغل.
  */
-Schedule::command('erp:stock-digest')
+Schedule::call(fn () => app(StockAlertService::class)->sendDigest())
     ->dailyAt(config('notifications.digest_at', '09:00'))
     ->description('ملخّص النواقص اليومي');
 
 /*
- * تفريغ طابور التنبيهات.
+ * تفريغ الطابور.
  *
- * `--stop-when-empty` مهم: من غيره العملية بتفضل عايشة وبتاكل
- * موارد الاستضافة المشتركة. `withoutOverlapping` بيمنع إن دقيقتين
- * ورا بعض يشغّلوا عاملين في نفس الوقت.
+ * تنبيهات الجرس مابتعدّيش من هنا — بتتبعت فورًا وقت الحركة. الطابور
+ * ده للقنوات الخارجية (إيميل/واتساب/push) ولو مفاتيحها مش متظبّطة
+ * بيبقى فاضي ومايكلّفش حاجة.
+ *
+ * `--stop-when-empty` مهم: من غيره النداء مابيرجعش والكرون بيعلّق.
+ * `--max-time` بيحط سقف لو فضل شغل كتير.
  */
-Schedule::command('queue:work --stop-when-empty --tries=3 --max-time=50')
+Schedule::call(fn () => Artisan::call('queue:work', [
+    '--stop-when-empty' => true,
+    '--tries' => 3,
+    '--max-time' => 50,
+]))
     ->everyMinute()
-    ->withoutOverlapping()
-    ->description('تشغيل طابور التنبيهات');
+    // الاسم لازم ييجي الأول — `withoutOverlapping` بيبني القفل منه
+    ->name('تفريغ الطابور')
+    ->withoutOverlapping();
 
 /* تقليم سجل النشاط — أول كل شهر */
-Schedule::command('erp:prune-activity')
+Schedule::call(fn () => Artisan::call('erp:prune-activity'))
     ->monthlyOn(1, '03:00')
     ->description('تقليم سجل النشاط');

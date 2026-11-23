@@ -4,8 +4,10 @@ namespace App\Services;
 
 use App\Models\Product;
 use App\Models\StockAlertState;
+use App\Models\User;
 use App\Notifications\Erp\DailyStockDigest;
 use App\Notifications\Erp\LowStockAlert;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Notification;
 
 /**
@@ -62,10 +64,7 @@ class StockAlertService
             return 0;
         }
 
-        Notification::send(
-            $recipients,
-            new DailyStockDigest($products),
-        );
+        $this->deliver($recipients, new DailyStockDigest($products));
 
         return $recipients->count();
     }
@@ -113,7 +112,32 @@ class StockAlertService
         $recipients = $this->preferences->recipientsFor($type);
 
         if ($recipients->isNotEmpty()) {
-            Notification::send($recipients, $notification);
+            $this->deliver($recipients, $notification);
+        }
+    }
+
+    /**
+     * بيبعت التنبيه على مرحلتين.
+     *
+     * الجرس بيتبعت **فورًا** في نفس الريكوست (`sendNow`) — من غير كرون
+     * ولا عامل طابور. ده اللي بيخلّي التنبيهات شغّالة على الاستضافة
+     * المشتركة من غير أي إعداد.
+     *
+     * القنوات التانية (إيميل/واتساب/push) بتتحط في الطابور لأنها
+     * نداءات شبكة مش ينفع المستخدم يستنى عليها وهو بيحفظ فاتورة —
+     * وأصلاً مابتتبعتش غير لو مفاتيحها متظبّطة في `.env`.
+     *
+     * @param  Collection<int, User>  $recipients
+     * @param  LowStockAlert|DailyStockDigest  $notification
+     */
+    private function deliver(Collection $recipients, object $notification): void
+    {
+        Notification::sendNow($recipients, $notification->only(['database']));
+
+        $external = $this->preferences->externalChannels();
+
+        if ($external !== []) {
+            Notification::send($recipients, $notification->only($external));
         }
     }
 }

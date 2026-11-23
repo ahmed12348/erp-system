@@ -13,8 +13,11 @@ use App\Notifications\Erp\DailyStockDigest;
 use App\Notifications\Erp\LowStockAlert;
 use App\Services\NotificationPreferences;
 use App\Services\StockAlertService;
+use Illuminate\Console\Scheduling\Schedule;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Notifications\SendQueuedNotifications;
 use Illuminate\Support\Facades\Notification;
+use Illuminate\Support\Facades\Queue;
 use Tests\TestCase;
 
 /**
@@ -175,8 +178,11 @@ class NotificationTest extends TestCase
 
     public function test_the_digest_is_scheduled_daily(): void
     {
-        $this->artisan('schedule:list')
-            ->expectsOutputToContain('erp:stock-digest');
+        $event = collect(app(Schedule::class)->events())
+            ->first(fn ($event): bool => $event->description === 'ملخّص النواقص اليومي');
+
+        $this->assertNotNull($event, 'الملخّص اليومي مش متجدول.');
+        $this->assertSame('0 9 * * *', $event->expression);
     }
 
     // ── المستقبلين والتفضيلات ─────────────────────────────────────
@@ -192,6 +198,29 @@ class NotificationTest extends TestCase
         $this->assertNotEmpty($preferences->channelsFor($accountant, 'low_stock'));
         // المندوب مش من المستقبلين افتراضيًا
         $this->assertSame([], $preferences->channelsFor($sales, 'low_stock'));
+    }
+
+    /**
+     * الافتراضي هو الجرس وبس — حتى لو كل المفاتيح متظبّطة.
+     *
+     * القنوات الخارجية بتتفتح بقرار من المستخدم، مش لوحدها.
+     */
+    public function test_only_the_bell_is_on_by_default(): void
+    {
+        config()->set('notifications.whatsapp.token', 'token');
+        config()->set('notifications.whatsapp.phone_number_id', '123');
+        config()->set('notifications.push.public_key', 'pub');
+        config()->set('notifications.push.private_key', 'priv');
+
+        $preferences = app(NotificationPreferences::class);
+
+        foreach (['low_stock', 'out_of_stock', 'daily_digest'] as $type) {
+            $this->assertSame(
+                ['database'],
+                $preferences->channelsFor($this->admin, $type),
+                'النوع «'.$type.'» مفتوح على قناة غير الجرس افتراضيًا.',
+            );
+        }
     }
 
     public function test_a_user_can_turn_a_channel_off(): void
@@ -223,17 +252,42 @@ class NotificationTest extends TestCase
         $this->assertNotContains('whatsapp', $channels);
     }
 
-    public function test_the_settings_screen_shows_why_a_channel_is_off(): void
+    /**
+     * القناة المش متظبّطة مابتظهرش خالص.
+     *
+     * على سيرفر نضيف — من غير MAIL_ ولا VAPID_ ولا WHATSAPP_ — الشاشة
+     * بتبقى عمود واحد: الجرس. المستخدم مايشوفش خيار مش هيوصله منه حاجة.
+     */
+    public function test_the_settings_screen_hides_unconfigured_channels(): void
     {
         config()->set('notifications.whatsapp.token', null);
+        config()->set('notifications.push.public_key', null);
 
         $this->actingAs($this->admin)
             ->get('/settings/notifications')
             ->assertOk()
             ->assertInertia(fn ($page) => $page
                 ->component('settings/Notifications')
-                ->where('matrix.0.channels.3.available', false)
-                ->where('matrix.0.channels.3.reason', 'محتاج مفاتيح واتساب في إعدادات السيرفر.')
+                ->where('matrix.0.channels', fn ($channels): bool => collect($channels)
+                    ->pluck('key')
+                    ->all() === ['database'])
+                ->etc()
+            );
+    }
+
+    public function test_the_settings_screen_shows_a_channel_once_its_keys_exist(): void
+    {
+        config()->set('notifications.whatsapp.token', 'token');
+        config()->set('notifications.whatsapp.phone_number_id', '123');
+
+        $this->actingAs($this->admin)
+            ->get('/settings/notifications')
+            ->assertOk()
+            ->assertInertia(fn ($page) => $page
+                ->component('settings/Notifications')
+                ->where('matrix.0.channels', fn ($channels): bool => collect($channels)
+                    ->pluck('key')
+                    ->contains('whatsapp'))
                 ->etc()
             );
     }
@@ -252,6 +306,59 @@ class NotificationTest extends TestCase
     }
 
     // ── الجرس ─────────────────────────────────────────────────────
+
+    /**
+     * ده بيت القصيد في الاستضافة المشتركة: الجرس لازم يشتغل **من غير
+     * طابور ولا كرون**. بنزوّر الطابور خالص — لو التنبيه كان متعلّق
+     * عليه، الجرس هيفضل فاضي.
+     */
+    public function test_the_bell_is_filled_without_any_queue_worker(): void
+    {
+        Queue::fake();
+
+        $this->sell(45);
+
+        $this->assertDatabaseCount('notifications', 1);
+        Queue::assertNothingPushed();
+    }
+
+    public function test_the_digest_also_lands_in_the_bell(): void
+    {
+        Queue::fake();
+
+        $this->sell(45);
+        $this->admin->notifications()->delete();
+
+        $this->artisan('erp:stock-digest')->assertSuccessful();
+
+        $this->assertDatabaseCount('notifications', 1);
+        $this->assertSame(
+            'daily_digest',
+            $this->admin->notifications()->sole()->data['type'],
+        );
+        Queue::assertNothingPushed();
+    }
+
+    /** القنوات الخارجية بتدخل الطابور — والجرس بيفضل فوري */
+    public function test_a_configured_external_channel_goes_through_the_queue(): void
+    {
+        config()->set('notifications.whatsapp.token', 'token');
+        config()->set('notifications.whatsapp.phone_number_id', '123');
+
+        // القناة مقفولة افتراضيًا — المستخدم هو اللي بيفتحها
+        app(NotificationPreferences::class)->save($this->admin, [
+            'low_stock' => ['database' => true, 'whatsapp' => true],
+        ]);
+
+        Queue::fake();
+
+        $this->sell(45);
+
+        // الجرس اتملى على طول
+        $this->assertDatabaseCount('notifications', 1);
+        // والواتساب اتأجّل
+        Queue::assertPushed(SendQueuedNotifications::class);
+    }
 
     public function test_the_bell_lists_unread_first(): void
     {

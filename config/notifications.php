@@ -20,28 +20,30 @@ return [
             'label' => 'صنف نزل تحت حد الطلب',
             'description' => 'أول ما رصيد صنف ينزل تحت الحد — مرة واحدة، مش مع كل بيعة.',
             'roles' => ['admin', 'accountant'],
-            'default' => ['database' => true, 'mail' => true, 'push' => false, 'whatsapp' => false],
+            'default' => ['database' => true],
         ],
         'out_of_stock' => [
             'label' => 'صنف خلص',
             'description' => 'لما الرصيد يوصل صفر.',
             'roles' => ['admin', 'accountant'],
-            'default' => ['database' => true, 'mail' => true, 'push' => false, 'whatsapp' => false],
+            'default' => ['database' => true],
         ],
         'daily_digest' => [
             'label' => 'ملخّص النواقص اليومي',
             'description' => 'كل يوم 9 الصبح — كل الأصناف تحت حد الطلب في رسالة واحدة.',
             'roles' => ['admin', 'accountant'],
-            'default' => ['database' => true, 'mail' => true, 'push' => false, 'whatsapp' => false],
+            'default' => ['database' => true],
         ],
     ],
 
     /*
      * القنوات.
      *
-     * `requires` بيقول إيه اللي لازم يكون متظبّط عشان القناة تشتغل —
-     * القناة بتظهر في الإعدادات مقفولة ومكتوب جنبها الناقص بدل ما
-     * المستخدم يفعّلها ومايوصلهوش حاجة.
+     * **الجرس بس هو اللي شغّال من غير أي إعداد.** باقي القنوات بتتخفي
+     * خالص من شاشة الإعدادات لحد ما مفاتيحها تتحط في `.env` — النظام
+     * بيشتغل كامل من غير MAIL_ ولا VAPID_ ولا WHATSAPP_.
+     *
+     * `requires` بيقول إيه اللي لازم يكون متظبّط عشان القناة تظهر.
      */
     'channels' => [
         'database' => [
