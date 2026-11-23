@@ -19,6 +19,13 @@ return Application::configure(basePath: dirname(__DIR__))
         $middleware->encryptCookies(except: ['appearance', 'sidebar_state']);
 
         /*
+         * ويبهوك واتساب جاي من سيرفرات Meta مش من متصفّح، فمالوش
+         * توكن CSRF يبعته. الحماية هنا مش توكن: الرقم لازم يكون
+         * مربوط بحساب متأكّد، والتأكيد الأولي بـ verify_token سرّي.
+         */
+        $middleware->validateCsrfTokens(except: ['ai/whatsapp/webhook']);
+
+        /*
          * الاستضافة المشتركة بتنهي الـ TLS على بروكسي قدّام PHP، فمن غير
          * السطر ده url() و route() بيطلّعوا http:// جوه روابط اكتشاف الـ OAuth
          * و claude.ai بيرفض يكمّل. الثقة في X-Forwarded-* بتظبّط الـ scheme.
