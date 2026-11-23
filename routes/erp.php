@@ -8,6 +8,7 @@ use App\Http\Controllers\Erp\CustomerPaymentController;
 use App\Http\Controllers\Erp\DashboardController;
 use App\Http\Controllers\Erp\DraftInvoiceController;
 use App\Http\Controllers\Erp\EtaController;
+use App\Http\Controllers\Erp\ExportController;
 use App\Http\Controllers\Erp\InventoryController;
 use App\Http\Controllers\Erp\ProductAliasController;
 use App\Http\Controllers\Erp\ProductController;
@@ -127,4 +128,13 @@ Route::middleware(['auth', 'verified'])->group(function () {
     // التقارير
     Route::get('reports', [ReportController::class, 'index'])->name('reports.index');
     Route::get('reports/print', [ReportController::class, 'print'])->name('reports.print');
+
+    /*
+     * التحميل — PDF أو إكسيل. صفحات الطباعة فاضلة زي ما هي:
+     * الطباعة للورق، والتحميل للإرسال والأرشفة.
+     */
+    Route::get('exports/report', [ExportController::class, 'report'])->name('exports.report');
+    Route::get('exports/customers/{customer}', [ExportController::class, 'customerStatement'])->name('exports.customer');
+    Route::get('exports/suppliers/{supplier}', [ExportController::class, 'supplierStatement'])->name('exports.supplier');
+    Route::get('exports/invoices/{invoice}', [ExportController::class, 'invoice'])->name('exports.invoice');
 });

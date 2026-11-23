@@ -3,6 +3,7 @@ import { Head, router } from '@inertiajs/vue3';
 import { FileChartColumn, Printer, Warehouse } from '@lucide/vue';
 import { computed, reactive } from 'vue';
 import EmptyState from '@/components/EmptyState.vue';
+import DownloadMenu from '@/components/DownloadMenu.vue';
 import PageHeader from '@/components/PageHeader.vue';
 import ReportTable from '@/components/reports/ReportTable.vue';
 import SectionCard from '@/components/SectionCard.vue';
@@ -53,6 +54,15 @@ function openPrint() {
     window.open(`/reports/print?${params.toString()}`, '_blank');
 }
 
+/** نفس فلاتر الشاشة بتروح للتحميل، فالملف بيطابق اللي قدامك */
+const exportHref = computed(() => {
+    const params = new URLSearchParams(
+        state as unknown as Record<string, string>,
+    );
+
+    return `/exports/report?${params.toString()}`;
+});
+
 /** كل التقارير بترجع المفتاح rows — لو فاضي نعرض حالة فاضية بدل جدول بعناوين بس */
 const rowCount = computed(() => ((props.data.rows as unknown[]) ?? []).length);
 
@@ -77,6 +87,7 @@ const SELECT_CLASS =
                     <Printer class="size-4" />
                     طباعة / حفظ PDF
                 </Button>
+                <DownloadMenu :href="exportHref" />
             </template>
         </PageHeader>
 

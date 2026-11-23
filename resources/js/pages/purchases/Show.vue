@@ -2,6 +2,7 @@
 import { Head, Link } from '@inertiajs/vue3';
 import type { AttachmentItem } from '@/components/AttachmentPanel.vue';
 import AttachmentPanel from '@/components/AttachmentPanel.vue';
+import DownloadMenu from '@/components/DownloadMenu.vue';
 import PageHeader from '@/components/PageHeader.vue';
 import SectionCard from '@/components/SectionCard.vue';
 import {
@@ -84,7 +85,11 @@ const METHOD_LABELS: Record<string, string> = {
         <PageHeader
             :title="invoice.number"
             :description="`فاتورة شراء — ${formatDate(invoice.date)}`"
-        />
+        >
+            <template #actions>
+                <DownloadMenu :href="`/exports/invoices/${invoice.id}`" />
+            </template>
+        </PageHeader>
 
         <div class="grid gap-5 lg:grid-cols-3">
             <SectionCard title="بيانات المورد">

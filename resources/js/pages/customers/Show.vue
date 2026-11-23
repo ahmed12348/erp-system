@@ -5,6 +5,7 @@ import { ref } from 'vue';
 import RecordPaymentDialog from '@/components/customers/RecordPaymentDialog.vue';
 import EmptyState from '@/components/EmptyState.vue';
 import EtaBadge from '@/components/EtaBadge.vue';
+import DownloadMenu from '@/components/DownloadMenu.vue';
 import PageHeader from '@/components/PageHeader.vue';
 import SectionCard from '@/components/SectionCard.vue';
 import { Button } from '@/components/ui/button';
@@ -125,6 +126,10 @@ const KIND_TONE: Record<string, string> = {
                     <Printer class="size-4" />
                     طباعة كشف الحساب
                 </Button>
+                <DownloadMenu
+                    :href="`/exports/customers/${customer.id}`"
+                    label="تحميل الكشف"
+                />
                 <RecordPaymentDialog
                     :customer-id="customer.id"
                     :customer-name="customer.name"

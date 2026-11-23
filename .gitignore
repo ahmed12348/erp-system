@@ -43,3 +43,7 @@ yarn-error.log
 /boost.json
 /opencode.json
 /opencode.jsonc
+
+# خطوط الـ PDF المتضمّنة بتتعمل لها commit؛ كاش mPDF لأ
+!storage/fonts/
+storage/app/mpdf/

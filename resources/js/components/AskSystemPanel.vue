@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { Eraser, Send, Sparkles } from '@lucide/vue';
+import { Download, Eraser, Send, Sparkles } from '@lucide/vue';
 import { computed, nextTick, ref, watch } from 'vue';
 import { Button } from '@/components/ui/button';
 import {
@@ -63,6 +63,55 @@ function ask(question: string) {
     draft.value = question;
 
     return submit();
+}
+
+/**
+ * الرد فيه جدول؟
+ *
+ * الأدوات بتطلّع الجداول بصيغة `عمود | عمود` من `FormatsErpData` —
+ * الصيغة بتاعتنا إحنا، فالتحقق منها مضمون.
+ */
+function hasTable(text: string): boolean {
+    return text.split('\n').filter((line) => line.includes('|')).length >= 2;
+}
+
+/**
+ * بيبعت نص الرد للسيرفر عشان يحوّله ملف.
+ *
+ * بنستعمل فورم مخفي بدل fetch لأن المتصفح لازم يستقبل الملف كتحميل
+ * عادي — ملف جاي من fetch محتاج شغل زيادة بالـ blob من غير فايدة.
+ */
+function downloadTable(text: string, format: 'pdf' | 'excel') {
+    const form = document.createElement('form');
+
+    form.method = 'POST';
+    form.action = '/ai/export-table';
+    form.style.display = 'none';
+
+    const token =
+        document.cookie.match(/(?:^|;\s*)XSRF-TOKEN=([^;]+)/)?.[1] ?? '';
+
+    const fields: Record<string, string> = {
+        _token: decodeURIComponent(token),
+        text,
+        format,
+        title: current.value?.label
+            ? `نتيجة — ${current.value.label}`
+            : 'نتيجة من المساعد',
+    };
+
+    Object.entries(fields).forEach(([name, value]) => {
+        const input = document.createElement('input');
+
+        input.type = 'hidden';
+        input.name = name;
+        input.value = value;
+        form.appendChild(input);
+    });
+
+    document.body.appendChild(form);
+    form.submit();
+    form.remove();
 }
 
 /** Enter يبعت، Shift+Enter سطر جديد */
@@ -169,6 +218,27 @@ function onKeydown(event: KeyboardEvent) {
                         :data-test="`ask-message-${message.role}`"
                     >
                         {{ message.content }}
+
+                        <!-- الرد اللي فيه جدول ينفع يتحمّل زي ما هو -->
+                        <div
+                            v-if="
+                                message.role === 'assistant' &&
+                                hasTable(message.content)
+                            "
+                            class="mt-2 flex gap-2 border-t border-border/50 pt-2"
+                        >
+                            <button
+                                v-for="format in ['pdf', 'excel'] as const"
+                                :key="format"
+                                type="button"
+                                class="flex items-center gap-1 text-[11px] text-muted-foreground transition-colors hover:text-foreground"
+                                :data-test="`ask-download-${format}`"
+                                @click="downloadTable(message.content, format)"
+                            >
+                                <Download class="size-3" />
+                                {{ format === 'pdf' ? 'PDF' : 'إكسيل' }}
+                            </button>
+                        </div>
                     </div>
                 </div>
 

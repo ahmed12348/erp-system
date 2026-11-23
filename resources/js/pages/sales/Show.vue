@@ -5,6 +5,7 @@ import { computed, ref } from 'vue';
 import type { AttachmentItem } from '@/components/AttachmentPanel.vue';
 import AttachmentPanel from '@/components/AttachmentPanel.vue';
 import EtaBadge from '@/components/EtaBadge.vue';
+import DownloadMenu from '@/components/DownloadMenu.vue';
 import PageHeader from '@/components/PageHeader.vue';
 import SectionCard from '@/components/SectionCard.vue';
 import { Button } from '@/components/ui/button';
@@ -120,6 +121,7 @@ const METHOD_LABELS: Record<string, string> = {
                         طباعة
                     </a>
                 </Button>
+                <DownloadMenu :href="`/exports/invoices/${invoice.id}`" />
                 <Button
                     v-if="canSend"
                     :disabled="sending"

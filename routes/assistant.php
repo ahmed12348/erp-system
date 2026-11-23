@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\Ai\AskController;
+use App\Http\Controllers\Ai\ExportAgentTableController;
 use App\Http\Controllers\Ai\ScanInvoiceController;
 use Illuminate\Support\Facades\Route;
 
@@ -22,7 +23,10 @@ Route::middleware(['auth', 'verified'])->prefix('ai')->name('ai.')->group(functi
         Route::delete('chat', [AskController::class, 'destroy'])->name('chat.destroy');
     });
 
-    // «مسح فاتورة» — بيقرا الصورة ويرجّع بيانات الفورم، مش بيحفظ أي حاجة
+    // تحميل جدول من رد وكيل — PDF أو إكسيل
+    Route::post('export-table', ExportAgentTableController::class)->name('export-table');
+
+    // «مسح فاتورة» — بيقرا الصورة ويعمل مسودة
     Route::post('scan-invoice', ScanInvoiceController::class)
         ->middleware('throttle:ai-scan')
         ->name('scan-invoice');

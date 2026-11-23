@@ -2,6 +2,7 @@
 import { Head, Link, useForm } from '@inertiajs/vue3';
 import { ref } from 'vue';
 import InputError from '@/components/InputError.vue';
+import DownloadMenu from '@/components/DownloadMenu.vue';
 import PageHeader from '@/components/PageHeader.vue';
 import SectionCard from '@/components/SectionCard.vue';
 import { Button } from '@/components/ui/button';
@@ -110,6 +111,10 @@ const SELECT_CLASS =
             :description="`${supplier.country ?? ''} · التعامل بالـ ${supplier.currency}`"
         >
             <template #actions>
+                <DownloadMenu
+                    :href="`/exports/suppliers/${supplier.id}`"
+                    label="تحميل الكشف"
+                />
                 <Dialog v-model:open="open">
                     <Button
                         data-test="open-supplier-payment"
