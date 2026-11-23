@@ -1,1 +1,7 @@
-import{i as e}from"./Presence-BI6XYFRa.js";import{J as t,Xn as n}from"./dist-C0kHilBU.js";function r(r){let i=e({dir:n(`ltr`)});return t(()=>r?.value||i.dir?.value||`ltr`)}export{r as t};
+import { i as e } from './Presence-BI6XYFRa.js';
+import { J as t, Xn as n } from './dist-C0kHilBU.js';
+function r(r) {
+    let i = e({ dir: n(`ltr`) });
+    return t(() => r?.value || i.dir?.value || `ltr`);
+}
+export { r as t };

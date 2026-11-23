@@ -5,6 +5,7 @@ import AppearanceToggle from '@/components/AppearanceToggle.vue';
 import AskSystemButton from '@/components/AskSystemButton.vue';
 import Breadcrumbs from '@/components/Breadcrumbs.vue';
 import LowStockBell from '@/components/LowStockBell.vue';
+import NotificationBell from '@/components/NotificationBell.vue';
 import { SidebarTrigger } from '@/components/ui/sidebar';
 import { formatDateLong } from '@/lib/format';
 import type { BreadcrumbItem } from '@/types';
@@ -44,6 +45,7 @@ const today = computed(() => formatDateLong(page.props.today));
                 {{ today }}
             </span>
             <AskSystemButton />
+            <NotificationBell />
             <LowStockBell />
             <AppearanceToggle />
         </div>

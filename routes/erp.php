@@ -10,6 +10,7 @@ use App\Http\Controllers\Erp\DraftInvoiceController;
 use App\Http\Controllers\Erp\EtaController;
 use App\Http\Controllers\Erp\ExportController;
 use App\Http\Controllers\Erp\InventoryController;
+use App\Http\Controllers\Erp\NotificationController;
 use App\Http\Controllers\Erp\ProductAliasController;
 use App\Http\Controllers\Erp\ProductController;
 use App\Http\Controllers\Erp\PurchaseInvoiceController;
@@ -72,6 +73,14 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::delete('suppliers/{supplier}', [SupplierController::class, 'destroy'])->name('suppliers.destroy');
     Route::get('suppliers/{supplier}', [SupplierController::class, 'show'])->name('suppliers.show');
     Route::post('suppliers/{supplier}/payments', [SupplierController::class, 'storePayment'])->name('suppliers.payments.store');
+
+    // التنبيهات — الجرس وإعداداته
+    Route::get('notifications', [NotificationController::class, 'index'])->name('notifications.index');
+    Route::post('notifications/read', [NotificationController::class, 'markRead'])->name('notifications.read');
+    Route::get('settings/notifications', [NotificationController::class, 'settings'])->name('notifications.settings');
+    Route::put('settings/notifications', [NotificationController::class, 'updateSettings'])->name('notifications.settings.update');
+    Route::post('notifications/push', [NotificationController::class, 'subscribePush'])->name('notifications.push.subscribe');
+    Route::delete('notifications/push', [NotificationController::class, 'unsubscribePush'])->name('notifications.push.unsubscribe');
 
     // المخزون
     Route::get('inventory', [InventoryController::class, 'index'])->name('inventory.index');

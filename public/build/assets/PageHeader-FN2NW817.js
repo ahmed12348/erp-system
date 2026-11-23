@@ -1,1 +1,37 @@
-import{$t as e,Kt as t,Q as n,Y as r,Z as i,fr as a,st as o}from"./dist-C0kHilBU.js";var s={class:`flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between`},c={class:`min-w-0 space-y-1`},l={class:`truncate text-2xl font-bold tracking-tight`},u={key:0,class:`text-sm text-muted-foreground`},d={key:0,class:`flex shrink-0 items-center gap-2`},f=o({__name:`PageHeader`,props:{title:{},description:{}},setup(o){return(f,p)=>(t(),n(`div`,s,[r(`div`,c,[r(`h1`,l,a(o.title),1),o.description?(t(),n(`p`,u,a(o.description),1)):i(``,!0)]),f.$slots.actions?(t(),n(`div`,d,[e(f.$slots,`actions`)])):i(``,!0)]))}});export{f as t};
+import {
+    $t as e,
+    Kt as t,
+    Q as n,
+    Y as r,
+    Z as i,
+    fr as a,
+    st as o,
+} from './dist-C0kHilBU.js';
+var s = {
+        class: `flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between`,
+    },
+    c = { class: `min-w-0 space-y-1` },
+    l = { class: `truncate text-2xl font-bold tracking-tight` },
+    u = { key: 0, class: `text-sm text-muted-foreground` },
+    d = { key: 0, class: `flex shrink-0 items-center gap-2` },
+    f = o({
+        __name: `PageHeader`,
+        props: { title: {}, description: {} },
+        setup(o) {
+            return (f, p) => (
+                t(),
+                n(`div`, s, [
+                    r(`div`, c, [
+                        r(`h1`, l, a(o.title), 1),
+                        o.description
+                            ? (t(), n(`p`, u, a(o.description), 1))
+                            : i(``, !0),
+                    ]),
+                    f.$slots.actions
+                        ? (t(), n(`div`, d, [e(f.$slots, `actions`)]))
+                        : i(``, !0),
+                ])
+            );
+        },
+    });
+export { f as t };

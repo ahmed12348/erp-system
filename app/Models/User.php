@@ -12,6 +12,7 @@ use Illuminate\Database\Eloquent\Attributes\Hidden;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 use Illuminate\Support\Carbon;
@@ -72,7 +73,34 @@ class User extends Authenticatable implements MustVerifyEmail, OAuthenticatable,
             'password' => 'hashed',
             'two_factor_confirmed_at' => 'datetime',
             'last_login_at' => 'datetime',
+            'whatsapp_verified_at' => 'datetime',
+            'whatsapp_code_expires_at' => 'datetime',
         ];
+    }
+
+    /** @return HasOne<NotificationSetting, $this> */
+    public function notificationSetting(): HasOne
+    {
+        return $this->hasOne(NotificationSetting::class);
+    }
+
+    /** @return HasMany<PushSubscription, $this> */
+    public function pushSubscriptions(): HasMany
+    {
+        return $this->hasMany(PushSubscription::class);
+    }
+
+    /**
+     * رقم الواتساب للإرسال — المتحقّق منه بس.
+     *
+     * رقم مكتوب ومتأكّدش منه ممكن يكون غلط ويبعت بيانات الشركة لحد
+     * تاني خالص، فالتحقق شرط مش رفاهية.
+     */
+    public function routeNotificationForWhatsApp(): ?string
+    {
+        return $this->whatsapp_verified_at !== null
+            ? $this->whatsapp_number
+            : null;
     }
 
     /**

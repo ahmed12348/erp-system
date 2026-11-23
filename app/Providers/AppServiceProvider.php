@@ -2,6 +2,8 @@
 
 namespace App\Providers;
 
+use App\Channels\WebPushChannel;
+use App\Channels\WhatsAppChannel;
 use App\Enums\ErpAbility;
 use App\Listeners\RecordAuthActivity;
 use App\Models\User;
@@ -15,6 +17,7 @@ use Illuminate\Support\Facades\Date;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Event;
 use Illuminate\Support\Facades\Gate;
+use Illuminate\Support\Facades\Notification;
 use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\ServiceProvider;
@@ -41,7 +44,20 @@ class AppServiceProvider extends ServiceProvider
         $this->configureAbilities();
         $this->configureAiRateLimits();
         $this->configureActivityLog();
+        $this->configureNotificationChannels();
         Schema::defaultStringLength(191);
+    }
+
+    /**
+     * قنوات التنبيهات المخصّصة.
+     *
+     * الاتنين بيسكتوا لو مفاتيحهم مش متظبّطة، فالنوتيفيكيشن ما بيوقعش
+     * لو واحدة منهم مش جاهزة.
+     */
+    protected function configureNotificationChannels(): void
+    {
+        Notification::extend('whatsapp', fn () => app(WhatsAppChannel::class));
+        Notification::extend('push', fn () => app(WebPushChannel::class));
     }
 
     /**

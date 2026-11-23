@@ -95,6 +95,15 @@ class InvoiceService
                 );
             }
 
+            /*
+             * فحص النواقص بعد ما المعاملة تخلص بنجاح — مش جواها.
+             * التنبيه مايتبعتش على بيع اتلغى، والقراءة بتشوف الأرصدة
+             * النهائية مش نص الحركة.
+             */
+            $productIds = array_map(fn (array $line): int => $line['product']->id, $lines);
+
+            DB::afterCommit(fn () => app(StockAlertService::class)->check($productIds));
+
             return $invoice->fresh(['items', 'customer']);
         });
     }

@@ -113,6 +113,15 @@ class PurchaseService
                 $line['product']->forceFill(['purchase_price' => $unitCost])->save();
             }
 
+            /*
+             * الشراء بيعبّي المخزن، فالصنف اللي كان ناقص بيطلع فوق
+             * الحد — والحالة لازم تتحدّث، وإلا التنبيه الجاي مش هيشتغل
+             * لما ينزل تاني.
+             */
+            $productIds = array_map(fn (array $line): int => $line['product']->id, $lines);
+
+            DB::afterCommit(fn () => app(StockAlertService::class)->check($productIds));
+
             return $invoice->fresh(['items', 'supplier']);
         });
     }

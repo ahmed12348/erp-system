@@ -1,0 +1,446 @@
+import {
+    Kt as e,
+    Q as t,
+    Qt as n,
+    R as r,
+    Tn as i,
+    X as a,
+    Y as o,
+    Z as s,
+    fr as c,
+    it as l,
+    or as u,
+    st as d,
+} from './dist-C0kHilBU.js';
+import { _ as f, b as p, h as m } from './app-CZp4sxGj.js';
+import { t as h } from './PrintSheet-CUaJYZj0.js';
+var g = { class: `mt-6 grid grid-cols-2 gap-6 text-sm` },
+    _ = { class: `text-base font-bold` },
+    v = { class: `mt-0.5 text-neutral-600` },
+    y = { key: 0, class: `mt-0.5 text-neutral-600` },
+    b = { dir: `ltr` },
+    x = { class: `space-y-1 text-sm` },
+    S = { class: `flex justify-between` },
+    C = { class: `font-semibold` },
+    w = { key: 0, class: `flex justify-between` },
+    T = { class: `font-semibold` },
+    E = { class: `flex justify-between` },
+    D = { class: `font-semibold` },
+    O = { key: 1, class: `flex justify-between gap-2` },
+    k = { dir: `ltr`, class: `truncate font-mono text-[11px]` },
+    A = { class: `mt-7 w-full border-collapse text-[13px]` },
+    j = { class: `border border-neutral-300 px-2 py-1.5 tabular-nums` },
+    M = { class: `border border-neutral-300 px-2 py-1.5` },
+    N = { class: `border border-neutral-300 px-2 py-1.5 tabular-nums` },
+    ee = {
+        class: `border border-neutral-300 px-2 py-1.5 whitespace-nowrap tabular-nums`,
+    },
+    P = {
+        class: `border border-neutral-300 px-2 py-1.5 whitespace-nowrap tabular-nums`,
+    },
+    F = {
+        class: `border border-neutral-300 px-2 py-1.5 whitespace-nowrap tabular-nums`,
+    },
+    I = {
+        class: `border border-neutral-300 px-2 py-1.5 font-semibold whitespace-nowrap tabular-nums`,
+    },
+    L = { class: `mt-5 flex justify-start` },
+    R = { class: `w-72 space-y-1 text-sm` },
+    z = { class: `flex justify-between` },
+    B = { class: `tabular-nums` },
+    V = { key: 0, class: `flex justify-between` },
+    H = { class: `tabular-nums` },
+    U = { class: `flex justify-between` },
+    W = { class: `tabular-nums` },
+    G = {
+        class: `flex justify-between border-t-2 border-neutral-800 pt-1.5 text-base font-bold`,
+    },
+    K = { class: `tabular-nums` },
+    q = { class: `flex justify-between pt-1` },
+    J = { class: `tabular-nums` },
+    Y = { class: `flex justify-between font-semibold` },
+    X = { class: `tabular-nums` },
+    Z = { key: 0, class: `mt-5 text-xs text-neutral-600` },
+    Q = d({
+        __name: `SaleInvoice`,
+        props: { company: {}, invoice: {}, printedAt: {} },
+        setup(d) {
+            return (Q, $) => (
+                e(),
+                a(
+                    h,
+                    {
+                        company: d.company,
+                        title:
+                            d.invoice.type === `sale`
+                                ? `فاتورة بيع`
+                                : `مرتجع مبيعات`,
+                        subtitle: `رقم ${d.invoice.number}`,
+                        'printed-at': d.printedAt,
+                    },
+                    {
+                        default: i(() => [
+                            o(`section`, g, [
+                                o(`div`, null, [
+                                    ($[1] ||= o(
+                                        `p`,
+                                        {
+                                            class: `mb-1 text-xs font-semibold text-neutral-500`,
+                                        },
+                                        ` فاتورة إلى `,
+                                        -1,
+                                    )),
+                                    o(
+                                        `p`,
+                                        _,
+                                        c(d.invoice.customer?.name ?? `—`),
+                                        1,
+                                    ),
+                                    o(`p`, v, [
+                                        l(
+                                            c(d.invoice.customer?.city ?? `—`) +
+                                                ` `,
+                                            1,
+                                        ),
+                                        d.invoice.customer?.address
+                                            ? (e(),
+                                              t(
+                                                  r,
+                                                  { key: 0 },
+                                                  [
+                                                      l(
+                                                          ` — ` +
+                                                              c(
+                                                                  d.invoice
+                                                                      .customer
+                                                                      .address,
+                                                              ),
+                                                          1,
+                                                      ),
+                                                  ],
+                                                  64,
+                                              ))
+                                            : s(``, !0),
+                                    ]),
+                                    d.invoice.customer?.phone
+                                        ? (e(),
+                                          t(`p`, y, [
+                                              ($[0] ||= l(` تليفون: `, -1)),
+                                              o(
+                                                  `span`,
+                                                  b,
+                                                  c(d.invoice.customer.phone),
+                                                  1,
+                                              ),
+                                          ]))
+                                        : s(``, !0),
+                                ]),
+                                o(`div`, x, [
+                                    o(`div`, S, [
+                                        ($[2] ||= o(
+                                            `span`,
+                                            { class: `text-neutral-500` },
+                                            `تاريخ الفاتورة`,
+                                            -1,
+                                        )),
+                                        o(
+                                            `span`,
+                                            C,
+                                            c(u(m)(d.invoice.date)),
+                                            1,
+                                        ),
+                                    ]),
+                                    d.invoice.dueDate
+                                        ? (e(),
+                                          t(`div`, w, [
+                                              ($[3] ||= o(
+                                                  `span`,
+                                                  { class: `text-neutral-500` },
+                                                  `تاريخ الاستحقاق`,
+                                                  -1,
+                                              )),
+                                              o(
+                                                  `span`,
+                                                  T,
+                                                  c(u(m)(d.invoice.dueDate)),
+                                                  1,
+                                              ),
+                                          ]))
+                                        : s(``, !0),
+                                    o(`div`, E, [
+                                        ($[4] ||= o(
+                                            `span`,
+                                            { class: `text-neutral-500` },
+                                            `المخزن`,
+                                            -1,
+                                        )),
+                                        o(
+                                            `span`,
+                                            D,
+                                            c(d.invoice.warehouse ?? `—`),
+                                            1,
+                                        ),
+                                    ]),
+                                    d.invoice.etaUuid
+                                        ? (e(),
+                                          t(`div`, O, [
+                                              ($[5] ||= o(
+                                                  `span`,
+                                                  {
+                                                      class: `shrink-0 text-neutral-500`,
+                                                  },
+                                                  `المرجع الإلكتروني`,
+                                                  -1,
+                                              )),
+                                              o(
+                                                  `span`,
+                                                  k,
+                                                  c(d.invoice.etaUuid),
+                                                  1,
+                                              ),
+                                          ]))
+                                        : s(``, !0),
+                                ]),
+                            ]),
+                            o(`table`, A, [
+                                ($[6] ||= o(
+                                    `thead`,
+                                    null,
+                                    [
+                                        o(
+                                            `tr`,
+                                            { class: `bg-neutral-100 text-xs` },
+                                            [
+                                                o(
+                                                    `th`,
+                                                    {
+                                                        class: `w-8 border border-neutral-300 px-2 py-2 text-start font-semibold`,
+                                                    },
+                                                    ` م `,
+                                                ),
+                                                o(
+                                                    `th`,
+                                                    {
+                                                        class: `border border-neutral-300 px-2 py-2 text-start font-semibold`,
+                                                    },
+                                                    ` الصنف `,
+                                                ),
+                                                o(
+                                                    `th`,
+                                                    {
+                                                        class: `border border-neutral-300 px-2 py-2 text-start font-semibold`,
+                                                    },
+                                                    ` الكود `,
+                                                ),
+                                                o(
+                                                    `th`,
+                                                    {
+                                                        class: `border border-neutral-300 px-2 py-2 text-start font-semibold`,
+                                                    },
+                                                    ` الكمية `,
+                                                ),
+                                                o(
+                                                    `th`,
+                                                    {
+                                                        class: `border border-neutral-300 px-2 py-2 text-start font-semibold`,
+                                                    },
+                                                    ` السعر `,
+                                                ),
+                                                o(
+                                                    `th`,
+                                                    {
+                                                        class: `border border-neutral-300 px-2 py-2 text-start font-semibold`,
+                                                    },
+                                                    ` الخصم `,
+                                                ),
+                                                o(
+                                                    `th`,
+                                                    {
+                                                        class: `border border-neutral-300 px-2 py-2 text-start font-semibold`,
+                                                    },
+                                                    ` الإجمالي `,
+                                                ),
+                                            ],
+                                        ),
+                                    ],
+                                    -1,
+                                )),
+                                o(`tbody`, null, [
+                                    (e(!0),
+                                    t(
+                                        r,
+                                        null,
+                                        n(
+                                            d.invoice.items,
+                                            (n, r) => (
+                                                e(),
+                                                t(`tr`, { key: n.id }, [
+                                                    o(`td`, j, c(r + 1), 1),
+                                                    o(`td`, M, c(n.name), 1),
+                                                    o(`td`, N, c(n.sku), 1),
+                                                    o(
+                                                        `td`,
+                                                        ee,
+                                                        c(
+                                                            u(p)(
+                                                                n.quantity,
+                                                                n.unit,
+                                                            ),
+                                                        ),
+                                                        1,
+                                                    ),
+                                                    o(
+                                                        `td`,
+                                                        P,
+                                                        c(u(f)(n.unitPrice)),
+                                                        1,
+                                                    ),
+                                                    o(
+                                                        `td`,
+                                                        F,
+                                                        c(
+                                                            n.discount > 0
+                                                                ? u(f)(
+                                                                      n.discount,
+                                                                  )
+                                                                : `—`,
+                                                        ),
+                                                        1,
+                                                    ),
+                                                    o(
+                                                        `td`,
+                                                        I,
+                                                        c(u(f)(n.total)),
+                                                        1,
+                                                    ),
+                                                ])
+                                            ),
+                                        ),
+                                        128,
+                                    )),
+                                ]),
+                            ]),
+                            o(`section`, L, [
+                                o(`dl`, R, [
+                                    o(`div`, z, [
+                                        ($[7] ||= o(
+                                            `dt`,
+                                            { class: `text-neutral-500` },
+                                            `إجمالي البنود`,
+                                            -1,
+                                        )),
+                                        o(
+                                            `dd`,
+                                            B,
+                                            c(u(f)(d.invoice.subtotal)),
+                                            1,
+                                        ),
+                                    ]),
+                                    d.invoice.discount > 0
+                                        ? (e(),
+                                          t(`div`, V, [
+                                              ($[8] ||= o(
+                                                  `dt`,
+                                                  { class: `text-neutral-500` },
+                                                  `خصم`,
+                                                  -1,
+                                              )),
+                                              o(
+                                                  `dd`,
+                                                  H,
+                                                  ` − ` +
+                                                      c(
+                                                          u(f)(
+                                                              d.invoice
+                                                                  .discount,
+                                                          ),
+                                                      ),
+                                                  1,
+                                              ),
+                                          ]))
+                                        : s(``, !0),
+                                    o(`div`, U, [
+                                        ($[9] ||= o(
+                                            `dt`,
+                                            { class: `text-neutral-500` },
+                                            `ضريبة القيمة المضافة`,
+                                            -1,
+                                        )),
+                                        o(`dd`, W, c(u(f)(d.invoice.tax)), 1),
+                                    ]),
+                                    o(`div`, G, [
+                                        ($[10] ||= o(
+                                            `dt`,
+                                            null,
+                                            `الإجمالي`,
+                                            -1,
+                                        )),
+                                        o(`dd`, K, c(u(f)(d.invoice.total)), 1),
+                                    ]),
+                                    o(`div`, q, [
+                                        ($[11] ||= o(
+                                            `dt`,
+                                            { class: `text-neutral-500` },
+                                            `المدفوع`,
+                                            -1,
+                                        )),
+                                        o(`dd`, J, c(u(f)(d.invoice.paid)), 1),
+                                    ]),
+                                    o(`div`, Y, [
+                                        ($[12] ||= o(
+                                            `dt`,
+                                            null,
+                                            `المتبقي`,
+                                            -1,
+                                        )),
+                                        o(
+                                            `dd`,
+                                            X,
+                                            c(u(f)(d.invoice.remaining)),
+                                            1,
+                                        ),
+                                    ]),
+                                ]),
+                            ]),
+                            d.invoice.notes
+                                ? (e(),
+                                  t(
+                                      `p`,
+                                      Z,
+                                      ` ملاحظات: ` + c(d.invoice.notes),
+                                      1,
+                                  ))
+                                : s(``, !0),
+                            ($[13] ||= o(
+                                `section`,
+                                {
+                                    class: `mt-12 grid grid-cols-2 gap-10 text-xs text-neutral-600`,
+                                },
+                                [
+                                    o(
+                                        `div`,
+                                        {
+                                            class: `border-t border-neutral-400 pt-2 text-center`,
+                                        },
+                                        ` توقيع المسؤول `,
+                                    ),
+                                    o(
+                                        `div`,
+                                        {
+                                            class: `border-t border-neutral-400 pt-2 text-center`,
+                                        },
+                                        ` توقيع المستلم `,
+                                    ),
+                                ],
+                                -1,
+                            )),
+                        ]),
+                        _: 1,
+                    },
+                    8,
+                    [`company`, `title`, `subtitle`, `printed-at`],
+                )
+            );
+        },
+    });
+export { Q as default };

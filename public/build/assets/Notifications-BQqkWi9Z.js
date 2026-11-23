@@ -1,0 +1,553 @@
+import {
+    Kt as e,
+    Q as t,
+    Qt as n,
+    R as r,
+    Tn as i,
+    X as a,
+    Xn as o,
+    Y as s,
+    Z as c,
+    at as l,
+    fr as u,
+    it as d,
+    o as f,
+    or as p,
+    r as m,
+    st as h,
+} from './dist-C0kHilBU.js';
+import { t as g } from './button-BRBVuDNP.js';
+import { t as _ } from './Checkbox-DtKgTbda.js';
+import { t as v } from './createLucideIcon-C6NZ5pDL.js';
+import { C as y, J as b, _t as x } from './app-CZp4sxGj.js';
+import { t as S } from './PageHeader-FN2NW817.js';
+import { t as C } from './SectionCard-sO5uXxKO.js';
+var w = v({
+        name: `bell-ring`,
+        size: 24,
+        node: [
+            [`path`, { d: `M10.268 21a2 2 0 0 0 3.464 0`, key: `vwvbt9` }],
+            [`path`, { d: `M22 8c0-2.3-.8-4.3-2-6`, key: `5bb3ad` }],
+            [
+                `path`,
+                {
+                    d: `M3.262 15.326A1 1 0 0 0 4 17h16a1 1 0 0 0 .74-1.673C19.41 13.956 18 12.499 18 8A6 6 0 0 0 6 8c0 4.499-1.411 5.956-2.738 7.326`,
+                    key: `11g9vi`,
+                },
+            ],
+            [`path`, { d: `M4 2C2.8 3.7 2 5.7 2 8`, key: `tap9e0` }],
+        ],
+    }),
+    T = { class: `flex flex-1 flex-col gap-5 p-4 md:p-6` },
+    E = { class: `scrollbar-thin overflow-x-auto` },
+    D = { class: `w-full text-sm` },
+    O = { class: `border-b border-border text-xs text-muted-foreground` },
+    k = {
+        key: 0,
+        class: `block text-[10px] font-normal text-muted-foreground`,
+    },
+    A = { class: `divide-y divide-border` },
+    j = { class: `px-5 py-3` },
+    M = { class: `font-medium` },
+    N = { class: `text-xs text-muted-foreground` },
+    P = { key: 0, class: `mt-1 block text-[10px] text-muted-foreground` },
+    F = { class: `flex justify-end border-t border-border p-4` },
+    I = { class: `space-y-3` },
+    L = {
+        key: 0,
+        class: `text-sm text-muted-foreground`,
+        'data-test': `push-unavailable`,
+    },
+    R = { key: 1, class: `flex items-center gap-3` },
+    z = { class: `flex items-center gap-1.5 text-sm text-status-good` },
+    B = { key: 2, class: `text-sm text-destructive` },
+    V = { key: 0, class: `text-sm text-muted-foreground` },
+    H = { key: 1, class: `text-sm text-muted-foreground` },
+    U = { key: 2, class: `flex items-center gap-1.5 text-sm text-status-good` },
+    W = h({
+        layout: (e) => ({ breadcrumbs: e.breadcrumbs }),
+        __name: `Notifications`,
+        props: { matrix: {}, push: {}, whatsapp: {}, breadcrumbs: {} },
+        setup(h) {
+            let v = h,
+                W = o(
+                    Object.fromEntries(
+                        v.matrix.map((e) => [
+                            e.key,
+                            Object.fromEntries(
+                                e.channels.map((e) => [e.key, e.enabled]),
+                            ),
+                        ]),
+                    ),
+                ),
+                G = f({ channels: W.value });
+            function K(e, t, n) {
+                W.value = { ...W.value, [e]: { ...W.value[e], [t]: n } };
+            }
+            function q() {
+                ((G.channels = W.value),
+                    G.put(`/settings/notifications`, { preserveScroll: !0 }));
+            }
+            let J = o(!1),
+                Y = o(v.push.subscribed),
+                X = o(null);
+            function Z(e) {
+                let t = (e + `=`.repeat((4 - (e.length % 4)) % 4))
+                        .replace(/-/g, `+`)
+                        .replace(/_/g, `/`),
+                    n = window.atob(t),
+                    r = new Uint8Array(new ArrayBuffer(n.length));
+                for (let e = 0; e < n.length; e++) r[e] = n.charCodeAt(e);
+                return r.buffer;
+            }
+            async function Q() {
+                ((J.value = !0), (X.value = null));
+                try {
+                    if (
+                        !(`serviceWorker` in navigator) ||
+                        !(`PushManager` in window)
+                    ) {
+                        X.value = `المتصفح ده مابيدعمش إشعارات الويب.`;
+                        return;
+                    }
+                    if (
+                        (await Notification.requestPermission()) !== `granted`
+                    ) {
+                        X.value = `الإذن اترفض. لازم تسمح بالإشعارات من إعدادات المتصفح.`;
+                        return;
+                    }
+                    let e = await (
+                        await navigator.serviceWorker.register(`/sw.js`)
+                    ).pushManager.subscribe({
+                        userVisibleOnly: !0,
+                        applicationServerKey: Z(v.push.publicKey ?? ``),
+                    });
+                    (await y(`/notifications/push`, {
+                        method: `POST`,
+                        body: JSON.parse(JSON.stringify(e)),
+                    }),
+                        (Y.value = !0));
+                } catch {
+                    X.value = `مقدرتش أفعّل الإشعارات. جرّب تاني.`;
+                } finally {
+                    J.value = !1;
+                }
+            }
+            async function $() {
+                J.value = !0;
+                try {
+                    let e = await (
+                        await navigator.serviceWorker.getRegistration()
+                    )?.pushManager.getSubscription();
+                    (await e?.unsubscribe(),
+                        await y(`/notifications/push`, {
+                            method: `DELETE`,
+                            body: { endpoint: e?.endpoint ?? `` },
+                        }),
+                        (Y.value = !1));
+                } catch {
+                    X.value = `مقدرتش أقفل الإشعارات.`;
+                } finally {
+                    J.value = !1;
+                }
+            }
+            return (o, f) => (
+                e(),
+                t(
+                    r,
+                    null,
+                    [
+                        l(p(m), { title: `إعدادات التنبيهات` }),
+                        s(`div`, T, [
+                            l(S, {
+                                title: `إعدادات التنبيهات`,
+                                description: `اختار تستقبل إيه وفين — كل مستخدم له إعداداته`,
+                            }),
+                            l(
+                                C,
+                                { flush: `` },
+                                {
+                                    default: i(() => [
+                                        s(`div`, E, [
+                                            s(`table`, D, [
+                                                s(`thead`, O, [
+                                                    s(`tr`, null, [
+                                                        (f[0] ||= s(
+                                                            `th`,
+                                                            {
+                                                                class: `px-5 py-3 text-start font-medium`,
+                                                            },
+                                                            ` التنبيه `,
+                                                            -1,
+                                                        )),
+                                                        (e(!0),
+                                                        t(
+                                                            r,
+                                                            null,
+                                                            n(
+                                                                h.matrix[0]
+                                                                    ?.channels ??
+                                                                    [],
+                                                                (n) => (
+                                                                    e(),
+                                                                    t(
+                                                                        `th`,
+                                                                        {
+                                                                            key: n.key,
+                                                                            class: `w-28 px-3 py-3 text-center font-medium`,
+                                                                        },
+                                                                        [
+                                                                            d(
+                                                                                u(
+                                                                                    n.label,
+                                                                                ) +
+                                                                                    ` `,
+                                                                                1,
+                                                                            ),
+                                                                            n.available
+                                                                                ? c(
+                                                                                      ``,
+                                                                                      !0,
+                                                                                  )
+                                                                                : (e(),
+                                                                                  t(
+                                                                                      `span`,
+                                                                                      k,
+                                                                                      ` مش متاح `,
+                                                                                  )),
+                                                                        ],
+                                                                    )
+                                                                ),
+                                                            ),
+                                                            128,
+                                                        )),
+                                                    ]),
+                                                ]),
+                                                s(`tbody`, A, [
+                                                    (e(!0),
+                                                    t(
+                                                        r,
+                                                        null,
+                                                        n(
+                                                            h.matrix,
+                                                            (i) => (
+                                                                e(),
+                                                                t(
+                                                                    `tr`,
+                                                                    {
+                                                                        key: i.key,
+                                                                    },
+                                                                    [
+                                                                        s(
+                                                                            `td`,
+                                                                            j,
+                                                                            [
+                                                                                s(
+                                                                                    `p`,
+                                                                                    M,
+                                                                                    u(
+                                                                                        i.label,
+                                                                                    ),
+                                                                                    1,
+                                                                                ),
+                                                                                s(
+                                                                                    `p`,
+                                                                                    N,
+                                                                                    u(
+                                                                                        i.description,
+                                                                                    ),
+                                                                                    1,
+                                                                                ),
+                                                                            ],
+                                                                        ),
+                                                                        (e(!0),
+                                                                        t(
+                                                                            r,
+                                                                            null,
+                                                                            n(
+                                                                                i.channels,
+                                                                                (
+                                                                                    n,
+                                                                                ) => (
+                                                                                    e(),
+                                                                                    t(
+                                                                                        `td`,
+                                                                                        {
+                                                                                            key: n.key,
+                                                                                            class: `px-3 py-3 text-center`,
+                                                                                        },
+                                                                                        [
+                                                                                            l(
+                                                                                                p(
+                                                                                                    _,
+                                                                                                ),
+                                                                                                {
+                                                                                                    'model-value':
+                                                                                                        W
+                                                                                                            .value[
+                                                                                                            i
+                                                                                                                .key
+                                                                                                        ]?.[
+                                                                                                            n
+                                                                                                                .key
+                                                                                                        ] ??
+                                                                                                        !1,
+                                                                                                    disabled:
+                                                                                                        !n.available,
+                                                                                                    'aria-label': `${i.label} — ${n.label}`,
+                                                                                                    'data-test': `toggle-${i.key}-${n.key}`,
+                                                                                                    'onUpdate:modelValue':
+                                                                                                        (
+                                                                                                            e,
+                                                                                                        ) =>
+                                                                                                            K(
+                                                                                                                i.key,
+                                                                                                                n.key,
+                                                                                                                e ===
+                                                                                                                    !0,
+                                                                                                            ),
+                                                                                                },
+                                                                                                null,
+                                                                                                8,
+                                                                                                [
+                                                                                                    `model-value`,
+                                                                                                    `disabled`,
+                                                                                                    `aria-label`,
+                                                                                                    `data-test`,
+                                                                                                    `onUpdate:modelValue`,
+                                                                                                ],
+                                                                                            ),
+                                                                                            n.reason
+                                                                                                ? (e(),
+                                                                                                  t(
+                                                                                                      `span`,
+                                                                                                      P,
+                                                                                                      u(
+                                                                                                          n.reason,
+                                                                                                      ),
+                                                                                                      1,
+                                                                                                  ))
+                                                                                                : c(
+                                                                                                      ``,
+                                                                                                      !0,
+                                                                                                  ),
+                                                                                        ],
+                                                                                    )
+                                                                                ),
+                                                                            ),
+                                                                            128,
+                                                                        )),
+                                                                    ],
+                                                                )
+                                                            ),
+                                                        ),
+                                                        128,
+                                                    )),
+                                                ]),
+                                            ]),
+                                        ]),
+                                        s(`div`, F, [
+                                            l(
+                                                p(g),
+                                                {
+                                                    disabled: p(G).processing,
+                                                    'data-test': `save-notification-settings`,
+                                                    onClick: q,
+                                                },
+                                                {
+                                                    default: i(() => [
+                                                        ...(f[1] ||= [
+                                                            d(
+                                                                ` حفظ الإعدادات `,
+                                                                -1,
+                                                            ),
+                                                        ]),
+                                                    ]),
+                                                    _: 1,
+                                                },
+                                                8,
+                                                [`disabled`],
+                                            ),
+                                        ]),
+                                    ]),
+                                    _: 1,
+                                },
+                            ),
+                            l(
+                                C,
+                                { title: `إشعارات المتصفح` },
+                                {
+                                    default: i(() => [
+                                        s(`div`, I, [
+                                            (f[5] ||= s(
+                                                `p`,
+                                                {
+                                                    class: `text-sm text-muted-foreground`,
+                                                },
+                                                ` بتوصلك حتى والنظام مقفول. لازم تسمح للمتصفح مرة واحدة من الزرار ده — إحنا عمرنا ما بنطلب الإذن لوحدنا. `,
+                                                -1,
+                                            )),
+                                            h.push.publicKey
+                                                ? (e(),
+                                                  t(`div`, R, [
+                                                      Y.value
+                                                          ? (e(),
+                                                            t(
+                                                                r,
+                                                                { key: 1 },
+                                                                [
+                                                                    s(
+                                                                        `span`,
+                                                                        z,
+                                                                        [
+                                                                            l(
+                                                                                p(
+                                                                                    x,
+                                                                                ),
+                                                                                {
+                                                                                    class: `size-4`,
+                                                                                },
+                                                                            ),
+                                                                            (f[3] ||=
+                                                                                d(
+                                                                                    ` مفعّلة على الجهاز ده `,
+                                                                                    -1,
+                                                                                )),
+                                                                        ],
+                                                                    ),
+                                                                    l(
+                                                                        p(g),
+                                                                        {
+                                                                            variant: `ghost`,
+                                                                            size: `sm`,
+                                                                            disabled:
+                                                                                J.value,
+                                                                            'data-test': `disable-push`,
+                                                                            onClick:
+                                                                                $,
+                                                                        },
+                                                                        {
+                                                                            default:
+                                                                                i(
+                                                                                    () => [
+                                                                                        l(
+                                                                                            p(
+                                                                                                b,
+                                                                                            ),
+                                                                                            {
+                                                                                                class: `size-4`,
+                                                                                            },
+                                                                                        ),
+                                                                                        (f[4] ||=
+                                                                                            d(
+                                                                                                ` قفلها `,
+                                                                                                -1,
+                                                                                            )),
+                                                                                    ],
+                                                                                ),
+                                                                            _: 1,
+                                                                        },
+                                                                        8,
+                                                                        [
+                                                                            `disabled`,
+                                                                        ],
+                                                                    ),
+                                                                ],
+                                                                64,
+                                                            ))
+                                                          : (e(),
+                                                            a(
+                                                                p(g),
+                                                                {
+                                                                    key: 0,
+                                                                    variant: `outline`,
+                                                                    disabled:
+                                                                        J.value,
+                                                                    'data-test': `enable-push`,
+                                                                    onClick: Q,
+                                                                },
+                                                                {
+                                                                    default: i(
+                                                                        () => [
+                                                                            l(
+                                                                                p(
+                                                                                    w,
+                                                                                ),
+                                                                                {
+                                                                                    class: `size-4`,
+                                                                                },
+                                                                            ),
+                                                                            (f[2] ||=
+                                                                                d(
+                                                                                    ` فعّل إشعارات المتصفح `,
+                                                                                    -1,
+                                                                                )),
+                                                                        ],
+                                                                    ),
+                                                                    _: 1,
+                                                                },
+                                                                8,
+                                                                [`disabled`],
+                                                            )),
+                                                  ]))
+                                                : (e(),
+                                                  t(
+                                                      `p`,
+                                                      L,
+                                                      ` مفاتيح VAPID مش متظبّطة على السيرفر، فالإشعارات مقفولة. `,
+                                                  )),
+                                            X.value
+                                                ? (e(),
+                                                  t(`p`, B, u(X.value), 1))
+                                                : c(``, !0),
+                                        ]),
+                                    ]),
+                                    _: 1,
+                                },
+                            ),
+                            l(
+                                C,
+                                { title: `واتساب` },
+                                {
+                                    default: i(() => [
+                                        h.whatsapp.available
+                                            ? h.whatsapp.verified
+                                                ? (e(),
+                                                  t(`p`, U, [
+                                                      l(p(x), {
+                                                          class: `size-4`,
+                                                      }),
+                                                      d(
+                                                          ` الرقم ` +
+                                                              u(
+                                                                  h.whatsapp
+                                                                      .number,
+                                                              ) +
+                                                              ` متأكّد ومتصل. `,
+                                                          1,
+                                                      ),
+                                                  ]))
+                                                : (e(),
+                                                  t(
+                                                      `p`,
+                                                      H,
+                                                      ` لازم تسجّل رقم واتساب وتأكّده من صفحة الملف الشخصي عشان التنبيهات توصلك عليه. `,
+                                                  ))
+                                            : (e(),
+                                              t(
+                                                  `p`,
+                                                  V,
+                                                  ` مفاتيح واتساب مش متظبّطة على السيرفر، فالقناة دي مقفولة. `,
+                                              )),
+                                    ]),
+                                    _: 1,
+                                },
+                            ),
+                        ]),
+                    ],
+                    64,
+                )
+            );
+        },
+    });
+export { W as default };
