@@ -16,21 +16,13 @@ import { useAskSystem } from '@/composables/useAskSystem';
  *
  * بتطلع من الشمال — الشريط الجانبي على اليمين في الواجهة العربية،
  * فالناحية التانية هي الفاضية.
+ *
+ * شات واحد من غير تبويبات: المستخدم عنده سؤال، مش عنده تصنيف.
+ * السيرفر هو اللي بيصنّف ويبعت أدوات المجال المناسب.
  */
 
-const {
-    open,
-    agents,
-    active,
-    current,
-    messages,
-    thinking,
-    error,
-    closePanel,
-    selectAgent,
-    send,
-    reset,
-} = useAskSystem();
+const { open, messages, starters, thinking, error, closePanel, send, reset } =
+    useAskSystem();
 
 const draft = ref('');
 const thread = ref<HTMLElement | null>(null);
@@ -48,8 +40,6 @@ async function scrollToEnd() {
 
 watch([() => messages.value.length, thinking], scrollToEnd);
 watch(open, (isOpen) => isOpen && scrollToEnd());
-// تبديل التبويب بيعرض محادثة تانية — بننزل لآخرها
-watch(active, scrollToEnd);
 
 async function submit() {
     const question = draft.value;
@@ -95,9 +85,7 @@ function downloadTable(text: string, format: 'pdf' | 'excel') {
         _token: decodeURIComponent(token),
         text,
         format,
-        title: current.value?.label
-            ? `نتيجة — ${current.value.label}`
-            : 'نتيجة من المساعد',
+        title: 'نتيجة من المساعد',
     };
 
     Object.entries(fields).forEach(([name, value]) => {
@@ -140,38 +128,9 @@ function onKeydown(event: KeyboardEvent) {
                     اسأل السيستم
                 </SheetTitle>
                 <SheetDescription class="text-xs">
-                    {{
-                        current?.description ??
-                        'بيجاوب من بيانات النظام — بيقرا بس وما بيعدّلش حاجة.'
-                    }}
+                    بيجاوب من بيانات النظام — بيقرا بس وما بيعدّلش حاجة.
                 </SheetDescription>
             </SheetHeader>
-
-            <!-- التبويبات: كل وكيل بأدواته وتاريخه -->
-            <div
-                v-if="agents.length > 1"
-                class="flex shrink-0 scrollbar-thin gap-1 overflow-x-auto border-b px-2 py-2"
-                role="tablist"
-            >
-                <button
-                    v-for="agent in agents"
-                    :key="agent.key"
-                    type="button"
-                    role="tab"
-                    :aria-selected="agent.key === active"
-                    :disabled="thinking"
-                    class="shrink-0 rounded-lg px-3 py-1.5 text-sm transition-colors disabled:opacity-50"
-                    :class="
-                        agent.key === active
-                            ? 'bg-primary font-medium text-primary-foreground'
-                            : 'text-muted-foreground hover:bg-accent hover:text-foreground'
-                    "
-                    :data-test="`ask-tab-${agent.key}`"
-                    @click="selectAgent(agent.key)"
-                >
-                    {{ agent.label }}
-                </button>
-            </div>
 
             <!-- المحادثة -->
             <div
@@ -181,11 +140,12 @@ function onKeydown(event: KeyboardEvent) {
                 <!-- الحالة الفاضية: الأسئلة المقترحة -->
                 <div v-if="isEmpty && !thinking" class="space-y-3">
                     <p class="text-sm text-muted-foreground">
-                        اسأل عن المخزون أو المديونيات أو المبيعات. مثلاً:
+                        اسأل عن أي حاجة في النظام — مخزون، مبيعات، تجار،
+                        مشتريات. مثلاً:
                     </p>
                     <div class="flex flex-col gap-2">
                         <button
-                            v-for="starter in current?.starters ?? []"
+                            v-for="starter in starters"
                             :key="starter"
                             type="button"
                             class="rounded-lg border border-border bg-card px-3 py-2 text-start text-sm transition-colors hover:border-primary/50 hover:bg-accent disabled:pointer-events-none disabled:opacity-50"

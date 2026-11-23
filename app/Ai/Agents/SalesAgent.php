@@ -50,6 +50,13 @@ class SalesAgent extends Agent
             TXT;
     }
 
+    public function brief(): string
+    {
+        return 'المبيعات — قارن الفترة باللي قبلها لو الأداة رجّعت المقارنة، '
+            .'وعمولة المندوب على المحصّل مش على المبيعات، ورصيد التاجر '
+            .'الموجب يعني عليه فلوس.';
+    }
+
     public function starters(): array
     {
         return [

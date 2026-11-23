@@ -3,6 +3,7 @@
 namespace App\Ai\Agents;
 
 use App\Enums\ErpRole;
+use App\Mcp\Tools\CompanyOverview;
 use App\Mcp\Tools\LastLogin;
 use App\Mcp\Tools\RecentActivity;
 use App\Mcp\Tools\SalesBreakdown;
@@ -49,6 +50,12 @@ class AdminAgent extends Agent
             TXT;
     }
 
+    public function brief(): string
+    {
+        return 'المتابعة الإدارية — قول التاريخ والوقت زي ما الأداة رجّعتهم، '
+            .'واعرض السجل من غير ما تحكم على حد.';
+    }
+
     public function starters(): array
     {
         return [
@@ -65,6 +72,7 @@ class AdminAgent extends Agent
             RecentActivity::class,
             LastLogin::class,
             WhoDid::class,
+            CompanyOverview::class,
             SalesBreakdown::class,
             TopDebtors::class,
         ];

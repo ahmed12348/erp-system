@@ -3,6 +3,7 @@
 namespace App\Mcp\Servers;
 
 use App\Mcp\Tools\BestCustomers;
+use App\Mcp\Tools\CompanyOverview;
 use App\Mcp\Tools\FastMovingProducts;
 use App\Mcp\Tools\ForecastNeeds;
 use App\Mcp\Tools\InvoiceLookup;
@@ -69,6 +70,9 @@ class ErpServer extends Server
 
         // الفواتير
         InvoiceLookup::class,
+
+        // الصورة العامة
+        CompanyOverview::class,
 
         // سجل النشاط — محكومة بصلاحية المستخدم جواها
         RecentActivity::class,

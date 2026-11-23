@@ -3,7 +3,7 @@
 namespace App\Jobs;
 
 use App\Ai\AgentRegistry;
-use App\Ai\Agents\Agent;
+use App\Ai\AgentRouter;
 use App\Exceptions\AiUnavailableException;
 use App\Models\User;
 use App\Services\AiService;
@@ -17,13 +17,13 @@ use Illuminate\Foundation\Queue\Queueable;
  * في الطابور لأن واتساب بيستنى 200 في ثواني وإلا بيعيد الإرسال،
  * والموديل بياخد وقته.
  *
- * **الصلاحيات زي الموقع بالظبط**: الوكلاء المتاحين للمستخدم بس،
- * وأدواتهم بس. مندوب المبيعات مش هياخد من على واتساب حاجة مش شايفها
- * على الشاشة.
+ * **الصلاحيات زي الموقع بالظبط**: نفس الموجّه ونفس المجالات المتاحة
+ * للمستخدم، وأدواتهم بس. مندوب المبيعات مش هياخد من على واتساب حاجة
+ * مش شايفها على الشاشة.
  *
  * مفيش تاريخ محادثة هنا: كل رسالة سؤال مستقل. تاريخ الشات محفوظ في
  * جلسة المتصفح، وواتساب مالوش جلسة — وسؤال متابعة من غير سياق أحسن
- * من سياق غلط من ساعتين.
+ * من سياق غلط من ساعتين. ولنفس السبب التوجيه هنا من غير «آخر مجال».
  */
 class AnswerWhatsAppMessage implements ShouldQueue
 {
@@ -43,6 +43,7 @@ class AnswerWhatsAppMessage implements ShouldQueue
     public function handle(
         AiService $ai,
         AgentRegistry $agents,
+        AgentRouter $router,
         WhatsAppService $whatsapp,
     ): void {
         $user = User::find($this->userId);
@@ -51,10 +52,11 @@ class AnswerWhatsAppMessage implements ShouldQueue
             return;
         }
 
-        // نفس الوكيل الافتراضي بتاع الشات — أول تبويب مسموح للدور ده
-        $agent = $agents->resolve($user, null);
+        // ميزانية واحدة للتوجيه والإجابة، زي الشات بالظبط
+        $deadline = $ai->deadline();
+        $routing = $router->route($user, $this->question, deadline: $deadline);
 
-        if ($agent === null) {
+        if ($routing->isEmpty()) {
             $whatsapp->reply($this->from, 'مفيش صلاحية لحسابك تسأل من هنا.');
 
             return;
@@ -62,9 +64,10 @@ class AnswerWhatsAppMessage implements ShouldQueue
 
         try {
             $answer = $ai->chat(
-                $this->prompt($agent),
+                $this->prompt($agents->specialismFor($routing->agents)),
                 [['role' => 'user', 'content' => $this->question]],
-                $agents->toolsFor($agent),
+                $agents->toolsFor($routing->agents, $user),
+                $deadline,
             );
         } catch (AiUnavailableException $e) {
             $whatsapp->reply($this->from, $e->arabicMessage);
@@ -81,10 +84,8 @@ class AnswerWhatsAppMessage implements ShouldQueue
      * أقصر من رد الشاشة: الرسالة بتتقرا على موبايل، والجداول العريضة
      * بتتكسر فيها. فالرد بيبقى جملة ونقط قليلة.
      */
-    private function prompt(Agent $agent): string
+    private function prompt(string $specialism): string
     {
-        $specialism = $agent->instructions();
-
         return <<<TXT
             إنت مساعد نظام ERP لشركة توزيع مصرية، بترد على رسالة واتساب.
 

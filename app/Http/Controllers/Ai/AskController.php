@@ -3,7 +3,6 @@
 namespace App\Http\Controllers\Ai;
 
 use App\Ai\AgentRegistry;
-use App\Ai\Agents\Agent;
 use App\Exceptions\AiUnavailableException;
 use App\Http\Controllers\Controller;
 use App\Services\AiService;
@@ -14,9 +13,9 @@ use Illuminate\Http\Request;
 /**
  * «اسأل السيستم» — لوحة المحادثة في الشريط العلوي.
  *
- * اللوحة فيها تبويبات (وكلاء)، كل واحد بأدواته وتاريخه. التبويبات
- * اللي بترجع هنا هي المسموحة لدور المستخدم بس — مش بنعرض تبويب
- * ونمنعه بعدين.
+ * شات واحد بيتسأل فيه أي حاجة. توجيه السؤال لمجاله بيحصل في
+ * `AgentRouter` وراه — المستخدم مابيختارش تبويب، وما بيشوفش مجالات
+ * أصلاً. `domains` في الرد للتشخيص والاختبارات.
  *
  * الردود JSON عادي مش Inertia، عشان اللوحة تتحدّث والمستخدم فاضل
  * مكانه على الشاشة اللي هو فيها.
@@ -29,18 +28,12 @@ class AskController extends Controller
         private readonly AgentRegistry $agents,
     ) {}
 
-    /** التبويبات المتاحة ومحادثة التبويب المطلوب */
+    /** المحادثة الحالية والأسئلة المقترحة */
     public function index(Request $request): JsonResponse
     {
-        $agent = $this->agent($request);
-
         return response()->json([
-            'agents' => array_map(
-                fn (Agent $available): array => $available->toArray(),
-                $this->agents->for($request->user()),
-            ),
-            'agent' => $agent?->key(),
-            'messages' => $agent ? $this->chat->history($agent) : [],
+            'starters' => $this->agents->startersFor($request->user()),
+            'messages' => $this->chat->history(),
             'enabled' => $this->ai->isEnabled(),
         ]);
     }
@@ -49,23 +42,23 @@ class AskController extends Controller
     {
         $validated = $request->validate([
             'message' => ['required', 'string', 'max:1000'],
-            'agent' => ['nullable', 'string', 'max:50'],
         ], [
             'message.required' => 'اكتب سؤالك الأول.',
             'message.max' => 'السؤال طويل أوي — اختصره شوية.',
         ]);
 
-        $agent = $this->agent($request);
+        $user = $request->user();
 
-        if ($agent === null) {
+        // دور من غير أي مجال — مش هياخد أدوات أصلاً، فالأنضف نقولها
+        if ($this->agents->for($user) === []) {
             return response()->json([
-                'message' => 'مفيش تبويب متاح لدورك في النظام.',
+                'message' => 'مفيش صلاحية لدورك يسأل المساعد.',
                 'reason' => 'forbidden',
             ], 403);
         }
 
         try {
-            $answer = $this->chat->ask($agent, $validated['message']);
+            $answer = $this->chat->ask($user, $validated['message']);
         } catch (AiUnavailableException $e) {
             return response()->json([
                 'message' => $e->arabicMessage,
@@ -73,32 +66,14 @@ class AskController extends Controller
             ], 503);
         }
 
-        return response()->json([
-            'reply' => $answer,
-            'agent' => $agent->key(),
-        ]);
+        return response()->json($answer);
     }
 
-    /** مسح محادثة تبويب واحد */
-    public function destroy(Request $request): JsonResponse
+    /** مسح المحادثة */
+    public function destroy(): JsonResponse
     {
-        $agent = $this->agent($request);
-
-        if ($agent !== null) {
-            $this->chat->clear($agent);
-        }
+        $this->chat->clear();
 
         return response()->json(['messages' => []]);
-    }
-
-    /**
-     * التبويب المطلوب — أو أول تبويب متاح لو المفتاح مش مسموح.
-     */
-    private function agent(Request $request): ?Agent
-    {
-        return $this->agents->resolve(
-            $request->user(),
-            $request->string('agent')->toString() ?: null,
-        );
     }
 }

@@ -45,6 +45,12 @@ class InventoryAgent extends Agent
             TXT;
     }
 
+    public function brief(): string
+    {
+        return 'المخزن — الراكد اربطه بقيمته بالجنيه، ولو أداة التوقّع '
+            .'قالت إن التاريخ أقل من شهر قول إن الرقم تقريبي.';
+    }
+
     public function starters(): array
     {
         return [

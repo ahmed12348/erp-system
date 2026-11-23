@@ -3,6 +3,7 @@
 namespace Tests\Feature\Ai;
 
 use App\Ai\AgentRegistry;
+use App\Ai\AgentRouter;
 use App\Jobs\AnswerWhatsAppMessage;
 use App\Models\Category;
 use App\Models\Product;
@@ -19,6 +20,7 @@ use Prism\Prism\Facades\Prism;
 use Prism\Prism\Testing\TextResponseFake;
 use Prism\Prism\Text\Request as TextRequest;
 use Tests\Support\FailingPrism;
+use Tests\Support\RoutesQuestions;
 use Tests\TestCase;
 
 /**
@@ -29,7 +31,7 @@ use Tests\TestCase;
  */
 class WhatsAppAssistantTest extends TestCase
 {
-    use RefreshDatabase;
+    use RefreshDatabase, RoutesQuestions;
 
     private User $admin;
 
@@ -177,6 +179,8 @@ class WhatsAppAssistantTest extends TestCase
     public function test_the_job_answers_with_the_users_own_agent(): void
     {
         $fake = Prism::fake([
+            // نفس التوجيه بتاع الشات بالظبط
+            $this->routedTo('inventory'),
             TextResponseFake::make()->withText('عندك صنف واحد تحت حد الطلب.'),
         ]);
 
@@ -184,14 +188,15 @@ class WhatsAppAssistantTest extends TestCase
             ->handle(
                 app(AiService::class),
                 app(AgentRegistry::class),
+                app(AgentRouter::class),
                 app(WhatsAppService::class),
             );
 
         $fake->assertRequest(function (array $requests): void {
             /** @var TextRequest $request */
-            $request = $requests[0];
+            $request = $requests[1];
 
-            // أدوات تبويب المخازن — نفس اللي على الشاشة
+            // أدوات المخازن — نفس اللي على الشاشة
             $names = array_map(fn ($tool) => $tool->name(), $request->tools());
             $this->assertContains('low-stock-products', $names);
 
@@ -221,17 +226,22 @@ class WhatsAppAssistantTest extends TestCase
             'whatsapp_verified_at' => now(),
         ])->save();
 
-        $fake = Prism::fake([TextResponseFake::make()->withText('تمام.')]);
+        $fake = Prism::fake([
+            // الموجّه رشّح الإدارة، والصلاحية بتشيلها
+            $this->routedTo('admin'),
+            TextResponseFake::make()->withText('تمام.'),
+        ]);
 
         (new AnswerWhatsAppMessage($sales->id, '201005555555', 'مين دخل النظام؟'))
             ->handle(
                 app(AiService::class),
                 app(AgentRegistry::class),
+                app(AgentRouter::class),
                 app(WhatsAppService::class),
             );
 
         $fake->assertRequest(function (array $requests): void {
-            $names = array_map(fn ($tool) => $tool->name(), $requests[0]->tools());
+            $names = array_map(fn ($tool) => $tool->name(), $requests[1]->tools());
 
             // أدوات سجل النشاط للإدارة بس
             $this->assertNotContains('last-login', $names);
@@ -247,6 +257,7 @@ class WhatsAppAssistantTest extends TestCase
             ->handle(
                 app(AiService::class),
                 app(AgentRegistry::class),
+                app(AgentRouter::class),
                 app(WhatsAppService::class),
             );
 

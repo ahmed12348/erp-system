@@ -129,6 +129,8 @@ class McpServerTest extends TestCase
             'top-debtors',
             // الفواتير
             'invoice-lookup',
+            // الصورة العامة
+            'company-overview',
             // سجل النشاط — محكومة بصلاحية المستخدم جواها
             'recent-activity',
             'last-login',

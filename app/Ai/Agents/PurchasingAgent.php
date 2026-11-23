@@ -48,6 +48,12 @@ class PurchasingAgent extends Agent
             TXT;
     }
 
+    public function brief(): string
+    {
+        return 'الشراء — ماتوصّيش بشراء صنف الأداة قالت إنه راكد، وفواتير '
+            .'الشراء بعملة المورد فقول الرقم بعملته وماتحوّلش.';
+    }
+
     public function starters(): array
     {
         return [

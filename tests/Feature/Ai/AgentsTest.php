@@ -3,6 +3,7 @@
 namespace Tests\Feature\Ai;
 
 use App\Ai\AgentRegistry;
+use App\Mcp\Tools\CompanyOverview;
 use App\Mcp\Tools\ForecastNeeds;
 use App\Mcp\Tools\RepsComparison;
 use App\Models\Category;
@@ -21,11 +22,15 @@ use Illuminate\Support\Facades\RateLimiter;
 use Laravel\Mcp\Request;
 use Prism\Prism\Facades\Prism;
 use Prism\Prism\Testing\TextResponseFake;
-use Prism\Prism\Text\Request as TextRequest;
+use Tests\Support\RoutesQuestions;
 use Tests\TestCase;
 
 /**
- * الوكلاء: التبويبات، الصلاحيات، والأدوات التحليلية.
+ * الوكلاء: المجالات، الصلاحيات، والأدوات التحليلية.
+ *
+ * المجالات مابقتش تبويبات على الشاشة — بقت تقسيم جوه الكود بيختار منه
+ * `AgentRouter` قبل كل إجابة. اللي بيتأكد منه الملف ده إن التقسيم
+ * نفسه سليم: مين بيوصل لإيه، وكل مجال بيبعت أدواته هو.
  *
  * البيانات هنا مزروعة بإيد (مفيش factory) عشان الأرقام تبقى متوقّعة
  * بالظبط — الأداة بتحسب في PHP، والاختبار بيتأكد من الحساب نفسه مش
@@ -33,7 +38,7 @@ use Tests\TestCase;
  */
 class AgentsTest extends TestCase
 {
-    use RefreshDatabase;
+    use RefreshDatabase, RoutesQuestions;
 
     private Warehouse $warehouse;
 
@@ -84,71 +89,52 @@ class AgentsTest extends TestCase
         }
     }
 
-    // ── التبويبات والصلاحيات ──────────────────────────────────────
+    // ── المجالات والصلاحيات ───────────────────────────────────────
 
-    public function test_an_admin_sees_all_four_tabs(): void
+    public function test_an_admin_reaches_all_four_domains(): void
     {
         $keys = $this->keysFor($this->admin());
 
         $this->assertSame(['inventory', 'sales', 'purchasing', 'admin'], $keys);
     }
 
-    public function test_an_accountant_sees_everything_except_admin(): void
+    public function test_an_accountant_reaches_everything_except_admin(): void
     {
         $keys = $this->keysFor($this->accountant());
 
         $this->assertSame(['inventory', 'sales', 'purchasing'], $keys);
     }
 
-    public function test_a_sales_user_sees_only_inventory_and_sales(): void
+    public function test_a_sales_user_reaches_only_inventory_and_sales(): void
     {
         $keys = $this->keysFor($this->salesUser());
 
         $this->assertSame(['inventory', 'sales'], $keys);
     }
 
-    public function test_the_tabs_endpoint_hides_what_the_role_cannot_use(): void
-    {
-        $this->actingAs($this->salesUser())
-            ->getJson('/ai/chat')
-            ->assertOk()
-            ->assertJsonCount(2, 'agents')
-            ->assertJsonPath('agents.0.key', 'inventory')
-            ->assertJsonPath('agents.1.key', 'sales');
-    }
-
-    public function test_a_forbidden_tab_falls_back_to_an_allowed_one(): void
-    {
-        Prism::fake([TextResponseFake::make()->withText('تمام.')]);
-
-        // مندوب بيطلب تبويب الإدارة صراحةً
-        $this->actingAs($this->salesUser())
-            ->postJson('/ai/chat', ['message' => 'سؤال', 'agent' => 'admin'])
-            ->assertOk()
-            // بيترد عليه من تبويب مسموح، مش من الإدارة
-            ->assertJsonPath('agent', 'inventory');
-    }
-
-    public function test_each_tab_sends_only_its_own_tools(): void
+    /**
+     * التقسيم بيوصل للأدوات اللي بتتبعت.
+     *
+     * المستخدم بيشوف شات واحد، بس مجال المخازن مابياخدش أداة مندوبين
+     * ومجال المبيعات مابياخدش أداة توقّع — ودي كل حكاية التوجيه.
+     */
+    public function test_each_domain_sends_only_its_own_tools(): void
     {
         $fake = Prism::fake([
+            $this->routedTo('inventory'),
             TextResponseFake::make()->withText('رد المخازن.'),
+            $this->routedTo('sales'),
             TextResponseFake::make()->withText('رد المبيعات.'),
         ]);
 
         $admin = $this->admin();
 
-        $this->actingAs($admin)->postJson('/ai/chat', ['message' => 'س', 'agent' => 'inventory']);
-        $this->actingAs($admin)->postJson('/ai/chat', ['message' => 'س', 'agent' => 'sales']);
+        $this->actingAs($admin)->postJson('/ai/chat', ['message' => 'إيه الناقص؟']);
+        $this->actingAs($admin)->postJson('/ai/chat', ['message' => 'المندوبين عاملين إيه؟']);
 
         $fake->assertRequest(function (array $requests): void {
-            /** @var TextRequest $inventory */
-            $inventory = $requests[0];
-            /** @var TextRequest $sales */
-            $sales = $requests[1];
-
-            $inventoryTools = array_map(fn ($t) => $t->name(), $inventory->tools());
-            $salesTools = array_map(fn ($t) => $t->name(), $sales->tools());
+            $inventoryTools = array_map(fn ($t) => $t->name(), $requests[1]->tools());
+            $salesTools = array_map(fn ($t) => $t->name(), $requests[3]->tools());
 
             $this->assertContains('forecast-needs', $inventoryTools);
             $this->assertNotContains('reps-comparison', $inventoryTools);
@@ -158,61 +144,71 @@ class AgentsTest extends TestCase
         });
     }
 
-    public function test_each_tab_keeps_its_own_conversation(): void
+    /** محادثة واحدة مهما اتنقّل السؤال بين المجالات */
+    public function test_one_conversation_carries_every_domain(): void
     {
         Prism::fake([
+            $this->routedTo('inventory'),
             TextResponseFake::make()->withText('رد المخازن.'),
+            $this->routedTo('sales'),
             TextResponseFake::make()->withText('رد المبيعات.'),
         ]);
 
         $admin = $this->admin();
 
-        $this->actingAs($admin)->postJson('/ai/chat', ['message' => 'سؤال مخازن', 'agent' => 'inventory']);
-        $this->actingAs($admin)->postJson('/ai/chat', ['message' => 'سؤال مبيعات', 'agent' => 'sales']);
+        $this->actingAs($admin)->postJson('/ai/chat', ['message' => 'سؤال مخازن']);
+        $this->actingAs($admin)->postJson('/ai/chat', ['message' => 'سؤال مبيعات']);
 
         $this->actingAs($admin)
-            ->getJson('/ai/chat?agent=inventory')
-            ->assertJsonCount(2, 'messages')
-            ->assertJsonPath('messages.0.content', 'سؤال مخازن');
-
-        $this->actingAs($admin)
-            ->getJson('/ai/chat?agent=sales')
-            ->assertJsonCount(2, 'messages')
-            ->assertJsonPath('messages.0.content', 'سؤال مبيعات');
+            ->getJson('/ai/chat')
+            ->assertJsonCount(4, 'messages')
+            ->assertJsonPath('messages.0.content', 'سؤال مخازن')
+            ->assertJsonPath('messages.2.content', 'سؤال مبيعات');
     }
 
-    public function test_clearing_one_tab_leaves_the_others(): void
+    /**
+     * الأسئلة المقترحة مخلوطة من كل المجالات اللي الدور بيوصلها.
+     *
+     * الشات واحد، فأول نظرة لازم تقول للمستخدم إنه يسأل أي حاجة — مش
+     * ستة أسئلة كلها عن المخزن.
+     */
+    public function test_the_starters_are_mixed_from_every_domain(): void
     {
-        Prism::fake([
-            TextResponseFake::make()->withText('أ'),
-            TextResponseFake::make()->withText('ب'),
-        ]);
+        $starters = app(AgentRegistry::class)->startersFor($this->admin());
 
-        $admin = $this->admin();
+        $this->assertCount(6, $starters);
 
-        $this->actingAs($admin)->postJson('/ai/chat', ['message' => 'س', 'agent' => 'inventory']);
-        $this->actingAs($admin)->postJson('/ai/chat', ['message' => 'س', 'agent' => 'sales']);
-
-        $this->actingAs($admin)->deleteJson('/ai/chat?agent=inventory')->assertOk();
-
-        $this->actingAs($admin)->getJson('/ai/chat?agent=inventory')->assertJsonCount(0, 'messages');
-        $this->actingAs($admin)->getJson('/ai/chat?agent=sales')->assertJsonCount(2, 'messages');
+        // أول أربعة: سؤال من كل مجال بالترتيب
+        $this->assertSame('إيه الأصناف اللي قربت تخلص؟', $starters[0]);
+        $this->assertSame('مبيعات الشهر ده عاملة إيه عن اللي فات؟', $starters[1]);
+        $this->assertSame('أطلب إيه الشهر الجاي؟', $starters[2]);
+        $this->assertSame('مين آخر مرة دخل النظام؟', $starters[3]);
     }
 
-    public function test_the_golden_rule_is_in_every_tab_prompt(): void
+    public function test_a_sales_user_never_sees_an_admin_starter(): void
+    {
+        $starters = app(AgentRegistry::class)->startersFor($this->salesUser());
+
+        $this->assertCount(6, $starters);
+        $this->assertNotContains('مين آخر مرة دخل النظام؟', $starters);
+    }
+
+    public function test_the_golden_rule_is_in_every_domains_prompt(): void
     {
         $fake = Prism::fake([
+            $this->routedTo('inventory'),
             TextResponseFake::make()->withText('أ'),
+            $this->routedTo('admin'),
             TextResponseFake::make()->withText('ب'),
         ]);
 
         $admin = $this->admin();
 
-        $this->actingAs($admin)->postJson('/ai/chat', ['message' => 'س', 'agent' => 'inventory']);
-        $this->actingAs($admin)->postJson('/ai/chat', ['message' => 'س', 'agent' => 'admin']);
+        $this->actingAs($admin)->postJson('/ai/chat', ['message' => 'سؤال مخازن']);
+        $this->actingAs($admin)->postJson('/ai/chat', ['message' => 'مين عمل إيه؟']);
 
         $fake->assertRequest(function (array $requests): void {
-            foreach ($requests as $request) {
+            foreach ([$requests[1], $requests[3]] as $request) {
                 $system = collect($request->systemPrompts())
                     ->map(fn ($prompt) => $prompt->content)
                     ->implode("\n");
@@ -361,6 +357,27 @@ class AgentsTest extends TestCase
         // 5 أيام بين الفاتورة والتحصيل
         $this->assertSame(5, $rows[0]['paymentDays']);
         $this->assertSame(1000.0, $rows[0]['collected']);
+    }
+
+    /**
+     * اللقطة العامة — الأداة اللي المجموعة الافتراضية بتعتمد عليها.
+     *
+     * الأرقام كلها متحسوبة في PHP زي أي أداة تانية، والسؤال العام
+     * («الشركة عاملة إيه؟») بياخد رد فيه أرقام حقيقية بدل كلام.
+     */
+    public function test_the_company_overview_reports_real_numbers(): void
+    {
+        $this->sell($this->fast, 10, now(), 150);
+
+        $output = (string) app(CompanyOverview::class)
+            ->handle(new Request([]))
+            ->content();
+
+        // 10 × 150 مبيعات الشهر
+        $this->assertStringContainsString('1,500.00', $output);
+        $this->assertStringContainsString('المستحق على التجار', $output);
+        $this->assertStringContainsString('قيمة المخزون بالتكلفة', $output);
+        $this->assertStringContainsString('أصناف تحت حد الطلب', $output);
     }
 
     public function test_reps_comparison_uses_the_existing_commission_rule(): void

@@ -18,6 +18,7 @@ use Prism\Prism\Facades\Prism;
 use Prism\Prism\Testing\TextResponseFake;
 use Prism\Prism\Text\Request as TextRequest;
 use Tests\Support\FailingPrism;
+use Tests\Support\RoutesQuestions;
 use Tests\Support\SequencedPrism;
 use Tests\TestCase;
 
@@ -27,10 +28,14 @@ use Tests\TestCase;
  * ولا اختبار هنا بيلمس شبكة: `Prism::fake()` بيبدّل المزوّد بنسخة
  * بترجّع ردود محضّرة وبتسجّل الطلبات، فنقدر نتأكد من الموديل
  * والتعليمات والأدوات اللي اتبعتت من غير مفتاح API.
+ *
+ * كل سؤال = نداءين: التوجيه الأول وبعده الإجابة. فالردود المحضّرة
+ * بتيجي أزواج، والطلب اللي بنفحصه هو `$requests[1]`. التوجيه نفسه
+ * ليه ملف لوحده — `RoutingTest`.
  */
 class AskSystemTest extends TestCase
 {
-    use RefreshDatabase;
+    use RefreshDatabase, RoutesQuestions;
 
     protected function setUp(): void
     {
@@ -53,7 +58,11 @@ class AskSystemTest extends TestCase
         $this->getJson('/ai/chat')->assertUnauthorized();
     }
 
-    public function test_the_panel_loads_the_tabs_and_their_starters(): void
+    /**
+     * شات واحد من غير تبويبات: اللوحة بتجيب المحادثة والأسئلة المقترحة
+     * وبس. المجالات بقت ورا الستار — مش حاجة المستخدم بيختارها.
+     */
+    public function test_the_panel_loads_the_conversation_and_the_starters(): void
     {
         $this->actingAs($this->admin())
             ->getJson('/ai/chat')
@@ -61,18 +70,17 @@ class AskSystemTest extends TestCase
             ->assertJson([
                 'messages' => [],
                 'enabled' => true,
-                // أول تبويب هو المفتوح افتراضيًا
-                'agent' => 'inventory',
             ])
-            ->assertJsonCount(4, 'agents')
-            ->assertJsonCount(4, 'agents.0.starters')
-            ->assertJsonPath('agents.0.label', 'المخازن')
-            ->assertJsonPath('agents.1.label', 'المبيعات');
+            // مفيش تبويبات تتعرض
+            ->assertJsonMissingPath('agents')
+            ->assertJsonMissingPath('agent')
+            ->assertJsonCount(6, 'starters');
     }
 
     public function test_it_answers_a_question(): void
     {
         Prism::fake([
+            $this->routedTo('inventory'),
             TextResponseFake::make()->withText('عندك 3 أصناف تحت حد الطلب.'),
         ]);
 
@@ -103,7 +111,9 @@ class AskSystemTest extends TestCase
     public function test_the_conversation_is_kept_for_the_session(): void
     {
         Prism::fake([
+            $this->routedTo('sales'),
             TextResponseFake::make()->withText('رصيده 12,000 ج.م.'),
+            $this->routedTo('sales'),
             TextResponseFake::make()->withText('آخر دفعة كانت من أسبوع.'),
         ]);
 
@@ -124,7 +134,9 @@ class AskSystemTest extends TestCase
     public function test_the_follow_up_question_carries_the_earlier_messages(): void
     {
         $fake = Prism::fake([
+            $this->routedTo('sales'),
             TextResponseFake::make()->withText('رصيده 12,000 ج.م.'),
+            $this->routedTo('sales'),
             TextResponseFake::make()->withText('آخر دفعة كانت من أسبوع.'),
         ]);
 
@@ -135,16 +147,22 @@ class AskSystemTest extends TestCase
 
         $fake->assertRequest(function (array $requests): void {
             /** @var TextRequest $second */
-            $second = $requests[1];
+            $second = $requests[3];
 
             // السؤال التاني لازم يشوف السؤال الأول ورده قبله
             $this->assertCount(3, $second->messages());
+
+            // ونداء التوجيه عكسه: السؤال الجديد لوحده
+            $this->assertCount(1, $requests[2]->messages());
         });
     }
 
     public function test_the_conversation_can_be_cleared(): void
     {
-        Prism::fake([TextResponseFake::make()->withText('تمام.')]);
+        Prism::fake([
+            $this->routedTo('inventory'),
+            TextResponseFake::make()->withText('تمام.'),
+        ]);
 
         $user = $this->admin();
 
@@ -163,14 +181,14 @@ class AskSystemTest extends TestCase
      */
     public function test_chat_uses_the_light_model_by_default(): void
     {
-        $fake = Prism::fake([TextResponseFake::make()->withText('تمام.')]);
+        $fake = Prism::fake([$this->routedTo('inventory'), TextResponseFake::make()->withText('تمام.')]);
 
         $this->actingAs($this->admin())
             ->postJson('/ai/chat', ['message' => 'سؤال']);
 
         $fake->assertRequest(function (array $requests): void {
             /** @var TextRequest $request */
-            $request = $requests[0];
+            $request = $requests[1];
 
             $this->assertSame('gemini-3.5-flash-lite', $request->model());
         });
@@ -181,14 +199,14 @@ class AskSystemTest extends TestCase
         // زي ما السيرفر هيعمل بالظبط: السطر ده في .env وبس
         $this->reloadAiConfigWith(['ERP_AI_PROVIDER' => 'anthropic']);
 
-        $fake = Prism::fake([TextResponseFake::make()->withText('تمام.')]);
+        $fake = Prism::fake([$this->routedTo('inventory'), TextResponseFake::make()->withText('تمام.')]);
 
         $this->actingAs($this->admin())
             ->postJson('/ai/chat', ['message' => 'سؤال']);
 
         $fake->assertRequest(function (array $requests): void {
             /** @var TextRequest $request */
-            $request = $requests[0];
+            $request = $requests[1];
 
             $this->assertSame('anthropic', $request->provider());
             $this->assertStringContainsString('haiku', $request->model());
@@ -197,20 +215,20 @@ class AskSystemTest extends TestCase
 
     public function test_the_erp_rules_and_the_read_only_tools_are_sent(): void
     {
-        $fake = Prism::fake([TextResponseFake::make()->withText('تمام.')]);
+        $fake = Prism::fake([$this->routedTo('inventory'), TextResponseFake::make()->withText('تمام.')]);
 
         $this->actingAs($this->admin())
             ->postJson('/ai/chat', ['message' => 'سؤال']);
 
         $fake->assertRequest(function (array $requests): void {
             /** @var TextRequest $request */
-            $request = $requests[0];
+            $request = $requests[1];
 
             $names = array_map(fn ($tool) => $tool->name(), $request->tools());
 
             /*
-             * أدوات تبويب المخازن بس — مش كل أدوات النظام. ده بيت
-             * القصيد من التبويبات: مجموعة صغيرة مركّزة بدل سلّة كبيرة.
+             * أدوات المخازن بس — مش كل أدوات النظام. ده بيت القصيد من
+             * التوجيه: مجموعة صغيرة مركّزة بدل سلّة فيها تمنتاشر أداة.
              */
             $this->assertEqualsCanonicalizing([
                 'low-stock-products', 'stock-lookup', 'slow-moving-products',
@@ -224,7 +242,7 @@ class AskSystemTest extends TestCase
             // أسلوب الرد المصري والقاعدة الذهبية
             $this->assertStringContainsString('عامية مصرية', $system);
             $this->assertStringContainsString('القاعدة الذهبية', $system);
-            // وتخصص التبويب المفتوح — المخازن
+            // وتخصص المجال اللي السؤال اتوجّه عليه — المخازن
             $this->assertStringContainsString('تخصصك المخزن', $system);
         });
     }
@@ -236,14 +254,14 @@ class AskSystemTest extends TestCase
      */
     public function test_the_system_prompt_stays_short(): void
     {
-        $fake = Prism::fake([TextResponseFake::make()->withText('تمام.')]);
+        $fake = Prism::fake([$this->routedTo('inventory'), TextResponseFake::make()->withText('تمام.')]);
 
         $this->actingAs($this->admin())
             ->postJson('/ai/chat', ['message' => 'سؤال']);
 
         $fake->assertRequest(function (array $requests): void {
             /** @var TextRequest $request */
-            $request = $requests[0];
+            $request = $requests[1];
 
             $system = collect($request->systemPrompts())
                 ->map(fn ($prompt) => $prompt->content)
@@ -267,14 +285,14 @@ class AskSystemTest extends TestCase
      */
     public function test_each_call_gets_a_twenty_second_timeout(): void
     {
-        $fake = Prism::fake([TextResponseFake::make()->withText('تمام.')]);
+        $fake = Prism::fake([$this->routedTo('inventory'), TextResponseFake::make()->withText('تمام.')]);
 
         $this->actingAs($this->admin())
             ->postJson('/ai/chat', ['message' => 'سؤال']);
 
         $fake->assertRequest(function (array $requests): void {
             /** @var TextRequest $request */
-            $request = $requests[0];
+            $request = $requests[1];
 
             $this->assertSame(20, $request->clientOptions()['timeout']);
         });
@@ -282,14 +300,14 @@ class AskSystemTest extends TestCase
 
     public function test_chat_asks_for_the_lowest_thinking_level(): void
     {
-        $fake = Prism::fake([TextResponseFake::make()->withText('تمام.')]);
+        $fake = Prism::fake([$this->routedTo('inventory'), TextResponseFake::make()->withText('تمام.')]);
 
         $this->actingAs($this->admin())
             ->postJson('/ai/chat', ['message' => 'سؤال']);
 
         $fake->assertRequest(function (array $requests): void {
             /** @var TextRequest $request */
-            $request = $requests[0];
+            $request = $requests[1];
 
             $this->assertSame('low', $request->providerOptions('thinkingLevel'));
         });
@@ -301,14 +319,14 @@ class AskSystemTest extends TestCase
      */
     public function test_the_tool_loop_is_driven_one_step_at_a_time(): void
     {
-        $fake = Prism::fake([TextResponseFake::make()->withText('تمام.')]);
+        $fake = Prism::fake([$this->routedTo('inventory'), TextResponseFake::make()->withText('تمام.')]);
 
         $this->actingAs($this->admin())
             ->postJson('/ai/chat', ['message' => 'سؤال']);
 
         $fake->assertRequest(function (array $requests): void {
             /** @var TextRequest $request */
-            $request = $requests[0];
+            $request = $requests[1];
 
             $this->assertSame(1, $request->maxSteps());
         });
@@ -348,6 +366,8 @@ class AskSystemTest extends TestCase
         config()->set('ai.models.chat', 'gemini-3.5-flash');
 
         $fake = SequencedPrism::fake([
+            // التوجيه بيعدّي عادي
+            $this->routedTo('inventory'),
             // الأساسي مزحوم مرتين
             new PrismProviderOverloadedException('Gemini overloaded'),
             new PrismProviderOverloadedException('Gemini overloaded'),
@@ -360,12 +380,13 @@ class AskSystemTest extends TestCase
             ->assertOk()
             ->assertJsonPath('reply.content', 'رد من الموديل البديل.');
 
-        $models = $fake->models();
-
-        $this->assertSame(
-            ['gemini-3.5-flash', 'gemini-3.5-flash', 'gemini-3.5-flash-lite'],
-            $models,
-        );
+        // التوجيه على الخفيف، وبعده الإجابة بترجع للخفيف بعد محاولتين
+        $this->assertSame([
+            'gemini-3.5-flash-lite',
+            'gemini-3.5-flash',
+            'gemini-3.5-flash',
+            'gemini-3.5-flash-lite',
+        ], $fake->models());
     }
 
     /**
@@ -378,6 +399,7 @@ class AskSystemTest extends TestCase
         config()->set('ai.models.chat', 'gemini-3.5-flash');
 
         $fake = SequencedPrism::fake([
+            $this->routedTo('inventory'),
             new ConnectionException('cURL error 28: Operation timed out'),
             TextResponseFake::make()->withText('رد من الموديل الأخف.'),
         ]);
@@ -387,11 +409,12 @@ class AskSystemTest extends TestCase
             ->assertOk()
             ->assertJsonPath('reply.content', 'رد من الموديل الأخف.');
 
-        // محاولتين بس — من غير إعادة محاولة على الموديل البطيء
-        $this->assertSame(
-            ['gemini-3.5-flash', 'gemini-3.5-flash-lite'],
-            $fake->models(),
-        );
+        // محاولتين للإجابة بس — من غير إعادة محاولة على الموديل البطيء
+        $this->assertSame([
+            'gemini-3.5-flash-lite',
+            'gemini-3.5-flash',
+            'gemini-3.5-flash-lite',
+        ], $fake->models());
     }
 
     public function test_a_timeout_does_not_fall_back_when_the_budget_is_gone(): void
@@ -423,6 +446,7 @@ class AskSystemTest extends TestCase
         config()->set('ai.models.chat', 'gemini-3.5-flash');
 
         $fake = SequencedPrism::fake([
+            $this->routedTo('inventory'),
             // زي ما بيحصل للحسابات الجديدة لما الموديل مش متاح
             new PrismException('Gemini Error: [404] models/x is not found'),
             new PrismException('Gemini Error: [404] models/x is not found'),
@@ -433,12 +457,13 @@ class AskSystemTest extends TestCase
             ->postJson('/ai/chat', ['message' => 'سؤال'])
             ->assertOk();
 
-        $this->assertSame('gemini-3.5-flash-lite', $fake->models()[2]);
+        $this->assertSame('gemini-3.5-flash-lite', $fake->models()[3]);
     }
 
     public function test_a_quota_error_is_not_retried(): void
     {
         $fake = SequencedPrism::fake([
+            $this->routedTo('inventory'),
             PrismRateLimitedException::make([]),
             TextResponseFake::make()->withText('ما يوصلش هنا.'),
         ]);
@@ -448,8 +473,8 @@ class AskSystemTest extends TestCase
             ->assertStatus(503)
             ->assertJson(['reason' => 'rate_limited']);
 
-        // محاولة واحدة بس — إعادة المحاولة مالهاش لازمة لما الحصة خلصت
-        $this->assertCount(1, $fake->models());
+        // التوجيه ومحاولة إجابة واحدة — الحصة خلصت فإعادة المحاولة مالهاش لازمة
+        $this->assertCount(2, $fake->models());
     }
 
     public function test_ai_failures_are_logged_at_error_level(): void
@@ -535,7 +560,9 @@ class AskSystemTest extends TestCase
         config()->set('ai.rate_limits.chat', 2);
 
         Prism::fake([
+            $this->routedTo('inventory'),
             TextResponseFake::make()->withText('واحد.'),
+            $this->routedTo('inventory'),
             TextResponseFake::make()->withText('اتنين.'),
         ]);
 

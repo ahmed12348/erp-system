@@ -44,6 +44,12 @@ class AiService
      */
     private const MIN_SLICE_SECONDS = 4.0;
 
+    /**
+     * رد التوجيه المتوقّع كلمة أو اتنين («inventory, sales»)، فالسقف
+     * ده كفاية وزيادة — وبيمنع إن الموديل يسترسل لو اتلخبط.
+     */
+    private const ROUTING_MAX_TOKENS = 32;
+
     public function isEnabled(): bool
     {
         return (bool) config('ai.enabled') && $this->hasApiKey();
@@ -55,6 +61,47 @@ class AiService
     }
 
     /**
+     * بداية ميزانية طلب جديد.
+     *
+     * بيترجع وقت نهاية بالثواني (ساعة الحيط). اللي بينادي أكتر من نداء
+     * في طلب واحد بيحسبها مرة ويمرّرها للكل، فالمجموع بيفضل تحت
+     * الميزانية مهما كان عدد النداءات.
+     */
+    public function deadline(): float
+    {
+        return microtime(true) + (float) config('ai.budget');
+    }
+
+    /**
+     * نداء تصنيف صغير: سؤال واحد، من غير أدوات ولا تاريخ.
+     *
+     * بيتستعمل في توجيه السؤال لمجاله قبل الإجابة. مقصود إنه رخيص —
+     * موديل خفيف، تعليمات سطور، ومخرجات كلمة أو كلمتين — عشان ما
+     * ياكلش من ميزانية الإجابة.
+     *
+     * @throws AiUnavailableException
+     */
+    public function classify(string $instruction, string $question, ?float $deadline = null): string
+    {
+        $this->guard();
+
+        $response = $this->attempt(
+            'route',
+            $deadline ?? $this->deadline(),
+            fn (string $model, int $timeout) => Prism::text()
+                ->using($this->provider(), $model)
+                ->withSystemPrompt($instruction)
+                ->withPrompt($question)
+                ->withMaxTokens(self::ROUTING_MAX_TOKENS)
+                ->withProviderOptions($this->thinkingFor('route'))
+                ->withClientOptions($this->clientOptions($timeout))
+                ->asText(),
+        );
+
+        return trim($response->text);
+    }
+
+    /**
      * سؤال وجواب مع أدوات القراءة.
      *
      * جولات الأدوات بتتدار من هنا مش من جوه Prism: كل جولة بنحسب
@@ -62,16 +109,20 @@ class AiService
      * بيفضل تحت الميزانية مهما الموديل طلب أدوات كتير — وده اللي
      * `withMaxSteps` لوحده ما بيضمنهوش، لأنه بيعدّ جولات مش ثواني.
      *
+     * `$deadline` بيتبعت من بره لما الطلب فيه أكتر من نداء (نداء
+     * التوجيه وبعده الإجابة) — عشان الاتنين يتقاسموا **ميزانية واحدة**
+     * بدل ما كل واحد ياخد ميزانية كاملة ويعدّوا حد PHP مع بعض.
+     *
      * @param  array<int, array{role: string, content: string}>  $history
      * @param  array<int, Tool>  $tools
      *
      * @throws AiUnavailableException
      */
-    public function chat(string $systemPrompt, array $history, array $tools): string
+    public function chat(string $systemPrompt, array $history, array $tools, ?float $deadline = null): string
     {
         $this->guard();
 
-        $deadline = microtime(true) + (float) config('ai.budget');
+        $deadline ??= $this->deadline();
         $messages = $this->toMessages($history);
         $maxSteps = max(1, (int) config('ai.max_steps'));
 
@@ -190,8 +241,19 @@ class AiService
         // البديل مالوش لازمة لو هو نفسه الأساسي
         $hasFallback = $fallback !== '' && $fallback !== $model;
 
-        // الأساسي، وبعدين هو تاني (إعادة المحاولة على 503)، وبعدين البديل
-        $plan = $hasFallback ? [$model, $model, $fallback] : [$model, $model];
+        /*
+         * الأساسي، وبعدين هو تاني (إعادة المحاولة على 503)، وبعدين
+         * البديل.
+         *
+         * التوجيه استثناء: محاولة واحدة وبس. فشله رخيص — بنكمّل
+         * بالمجموعة الافتراضية — وإعادة المحاولة عليه بتاكل من
+         * ميزانية الإجابة، وهي اللي المستخدم مستني عليها فعلاً.
+         */
+        $plan = match (true) {
+            $operation === 'route' => [$model],
+            $hasFallback => [$model, $model, $fallback],
+            default => [$model, $model],
+        };
 
         $last = null;
         $index = 0;
@@ -261,7 +323,20 @@ class AiService
             );
         }
 
-        return (int) max(1, min((int) config('ai.timeout'), (int) floor($remaining)));
+        return (int) max(1, min($this->timeoutFor($operation), (int) floor($remaining)));
+    }
+
+    /**
+     * سقف النداء الواحد.
+     *
+     * التوجيه ليه سقف أقصر: تصنيف جملة واحدة لو أخد أكتر من كده يبقى
+     * في حاجة غلط، والاستنى عليه بياكل من وقت الإجابة.
+     */
+    private function timeoutFor(string $operation): int
+    {
+        return $operation === 'route'
+            ? (int) config('ai.routing.timeout')
+            : (int) config('ai.timeout');
     }
 
     /**
@@ -291,7 +366,11 @@ class AiService
 
     private function modelKey(string $operation): string
     {
-        return $operation === 'extract' ? 'vision' : 'chat';
+        return match ($operation) {
+            'extract' => 'vision',
+            'route' => 'routing',
+            default => 'chat',
+        };
     }
 
     /**
@@ -368,13 +447,18 @@ class AiService
      * المستوى `error` عن قصد: على السيرفر `LOG_LEVEL=error`، وعطل
      * المساعد لازم يبان هناك من غير ما نفتح اللوج كله.
      *
+     * التوجيه استثناء — بيتسجّل `warning`: فشله مابيوقعش الطلب، بنكمّل
+     * بالمجموعة الافتراضية والمستخدم بياخد رده عادي. لو كان `error`
+     * كنا هنملا لوج الإنتاج بأعطال المستخدم أصلاً ما حسّش بيها.
+     *
      * @param  array<string, mixed>  $context
      */
     private function logged(AiUnavailableException $e, string $operation, array $context = []): AiUnavailableException
     {
         $previous = $e->getPrevious();
+        $level = $operation === 'route' ? 'warning' : 'error';
 
-        Log::error('AI request failed', [
+        Log::{$level}('AI request failed', [
             'operation' => $operation,
             'provider' => $this->provider(),
             'reason' => $e->reason,
