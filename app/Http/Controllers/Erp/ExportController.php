@@ -65,25 +65,28 @@ class ExportController extends Controller
     {
         $from = $request->query('from');
         $to = $request->query('to');
+        $search = $request->query('search');
 
-        $statement = $this->customers->statement($customer, $from, $to);
+        $statement = $this->customers->statement($customer, $from, $to, $search);
 
         return $this->send(
             $request,
             'كشف حساب — '.$customer->name,
-            $from || $to ? $this->range($from, $to) : null,
+            $this->statementRange($from, $to, $search),
             fn (bool $raw): array => $this->builder->statement($statement, $raw),
         );
     }
 
     public function supplierStatement(Request $request, Supplier $supplier): Response
     {
-        $statement = $this->suppliers->statement($supplier);
+        $search = $request->query('search');
+
+        $statement = $this->suppliers->statement($supplier, $search);
 
         return $this->send(
             $request,
             'كشف حساب مورد — '.$supplier->name,
-            null,
+            $this->statementRange(null, null, $search),
             fn (bool $raw): array => $this->builder->statement($statement, $raw),
         );
     }
@@ -157,5 +160,21 @@ class ExportController extends Controller
     private function range(?string $from, ?string $to): string
     {
         return 'من '.($from ?: '—').' إلى '.($to ?: '—');
+    }
+
+    /**
+     * سطر الفترة بتاع الكشف — ومعاه البحث لو المستخدم كان مفلتر.
+     *
+     * الملف لازم يقول إنه مفلتر، وإلا حد بيستلم الكشف يحسبه كامل ويسأل
+     * فين باقي الحركة.
+     */
+    private function statementRange(?string $from, ?string $to, ?string $search): ?string
+    {
+        $parts = array_filter([
+            $from || $to ? $this->range($from, $to) : null,
+            filled($search) ? 'بحث: '.$search : null,
+        ]);
+
+        return $parts === [] ? null : implode(' · ', $parts);
     }
 }

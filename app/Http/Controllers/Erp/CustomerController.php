@@ -43,6 +43,7 @@ class CustomerController extends Controller
     {
         $from = $request->query('from');
         $to = $request->query('to');
+        $search = $request->query('search');
 
         return Inertia::render('customers/Show', [
             'customer' => [
@@ -56,7 +57,7 @@ class CustomerController extends Controller
                 'notes' => $customer->notes,
             ],
             'summary' => $this->customers->summary($customer),
-            'statement' => $this->customers->statement($customer, $from, $to),
+            'statement' => $this->customers->statement($customer, $from, $to, $search),
             'invoices' => $customer->invoices()
                 ->whereIn('type', [Invoice::TYPE_SALE, Invoice::TYPE_SALE_RETURN])
                 ->latest('date')
@@ -83,7 +84,7 @@ class CustomerController extends Controller
                     'id' => $invoice->id,
                     'label' => $invoice->number.' — متبقي '.number_format($invoice->remaining, 2),
                 ]),
-            'filters' => ['from' => $from, 'to' => $to],
+            'filters' => ['from' => $from, 'to' => $to, 'search' => $search],
             'breadcrumbs' => [
                 ['title' => 'لوحة التحكم', 'href' => route('erp.dashboard')],
                 ['title' => 'التجار', 'href' => route('customers.index')],
@@ -97,6 +98,7 @@ class CustomerController extends Controller
     {
         $from = $request->query('from');
         $to = $request->query('to');
+        $search = $request->query('search');
 
         return Inertia::render('print/CustomerStatement', [
             'company' => config('app.name'),
@@ -107,8 +109,8 @@ class CustomerController extends Controller
                 'address' => $customer->address,
             ],
             'summary' => $this->customers->summary($customer),
-            'statement' => $this->customers->statement($customer, $from, $to),
-            'filters' => ['from' => $from, 'to' => $to],
+            'statement' => $this->customers->statement($customer, $from, $to, $search),
+            'filters' => ['from' => $from, 'to' => $to, 'search' => $search],
             'printedAt' => now()->toDateString(),
         ]);
     }

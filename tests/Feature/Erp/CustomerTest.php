@@ -130,6 +130,80 @@ class CustomerTest extends TestCase
         $this->assertSame(11_000.0, $statement['closing']);
     }
 
+    /**
+     * البحث برقم الفاتورة جوه الكشف.
+     *
+     * «التاجر بيقول إنه دفع الفاتورة الفلانية» سؤال بيتسأل كل يوم، وقبل
+     * كده كان بيتجاوب بالتدوير بالعين في كشف من مية سطر.
+     */
+    public function test_the_statement_can_be_searched_by_invoice_number(): void
+    {
+        $customer = $this->customer('تاجر البحث', 'القاهرة');
+
+        $wanted = $this->makeSale($customer, 4_000, Carbon::today()->subDays(6));
+        $this->makeSale($customer, 2_000, Carbon::today()->subDays(3));
+        $this->makePayment($customer, 1_000, Carbon::today()->subDay());
+
+        $statement = app(CustomerService::class)
+            ->statement($customer, null, null, $wanted->number);
+
+        $this->assertCount(1, $statement['rows']);
+        $this->assertSame($wanted->number, $statement['rows'][0]['reference']);
+    }
+
+    /**
+     * الأرقام اللي جنب السطر المفلتر لازم تفضل أرقام الكشف الكامل.
+     *
+     * لو الفلترة حصلت قبل حساب الرصيد الجاري، عمود الرصيد كان هيطلّع
+     * أرقام مالهاش معنى — والكشف المحمّل ما كانش هيقفل.
+     */
+    public function test_searching_keeps_the_real_running_balance_and_totals(): void
+    {
+        $customer = $this->customer('تاجر الرصيد', 'القاهرة', openingBalance: 1_000);
+
+        $this->makeSale($customer, 5_000, Carbon::today()->subDays(9));
+        $second = $this->makeSale($customer, 3_000, Carbon::today()->subDays(4));
+
+        $statement = app(CustomerService::class)
+            ->statement($customer, null, null, $second->number);
+
+        $this->assertCount(1, $statement['rows']);
+        // 1,000 + 5,000 + 3,000 — مش 1,000 + 3,000
+        $this->assertSame(9_000.0, $statement['rows'][0]['balance']);
+        $this->assertSame(9_000.0, $statement['closing']);
+        $this->assertSame(8_000.0, $statement['totals']['debit']);
+    }
+
+    /** والبحث بيوصل من الشاشة نفسها، مش من الخدمة بس */
+    public function test_the_trader_page_passes_the_invoice_number_search_through(): void
+    {
+        $customer = $this->customer('تاجر الشاشة', 'القاهرة');
+
+        $wanted = $this->makeSale($customer, 4_000, Carbon::today()->subDays(2));
+        $this->makeSale($customer, 2_000, Carbon::today()->subDay());
+
+        $this->actingAs($this->user)
+            ->get("/customers/{$customer->id}?search={$wanted->number}")
+            ->assertOk()
+            ->assertInertia(fn (AssertableInertia $page) => $page
+                ->component('customers/Show')
+                ->has('statement.rows', 1)
+                ->where('statement.rows.0.reference', $wanted->number)
+                ->where('filters.search', $wanted->number)
+            );
+    }
+
+    public function test_a_statement_search_that_matches_nothing_comes_back_empty(): void
+    {
+        $customer = $this->customer('تاجر فاضي', 'القاهرة');
+        $this->makeSale($customer, 1_000);
+
+        $statement = app(CustomerService::class)
+            ->statement($customer, null, null, 'S-9999-99999');
+
+        $this->assertSame([], $statement['rows']);
+    }
+
     /** الحركة اللي في نفس اليوم الأخير لازم تدخل في الكشف */
     public function test_the_last_day_of_the_range_is_included(): void
     {

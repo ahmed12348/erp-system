@@ -1,7 +1,8 @@
 <script setup lang="ts">
 import { Head, Link, router } from '@inertiajs/vue3';
-import { FileText, MapPin, Phone, Printer, Receipt } from '@lucide/vue';
-import { ref } from 'vue';
+import { FileText, MapPin, Phone, Printer, Receipt, Search } from '@lucide/vue';
+import { watchDebounced } from '@vueuse/core';
+import { computed, ref } from 'vue';
 import RecordPaymentDialog from '@/components/customers/RecordPaymentDialog.vue';
 import EmptyState from '@/components/EmptyState.vue';
 import EtaBadge from '@/components/EtaBadge.vue';
@@ -68,7 +69,11 @@ const props = defineProps<{
         etaStatus: string | null;
     }[];
     openInvoices: { id: number; label: string }[];
-    filters: { from: string | null; to: string | null };
+    filters: {
+        from: string | null;
+        to: string | null;
+        search: string | null;
+    };
     breadcrumbs: BreadcrumbItem[];
 }>();
 
@@ -80,28 +85,49 @@ defineOptions({
 
 const from = ref(props.filters.from ?? '');
 const to = ref(props.filters.to ?? '');
+/** بحث برقم الفاتورة — «التاجر بيقول إنه دفع S-2026-00042، فين؟» */
+const search = ref(props.filters.search ?? '');
 
-function applyDates() {
+function applyFilters() {
     router.get(
         `/customers/${props.customer.id}`,
-        { from: from.value || undefined, to: to.value || undefined },
+        {
+            from: from.value || undefined,
+            to: to.value || undefined,
+            search: search.value || undefined,
+        },
         { preserveState: true, preserveScroll: true, replace: true },
     );
 }
 
-function clearDates() {
+watchDebounced(search, applyFilters, { debounce: 350 });
+
+function clearFilters() {
     from.value = '';
     to.value = '';
-    applyDates();
+    search.value = '';
+    applyFilters();
 }
 
-function openStatement() {
+/*
+ * نفس الفلاتر بتمشي مع الطباعة والتحميل.
+ *
+ * من غير كده الكشف اللي على الشاشة والملف المحمّل بيبقوا حاجتين
+ * مختلفتين — المستخدم بيفلتر، بيحمّل، وبيلاقي الكشف كامل.
+ */
+const statementQuery = computed(() => {
     const params = new URLSearchParams();
+
     if (from.value) params.set('from', from.value);
     if (to.value) params.set('to', to.value);
+    if (search.value) params.set('search', search.value);
 
+    return params.toString();
+});
+
+function openStatement() {
     window.open(
-        `/customers/${props.customer.id}/statement?${params.toString()}`,
+        `/customers/${props.customer.id}/statement?${statementQuery.value}`,
         '_blank',
     );
 }
@@ -127,7 +153,7 @@ const KIND_TONE: Record<string, string> = {
                     طباعة كشف الحساب
                 </Button>
                 <DownloadMenu
-                    :href="`/exports/customers/${customer.id}`"
+                    :href="`/exports/customers/${customer.id}?${statementQuery}`"
                     label="تحميل الكشف"
                 />
                 <RecordPaymentDialog
@@ -294,13 +320,25 @@ const KIND_TONE: Record<string, string> = {
         <SectionCard title="كشف الحساب" flush>
             <template #actions>
                 <div class="flex flex-wrap items-center gap-2">
+                    <div class="relative">
+                        <Search
+                            class="absolute start-2.5 top-2.5 size-4 text-muted-foreground"
+                        />
+                        <Input
+                            v-model="search"
+                            class="h-9 w-48 ps-8"
+                            placeholder="رقم الفاتورة"
+                            aria-label="بحث برقم الفاتورة"
+                            data-test="statement-search"
+                        />
+                    </div>
                     <Input
                         v-model="from"
                         type="date"
                         class="h-9 w-40"
                         aria-label="من تاريخ"
                         data-test="statement-from"
-                        @change="applyDates"
+                        @change="applyFilters"
                     />
                     <span class="text-xs text-muted-foreground">إلى</span>
                     <Input
@@ -309,13 +347,13 @@ const KIND_TONE: Record<string, string> = {
                         class="h-9 w-40"
                         aria-label="إلى تاريخ"
                         data-test="statement-to"
-                        @change="applyDates"
+                        @change="applyFilters"
                     />
                     <Button
-                        v-if="from || to"
+                        v-if="from || to || search"
                         variant="ghost"
                         size="sm"
-                        @click="clearDates"
+                        @click="clearFilters"
                     >
                         مسح
                     </Button>
@@ -335,7 +373,7 @@ const KIND_TONE: Record<string, string> = {
                                 البيان
                             </th>
                             <th class="px-5 py-2.5 text-start font-medium">
-                                المرجع
+                                رقم الفاتورة
                             </th>
                             <th class="px-5 py-2.5 text-start font-medium">
                                 مدين

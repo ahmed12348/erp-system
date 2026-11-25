@@ -1,6 +1,8 @@
 <script setup lang="ts">
-import { Head, Link, useForm } from '@inertiajs/vue3';
-import { ref } from 'vue';
+import { Head, Link, router, useForm } from '@inertiajs/vue3';
+import { Search } from '@lucide/vue';
+import { watchDebounced } from '@vueuse/core';
+import { computed, ref } from 'vue';
 import InputError from '@/components/InputError.vue';
 import DownloadMenu from '@/components/DownloadMenu.vue';
 import PageHeader from '@/components/PageHeader.vue';
@@ -63,6 +65,7 @@ const props = defineProps<{
         remaining: number;
     }[];
     openInvoices: { id: number; label: string; exchangeRate: number }[];
+    filters: { search: string | null };
     breadcrumbs: BreadcrumbItem[];
 }>();
 
@@ -73,6 +76,24 @@ defineOptions({
 });
 
 const open = ref(false);
+
+/** بحث برقم فاتورة الشراء جوه الكشف */
+const search = ref(props.filters.search ?? '');
+
+function applySearch() {
+    router.get(
+        `/suppliers/${props.supplier.id}`,
+        { search: search.value || undefined },
+        { preserveState: true, preserveScroll: true, replace: true },
+    );
+}
+
+watchDebounced(search, applySearch, { debounce: 350 });
+
+// نفس البحث بيمشي مع التحميل عشان الملف يطابق اللي على الشاشة
+const statementQuery = computed(() =>
+    search.value ? `search=${encodeURIComponent(search.value)}` : '',
+);
 
 const form = useForm({
     amount: '' as string | number,
@@ -112,7 +133,7 @@ const SELECT_CLASS =
         >
             <template #actions>
                 <DownloadMenu
-                    :href="`/exports/suppliers/${supplier.id}`"
+                    :href="`/exports/suppliers/${supplier.id}?${statementQuery}`"
                     label="تحميل الكشف"
                 />
                 <Dialog v-model:open="open">
@@ -316,6 +337,34 @@ const SELECT_CLASS =
             :description="`كل المبالغ بالـ ${supplier.currency}`"
             flush
         >
+            <template #actions>
+                <div class="flex flex-wrap items-center gap-2">
+                    <div class="relative">
+                        <Search
+                            class="absolute start-2.5 top-2.5 size-4 text-muted-foreground"
+                        />
+                        <Input
+                            v-model="search"
+                            class="h-9 w-48 ps-8"
+                            placeholder="رقم الفاتورة"
+                            aria-label="بحث برقم الفاتورة"
+                            data-test="statement-search"
+                        />
+                    </div>
+                    <Button
+                        v-if="search"
+                        variant="ghost"
+                        size="sm"
+                        @click="
+                            search = '';
+                            applySearch();
+                        "
+                    >
+                        مسح
+                    </Button>
+                </div>
+            </template>
+
             <div class="scrollbar-thin overflow-x-auto">
                 <table class="w-full text-sm">
                     <thead
@@ -329,7 +378,7 @@ const SELECT_CLASS =
                                 البيان
                             </th>
                             <th class="px-5 py-2.5 text-start font-medium">
-                                المرجع
+                                رقم الفاتورة
                             </th>
                             <th class="px-5 py-2.5 text-start font-medium">
                                 مدين

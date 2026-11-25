@@ -272,6 +272,25 @@ class PurchaseInvoiceTest extends TestCase
             );
     }
 
+    /** كشف المورد بيتدوّر فيه برقم فاتورة الشراء — زي كشف التاجر بالظبط */
+    public function test_the_supplier_statement_can_be_searched_by_invoice_number(): void
+    {
+        $wanted = $this->confirmedPurchase();
+        $other = $this->confirmedPurchase();
+
+        $this->actingAs($this->user)
+            ->get("/suppliers/{$this->supplier->id}?search={$wanted->number}")
+            ->assertOk()
+            ->assertInertia(fn (AssertableInertia $page) => $page
+                ->component('suppliers/Show')
+                ->has('statement.rows', 1)
+                ->where('statement.rows.0.reference', $wanted->number)
+                ->where('filters.search', $wanted->number)
+            );
+
+        $this->assertNotSame($wanted->number, $other->number);
+    }
+
     /** فاتورة البيع ماينفعش تتفتح من مسار المشتريات والعكس */
     public function test_the_purchase_route_rejects_a_sale_invoice(): void
     {
@@ -289,6 +308,20 @@ class PurchaseInvoiceTest extends TestCase
     }
 
     // ——— مساعدات ———
+
+    /** فاتورة شراء مؤكّدة بترقيم النظام */
+    private function confirmedPurchase(): Invoice
+    {
+        $product = $this->product();
+
+        $this->actingAs($this->user)
+            ->post('/purchases', $this->payload([
+                ['product_id' => $product->id, 'quantity' => 5, 'unit_price' => 20],
+            ]))
+            ->assertRedirect();
+
+        return Invoice::query()->purchases()->latest('id')->firstOrFail();
+    }
 
     private function product(string $name = 'صنف مستورد', float $cost = 100): Product
     {

@@ -53,6 +53,8 @@ class ExportBuilder
             $rows[] = [
                 $this->date($row['date'] ?? null),
                 $row['label'] ?? ($row['description'] ?? '—'),
+                // رقم الفاتورة للفواتير، ومرجع السند للتحصيلات
+                $row['reference'] ?? '—',
                 $this->amount($row['debit'] ?? 0, $raw),
                 $this->amount($row['credit'] ?? 0, $raw),
                 $this->amount($row['balance'] ?? 0, $raw),
@@ -60,9 +62,9 @@ class ExportBuilder
         }
 
         return [
-            'headers' => ['التاريخ', 'البيان', 'مدين', 'دائن', 'الرصيد'],
+            'headers' => ['التاريخ', 'البيان', 'رقم الفاتورة', 'مدين', 'دائن', 'الرصيد'],
             'rows' => $rows,
-            'numeric' => [2, 3, 4],
+            'numeric' => [3, 4, 5],
             'summary' => array_filter([
                 'رصيد أول المدة' => isset($statement['opening'])
                     ? $this->money($statement['opening'])

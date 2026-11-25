@@ -104,9 +104,13 @@ class CustomerService
      * الرصيد الافتتاحي = الرصيد الافتتاحي للتاجر + كل الحركة قبل تاريخ البداية،
      * عشان الكشف يبقى صح حتى لو المستخدم فلتر على فترة في النص.
      *
+     * `$search` بيدوّر برقم الفاتورة (أو مرجع السند) — «التاجر ده بيقول
+     * إنه دفع فاتورة S-2026-00042، فين؟» سؤال بيتسأل كل يوم، وقبل كده
+     * كان بيتجاوب بالتدوير بالعين في كشف من مية سطر.
+     *
      * @return array{opening: float, rows: list<array<string, mixed>>, closing: float, totals: array<string, float>}
      */
-    public function statement(Customer $customer, ?string $from = null, ?string $to = null): array
+    public function statement(Customer $customer, ?string $from = null, ?string $to = null, ?string $search = null): array
     {
         $opening = (float) $customer->opening_balance + $this->movementBefore($customer, $from);
 
@@ -129,10 +133,43 @@ class CustomerService
 
         return [
             'opening' => round($opening, 2),
-            'rows' => $output,
+            /*
+             * البحث بيتعمل بعد حساب الرصيد الجاري مش قبله: السطر اللي
+             * بيظهر بيفضل شايل رصيده الحقيقي من الكشف الكامل. ولو
+             * اتفلتر الأول، كل رصيد في العمود كان هيبقى رقم مالوش
+             * معنى — والافتتاحي والختامي والإجماليات بتفضل على الفترة
+             * كلها عشان الكشف يفضل مقفول.
+             */
+            'rows' => self::matching($output, $search),
             'closing' => round($balance, 2),
             'totals' => ['debit' => round($debit, 2), 'credit' => round($credit, 2)],
         ];
+    }
+
+    /**
+     * سطور الكشف اللي مرجعها فيه النص المدوّر عليه.
+     *
+     * مشترك بين كشف التاجر وكشف المورد — نفس البحث بالظبط، فما ينفعش
+     * يتكتب مرتين ويفرقوا مع أول تعديل.
+     *
+     * @param  list<array<string, mixed>>  $rows
+     * @return list<array<string, mixed>>
+     */
+    public static function matching(array $rows, ?string $search): array
+    {
+        if (blank($search)) {
+            return $rows;
+        }
+
+        $term = mb_strtolower(trim($search));
+
+        return array_values(array_filter(
+            $rows,
+            fn (array $row): bool => str_contains(
+                mb_strtolower((string) ($row['reference'] ?? '')),
+                $term,
+            ),
+        ));
     }
 
     /**

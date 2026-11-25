@@ -70,9 +70,12 @@ class SupplierService
     /**
      * كشف حساب المورد بعملته.
      *
+     * `$search` بيدوّر برقم فاتورة الشراء (أو مرجع السند) — نفس بحث كشف
+     * التاجر بالظبط.
+     *
      * @return array{opening: float, rows: list<array<string, mixed>>, closing: float}
      */
-    public function statement(Supplier $supplier): array
+    public function statement(Supplier $supplier, ?string $search = null): array
     {
         $invoices = $supplier->invoices()
             ->where('status', Invoice::STATUS_CONFIRMED)
@@ -119,7 +122,8 @@ class SupplierService
 
         return [
             'opening' => round((float) $supplier->opening_balance, 2),
-            'rows' => $output,
+            // البحث بعد حساب الرصيد الجاري — زي كشف التاجر بالظبط
+            'rows' => CustomerService::matching($output, $search),
             'closing' => round($balance, 2),
         ];
     }

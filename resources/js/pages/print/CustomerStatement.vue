@@ -33,26 +33,33 @@ const props = defineProps<{
         closing: number;
         totals: { debit: number; credit: number };
     };
-    filters: { from: string | null; to: string | null };
+    filters: {
+        from: string | null;
+        to: string | null;
+        search: string | null;
+    };
     printedAt: string;
 }>();
 
 const period = (() => {
-    const { from, to } = props.filters;
+    const { from, to, search } = props.filters;
+
+    // الورقة لازم تقول إنها مفلترة، وإلا اللي بيستلمها يحسبها كشف كامل
+    const filtered = search ? ` · بحث: ${search}` : '';
 
     if (from && to) {
-        return `الفترة من ${formatDate(from)} إلى ${formatDate(to)}`;
+        return `الفترة من ${formatDate(from)} إلى ${formatDate(to)}${filtered}`;
     }
 
     if (from) {
-        return `من ${formatDate(from)}`;
+        return `من ${formatDate(from)}${filtered}`;
     }
 
     if (to) {
-        return `حتى ${formatDate(to)}`;
+        return `حتى ${formatDate(to)}${filtered}`;
     }
 
-    return 'كل الحركة حتى تاريخه';
+    return `كل الحركة حتى تاريخه${filtered}`;
 })();
 </script>
 
@@ -124,7 +131,7 @@ const period = (() => {
                     <th
                         class="border border-neutral-300 px-2 py-2 text-start font-semibold"
                     >
-                        المرجع
+                        رقم الفاتورة
                     </th>
                     <th
                         class="border border-neutral-300 px-2 py-2 text-start font-semibold"

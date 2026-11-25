@@ -11,6 +11,7 @@ use App\Models\Supplier;
 use App\Services\PaymentService;
 use App\Services\SupplierService;
 use Illuminate\Http\RedirectResponse;
+use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Gate;
 use Inertia\Inertia;
 use Inertia\Response;
@@ -34,8 +35,10 @@ class SupplierController extends Controller
         ]);
     }
 
-    public function show(Supplier $supplier): Response
+    public function show(Request $request, Supplier $supplier): Response
     {
+        $search = $request->query('search');
+
         return Inertia::render('suppliers/Show', [
             'supplier' => [
                 'id' => $supplier->id,
@@ -47,7 +50,8 @@ class SupplierController extends Controller
                 'notes' => $supplier->notes,
             ],
             'summary' => $this->suppliers->summary($supplier),
-            'statement' => $this->suppliers->statement($supplier),
+            'statement' => $this->suppliers->statement($supplier, $search),
+            'filters' => ['search' => $search],
             'invoices' => $supplier->invoices()
                 ->where('type', Invoice::TYPE_PURCHASE)
                 ->latest('date')

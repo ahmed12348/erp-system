@@ -247,6 +247,57 @@ class ExportTest extends TestCase
             ->assertHeader('content-type', 'application/pdf');
     }
 
+    /**
+     * الكشف لازم يشيل رقم الفاتورة.
+     *
+     * من غيره الكشف مابينفعش يتطابق مع أي حاجة: اللي بيستلمه بيبص على
+     * سطر «فاتورة بيع» بـ 1,710 ومعندوش حاجة يربطها بفاتورة بعينها.
+     */
+    public function test_a_statement_carries_the_invoice_number_as_a_column(): void
+    {
+        $table = app(ExportBuilder::class)->statement([
+            'opening' => 0,
+            'rows' => [[
+                'date' => '2026-11-20', 'description' => 'فاتورة بيع',
+                'reference' => 'S-2026-00001',
+                'debit' => 1710, 'credit' => 0, 'balance' => 1710,
+            ]],
+            'closing' => 1710,
+        ]);
+
+        $this->assertContains('رقم الفاتورة', $table['headers']);
+        $this->assertSame('S-2026-00001', $table['rows'][0][2]);
+
+        // أعمدة الأرقام لازم تزحزح معاها، وإلا التحاذي بيبوظ
+        $this->assertSame([3, 4, 5], $table['numeric']);
+    }
+
+    public function test_the_statement_excel_carries_the_invoice_number(): void
+    {
+        $sheet = $this->sheetOf(
+            "/exports/customers/{$this->customer->id}?format=excel"
+        );
+
+        $this->assertStringContainsString('رقم الفاتورة', $sheet);
+        $this->assertStringContainsString('S-2026-00001', $sheet);
+    }
+
+    /** التحميل بياخد نفس بحث الشاشة — الملف لازم يطابق اللي قدام المستخدم */
+    public function test_a_statement_export_honours_the_invoice_number_search(): void
+    {
+        $sheet = $this->sheetOf(
+            "/exports/customers/{$this->customer->id}?format=excel&search=S-2026-00001"
+        );
+
+        $this->assertStringContainsString('S-2026-00001', $sheet);
+
+        $empty = $this->sheetOf(
+            "/exports/customers/{$this->customer->id}?format=excel&search=S-2026-09999"
+        );
+
+        $this->assertStringNotContainsString('S-2026-00001', $empty);
+    }
+
     public function test_a_sale_invoice_downloads(): void
     {
         $response = $this->actingAs($this->admin)
@@ -420,6 +471,23 @@ class ExportTest extends TestCase
         foreach (glob(storage_path('app/mpdf/mpdf/ttfontdata/*')) ?: [] as $file) {
             @unlink($file);
         }
+    }
+
+    /** محتوى ورقة الإكسيل اللي الرابط ده بيرجّعها */
+    private function sheetOf(string $url): string
+    {
+        $response = $this->actingAs($this->admin)->get($url)->assertOk();
+
+        $path = tempnam(sys_get_temp_dir(), 'xlsx');
+        file_put_contents($path, $response->getContent());
+
+        $zip = new ZipArchive;
+        $zip->open($path);
+        $sheet = (string) $zip->getFromName('xl/worksheets/sheet1.xml');
+        $zip->close();
+        unlink($path);
+
+        return $sheet;
     }
 
     /**
