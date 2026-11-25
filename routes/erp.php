@@ -16,6 +16,7 @@ use App\Http\Controllers\Erp\ProductAliasController;
 use App\Http\Controllers\Erp\ProductController;
 use App\Http\Controllers\Erp\PurchaseInvoiceController;
 use App\Http\Controllers\Erp\ReportController;
+use App\Http\Controllers\Erp\ReturnController;
 use App\Http\Controllers\Erp\SaleInvoiceController;
 use App\Http\Controllers\Erp\SalesRepController;
 use App\Http\Controllers\Erp\SupplierController;
@@ -79,6 +80,19 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::get('preparation-orders/{preparationOrder}/convert', [PreparationOrderController::class, 'convert'])->name('preparation-orders.convert');
     Route::post('preparation-orders/{preparationOrder}/prepare', [PreparationOrderController::class, 'prepare'])->name('preparation-orders.prepare');
     Route::post('preparation-orders/{preparationOrder}/cancel', [PreparationOrderController::class, 'cancel'])->name('preparation-orders.cancel');
+
+    /*
+     * المرتجعات — «create» و«orphan» قبل `{return}` عشان ما يتقروش
+     * كأرقام مستندات.
+     */
+    Route::get('returns', [ReturnController::class, 'index'])->name('returns.index');
+    Route::get('returns/orphan', [ReturnController::class, 'createOrphan'])->name('returns.orphan.create');
+    Route::post('returns/orphan', [ReturnController::class, 'storeOrphan'])->name('returns.orphan.store');
+    Route::get('invoices/{invoice}/return', [ReturnController::class, 'create'])->name('returns.create');
+    Route::post('invoices/{invoice}/return', [ReturnController::class, 'store'])->name('returns.store');
+    Route::get('returns/{return}', [ReturnController::class, 'show'])->name('returns.show');
+    Route::get('returns/{return}/print', [ReturnController::class, 'print'])->name('returns.print');
+    Route::post('returns/{return}/eta', [ReturnController::class, 'sendToEta'])->name('returns.eta.store');
 
     // الموردون
     Route::get('suppliers', [SupplierController::class, 'index'])->name('suppliers.index');
@@ -160,6 +174,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
     // قوايم الفواتير — بتتحمّل بفلاتر الشاشة الحالية
     Route::get('exports/sales', [ExportController::class, 'saleList'])->name('exports.sales');
     Route::get('exports/purchases', [ExportController::class, 'purchaseList'])->name('exports.purchases');
+    Route::get('exports/returns', [ExportController::class, 'returnList'])->name('exports.returns');
     Route::get('exports/customers/{customer}', [ExportController::class, 'customerStatement'])->name('exports.customer');
     Route::get('exports/suppliers/{supplier}', [ExportController::class, 'supplierStatement'])->name('exports.supplier');
     Route::get('exports/invoices/{invoice}', [ExportController::class, 'invoice'])->name('exports.invoice');

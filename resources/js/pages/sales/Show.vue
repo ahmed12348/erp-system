@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { Head, Link, router } from '@inertiajs/vue3';
-import { Printer, Send } from '@lucide/vue';
+import { Printer, Send, Undo2 } from '@lucide/vue';
 import { computed, ref } from 'vue';
 import type { AttachmentItem } from '@/components/AttachmentPanel.vue';
 import AttachmentPanel from '@/components/AttachmentPanel.vue';
@@ -62,6 +62,13 @@ type Invoice = {
         reference: string | null;
     }[];
     attachments: AttachmentItem[];
+    returns: {
+        id: number;
+        number: string;
+        date: string;
+        total: number;
+        reason: string | null;
+    }[];
 };
 
 const props = defineProps<{
@@ -82,6 +89,11 @@ const canSend = computed(
     () =>
         props.invoice.type === 'sale' &&
         [null, 'pending', 'rejected'].includes(props.invoice.etaStatus),
+);
+
+/** المرتجع بيتعمل على فاتورة بيع مؤكّدة بس — مش على مرتجع تاني */
+const canReturn = computed(
+    () => props.invoice.type === 'sale' && props.invoice.status === 'confirmed',
 );
 
 function sendToEta() {
@@ -122,6 +134,18 @@ const METHOD_LABELS: Record<string, string> = {
                     </a>
                 </Button>
                 <DownloadMenu :href="`/exports/invoices/${invoice.id}`" />
+                <!-- المرتجع بيتعمل من على الفاتورة نفسها -->
+                <Button
+                    v-if="canReturn"
+                    variant="outline"
+                    as-child
+                    data-test="open-return"
+                >
+                    <Link :href="`/invoices/${invoice.id}/return`">
+                        <Undo2 class="size-4" />
+                        مرتجع
+                    </Link>
+                </Button>
                 <Button
                     v-if="canSend"
                     :disabled="sending"
@@ -400,6 +424,61 @@ const METHOD_LABELS: Record<string, string> = {
                                 class="px-5 py-3 font-semibold text-status-good tabular-nums"
                             >
                                 {{ formatMoney(payment.amount) }}
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </SectionCard>
+
+        <!-- المرتجعات على الفاتورة دي — بتخلّي الفاتورة تحكي قصتها كاملة -->
+        <SectionCard
+            v-if="invoice.returns.length"
+            title="المرتجعات على الفاتورة دي"
+            flush
+            data-test="invoice-returns"
+        >
+            <div class="scrollbar-thin overflow-x-auto">
+                <table class="w-full text-sm">
+                    <thead
+                        class="border-b border-border text-xs text-muted-foreground"
+                    >
+                        <tr>
+                            <th class="px-5 py-2.5 text-start font-medium">
+                                رقم المرتجع
+                            </th>
+                            <th class="px-5 py-2.5 text-start font-medium">
+                                التاريخ
+                            </th>
+                            <th class="px-5 py-2.5 text-start font-medium">
+                                السبب
+                            </th>
+                            <th class="px-5 py-2.5 text-start font-medium">
+                                القيمة
+                            </th>
+                        </tr>
+                    </thead>
+                    <tbody class="divide-y divide-border">
+                        <tr v-for="ret in invoice.returns" :key="ret.id">
+                            <td class="px-5 py-3 font-medium">
+                                <Link
+                                    :href="`/returns/${ret.id}`"
+                                    class="tabular-nums hover:underline"
+                                    :data-test="`invoice-return-${ret.number}`"
+                                >
+                                    {{ ret.number }}
+                                </Link>
+                            </td>
+                            <td
+                                class="px-5 py-3 text-muted-foreground tabular-nums"
+                            >
+                                {{ formatDateShort(ret.date) }}
+                            </td>
+                            <td class="px-5 py-3 text-muted-foreground">
+                                {{ ret.reason ?? '—' }}
+                            </td>
+                            <td class="px-5 py-3 font-semibold tabular-nums">
+                                {{ formatMoney(ret.total, invoice.currency) }}
                             </td>
                         </tr>
                     </tbody>

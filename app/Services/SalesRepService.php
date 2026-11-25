@@ -49,9 +49,23 @@ class SalesRepService
             ->where('type', Invoice::TYPE_SALE_RETURN)
             ->where('status', Invoice::STATUS_CONFIRMED);
 
-        $collected = (float) $this->scope($rep->payments(), $filters)
+        /*
+         * المحصّل **صافي**: التحصيلات ناقص اللي اترد.
+         *
+         * العمولة بتتحسب على المحصّل، والمرتجع النقدي بيرجّع فلوس
+         * للتاجر — فلو عدّيناه، المندوب بياخد عمولة على فلوس رجعت من
+         * إيدنا. الرد بيتسجّل كسند صرف منسوب لنفس المندوب، فالطرح هنا
+         * هو اللي بيعكس العمولة فعلاً.
+         */
+        $receipts = (float) $this->scope($rep->payments(), $filters)
             ->where('type', Payment::TYPE_RECEIPT)
             ->sum('amount');
+
+        $refunded = (float) $this->scope($rep->payments(), $filters)
+            ->where('type', Payment::TYPE_DISBURSEMENT)
+            ->sum('amount');
+
+        $collected = $receipts - $refunded;
 
         $salesTotal = (float) (clone $sales)->sum('total');
         $returnsTotal = (float) $returns->sum('total');
@@ -71,6 +85,7 @@ class SalesRepService
             'returns' => round($returnsTotal, 2),
             'netSales' => $netSales,
             'collected' => round($collected, 2),
+            'refunded' => round($refunded, 2),
             // المستحق على تجار المندوب كلهم (مش مقيّد بالفترة — ده رصيد قائم)
             'outstanding' => $this->outstandingFor($rep),
             'commission' => round($collected * $rate / 100, 2),

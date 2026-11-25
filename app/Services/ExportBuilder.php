@@ -195,6 +195,48 @@ class ExportBuilder
     }
 
     /**
+     * قائمة مرتجعات.
+     *
+     * @param  iterable<int, array<string, mixed>>  $rows
+     * @return array{headers: array<int, string>, rows: array<int, array<int, mixed>>, numeric: array<int, int>, summary: array<string, string>}
+     */
+    public function returnList(iterable $rows, string $partyLabel, bool $raw = false): array
+    {
+        $output = [];
+        $total = 0.0;
+        $count = 0;
+
+        foreach ($rows as $row) {
+            $count++;
+            $total += (float) $row['total'];
+
+            $output[] = [
+                $row['number'],
+                $this->date($row['date']),
+                // الفاتورة الأصلية — المرتجع اليتيم بيتكتب صريح
+                $row['original'] ?? ($row['isOrphan'] ? 'من غير فاتورة' : '—'),
+                $row['party'] ?? '—',
+                $row['warehouse'] ?? '—',
+                $row['reason'] ?? '—',
+                $this->amount($row['total'], $raw),
+            ];
+        }
+
+        return [
+            'headers' => [
+                'رقم المرتجع', 'التاريخ', 'الفاتورة الأصلية',
+                $partyLabel, 'المخزن', 'السبب', 'الإجمالي',
+            ],
+            'rows' => $output,
+            'numeric' => [6],
+            'summary' => [
+                'عدد المرتجعات' => $this->number($count),
+                'إجمالي المرتجعات' => $this->money($total),
+            ],
+        ];
+    }
+
+    /**
      * قائمة فواتير شراء.
      *
      * فيها عمودين زيادة عن البيع: العملة وسعر الصرف. فواتير الاستيراد

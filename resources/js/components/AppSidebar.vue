@@ -12,6 +12,7 @@ import {
     ShoppingCart,
     Tags,
     Truck,
+    Undo2,
     UserRound,
     Users,
     Wallet,
@@ -59,6 +60,7 @@ const navGroups = computed<NavGroup[]>(() => [
                       },
                   ]
                 : []),
+            { title: 'المرتجعات', href: '/returns', icon: Undo2 },
             { title: 'المخزون', href: '/inventory', icon: Package },
         ],
     },

@@ -1,10 +1,12 @@
 <script setup lang="ts">
 import { Head, Link } from '@inertiajs/vue3';
+import { Undo2 } from '@lucide/vue';
 import type { AttachmentItem } from '@/components/AttachmentPanel.vue';
 import AttachmentPanel from '@/components/AttachmentPanel.vue';
 import DownloadMenu from '@/components/DownloadMenu.vue';
 import PageHeader from '@/components/PageHeader.vue';
 import SectionCard from '@/components/SectionCard.vue';
+import { Button } from '@/components/ui/button';
 import {
     formatDate,
     formatDateShort,
@@ -61,6 +63,14 @@ defineProps<{
             reference: string | null;
         }[];
         attachments: AttachmentItem[];
+        returns: {
+            id: number;
+            number: string;
+            date: string;
+            total: number;
+            reason: string | null;
+        }[];
+        canReturn: boolean;
     };
     breadcrumbs: BreadcrumbItem[];
 }>();
@@ -88,6 +98,18 @@ const METHOD_LABELS: Record<string, string> = {
         >
             <template #actions>
                 <DownloadMenu :href="`/exports/invoices/${invoice.id}`" />
+                <!-- المرتجع بيتعمل من على الفاتورة نفسها -->
+                <Button
+                    v-if="invoice.canReturn"
+                    variant="outline"
+                    as-child
+                    data-test="open-return"
+                >
+                    <Link :href="`/invoices/${invoice.id}/return`">
+                        <Undo2 class="size-4" />
+                        مرتجع
+                    </Link>
+                </Button>
             </template>
         </PageHeader>
 
@@ -346,6 +368,37 @@ const METHOD_LABELS: Record<string, string> = {
                     </tbody>
                 </table>
             </div>
+        </SectionCard>
+
+        <!-- المرتجعات على الفاتورة دي -->
+        <SectionCard
+            v-if="invoice.returns.length"
+            title="المرتجعات على الفاتورة دي"
+            flush
+            data-test="invoice-returns"
+        >
+            <ul class="divide-y divide-border">
+                <li
+                    v-for="ret in invoice.returns"
+                    :key="ret.id"
+                    class="flex flex-wrap items-center justify-between gap-3 px-5 py-3 text-sm"
+                >
+                    <Link
+                        :href="`/returns/${ret.id}`"
+                        class="font-medium tabular-nums hover:underline"
+                        :data-test="`invoice-return-${ret.number}`"
+                    >
+                        {{ ret.number }}
+                    </Link>
+                    <span class="text-muted-foreground">
+                        {{ formatDateShort(ret.date) }} ·
+                        {{ ret.reason ?? '—' }}
+                    </span>
+                    <span class="font-semibold tabular-nums">
+                        {{ formatMoney(ret.total, invoice.currency) }}
+                    </span>
+                </li>
+            </ul>
         </SectionCard>
 
         <AttachmentPanel

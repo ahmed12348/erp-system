@@ -21,12 +21,45 @@ class EtaService
     /** الحالات اللي ينفع نبعت منها */
     private const SENDABLE = [null, Invoice::ETA_PENDING, Invoice::ETA_REJECTED];
 
+    /**
+     * أنواع المستندات في المنظومة.
+     *
+     * المرتجع بيتبعت **إشعار خصم** (credit note) مش فاتورة: المنظومة
+     * بتعتبره مستند مستقل بيشاور على الفاتورة الأصلية بـ UUID بتاعها،
+     * وده اللي بيخلّي المصلحة تقفل الاتنين على بعض. فاتورة بقيمة سالبة
+     * مش بديل مقبول.
+     */
+    public const DOC_INVOICE = 'I';
+
+    public const DOC_CREDIT_NOTE = 'C';
+
+    public const DOC_LABELS = [
+        self::DOC_INVOICE => 'فاتورة',
+        self::DOC_CREDIT_NOTE => 'إشعار خصم',
+    ];
+
     public function send(Invoice $invoice): Invoice
     {
-        if ($invoice->type !== Invoice::TYPE_SALE) {
+        if (! in_array($invoice->type, [Invoice::TYPE_SALE, Invoice::TYPE_SALE_RETURN], true)) {
             throw ValidationException::withMessages([
-                'eta' => 'الفاتورة الإلكترونية بتتطبّق على فواتير البيع بس.',
+                'eta' => 'الفاتورة الإلكترونية بتتطبّق على فواتير البيع ومرتجعاتها بس.',
             ]);
+        }
+
+        /*
+         * إشعار الخصم لازم يشاور على فاتورة متبعتة للمنظومة.
+         *
+         * من غير UUID الأصلية، المنظومة مش هتعرف الإشعار ده بيخصم من
+         * إيه — فبنوقفه هنا بدل ما يتبعت ويترفض.
+         */
+        if ($invoice->type === Invoice::TYPE_SALE_RETURN) {
+            $original = $invoice->originalInvoice;
+
+            if (! $original?->eta_uuid) {
+                throw ValidationException::withMessages([
+                    'eta' => 'لازم تبعت الفاتورة الأصلية للمنظومة الأول، عشان إشعار الخصم يشاور عليها.',
+                ]);
+            }
         }
 
         if ($invoice->status !== Invoice::STATUS_CONFIRMED) {
@@ -51,10 +84,19 @@ class EtaService
             $invoice->recordActivity('eta_sent', [
                 'number' => $invoice->number,
                 'eta_uuid' => $invoice->eta_uuid,
+                'document' => self::DOC_LABELS[$this->documentType($invoice)],
             ]);
 
             return $invoice->fresh();
         });
+    }
+
+    /** نوع المستند في المنظومة — فاتورة ولا إشعار خصم */
+    public function documentType(Invoice $invoice): string
+    {
+        return $invoice->type === Invoice::TYPE_SALE_RETURN
+            ? self::DOC_CREDIT_NOTE
+            : self::DOC_INVOICE;
     }
 
     /** شكل الـ UUID بتاع المنظومة: ٢٦ حرف hex بحروف كبيرة */

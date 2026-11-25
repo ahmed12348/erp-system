@@ -10,6 +10,7 @@ use App\Services\CustomerService;
 use App\Services\ExportBuilder;
 use App\Services\PdfService;
 use App\Services\PurchaseQueryService;
+use App\Services\ReturnService;
 use App\Services\SalesQueryService;
 use App\Services\SpreadsheetService;
 use App\Services\SupplierService;
@@ -30,6 +31,7 @@ class ExportController extends Controller
         private readonly SupplierService $suppliers,
         private readonly SalesQueryService $sales,
         private readonly PurchaseQueryService $purchases,
+        private readonly ReturnService $returns,
         private readonly ExportBuilder $builder,
         private readonly PdfService $pdf,
         private readonly SpreadsheetService $excel,
@@ -139,6 +141,37 @@ class ExportController extends Controller
             'فواتير المبيعات',
             $this->listRange($filters),
             fn (bool $raw): array => $this->builder->saleList($rows, $totals, $raw),
+        );
+    }
+
+    /** قائمة المرتجعات بفلاتر الشاشة */
+    public function returnList(Request $request): Response
+    {
+        $filters = $request->only(['type', 'search', 'reason', 'orphan', 'from', 'to']);
+
+        $isPurchase = ($filters['type'] ?? null) === Invoice::TYPE_PURCHASE_RETURN;
+
+        $rows = $this->returns->query($filters)->get()
+            ->map(fn (Invoice $invoice): array => [
+                'number' => $invoice->number,
+                'date' => $invoice->date->toDateString(),
+                'original' => $invoice->originalInvoice?->number,
+                'isOrphan' => (bool) $invoice->is_orphan_return,
+                'party' => $invoice->customer?->name ?? $invoice->supplier?->name,
+                'warehouse' => $invoice->warehouse?->name,
+                'reason' => $invoice->returnReasonLabel(),
+                'total' => (float) $invoice->total,
+            ]);
+
+        return $this->send(
+            $request,
+            $isPurchase ? 'مرتجعات المشتريات' : 'مرتجعات المبيعات',
+            $this->listRange($filters),
+            fn (bool $raw): array => $this->builder->returnList(
+                $rows,
+                $isPurchase ? 'المورد' : 'التاجر',
+                $raw,
+            ),
         );
     }
 

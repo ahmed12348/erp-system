@@ -44,11 +44,26 @@ class Invoice extends Model
     public const ETA_REJECTED = 'rejected';
 
     protected $fillable = [
-        'type', 'number', 'customer_id', 'supplier_id', 'warehouse_id', 'user_id', 'sales_rep_id',
+        'type', 'number', 'original_invoice_id', 'customer_id', 'supplier_id',
+        'warehouse_id', 'user_id', 'sales_rep_id',
         'date', 'due_date', 'currency', 'exchange_rate', 'subtotal', 'discount',
         'tax', 'shipping_cost', 'customs_cost', 'clearance_cost',
         'total', 'paid', 'status', 'eta_status', 'eta_uuid', 'notes',
+        'return_reason', 'is_orphan_return',
         'scan_payload', 'scanned_at',
+    ];
+
+    /** أنواع المرتجعات */
+    public const RETURN_TYPES = [self::TYPE_SALE_RETURN, self::TYPE_PURCHASE_RETURN];
+
+    /** أسباب المرتجع المتاحة */
+    public const RETURN_REASONS = [
+        'damaged' => 'بضاعة تالفة',
+        'wrong_item' => 'صنف غلط',
+        'excess' => 'زيادة عن الطلب',
+        'expired' => 'منتهي الصلاحية',
+        'customer_refused' => 'التاجر رفض الاستلام',
+        'other' => 'أخرى',
     ];
 
     protected function casts(): array
@@ -67,6 +82,7 @@ class Invoice extends Model
             'paid' => 'decimal:2',
             'scan_payload' => 'array',
             'scanned_at' => 'datetime',
+            'is_orphan_return' => 'boolean',
         ];
     }
 
@@ -96,6 +112,30 @@ class Invoice extends Model
     public function salesRep(): BelongsTo
     {
         return $this->belongsTo(SalesRep::class);
+    }
+
+    /** الفاتورة الأصلية — للمرتجعات */
+    public function originalInvoice(): BelongsTo
+    {
+        return $this->belongsTo(self::class, 'original_invoice_id');
+    }
+
+    /** المرتجعات اللي اتعملت على الفاتورة دي */
+    public function returns(): HasMany
+    {
+        return $this->hasMany(self::class, 'original_invoice_id');
+    }
+
+    public function isReturn(): bool
+    {
+        return in_array($this->type, self::RETURN_TYPES, true);
+    }
+
+    public function returnReasonLabel(): ?string
+    {
+        return $this->return_reason
+            ? (self::RETURN_REASONS[$this->return_reason] ?? $this->return_reason)
+            : null;
     }
 
     public function items(): HasMany

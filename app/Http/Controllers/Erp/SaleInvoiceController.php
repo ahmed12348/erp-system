@@ -176,6 +176,18 @@ class SaleInvoiceController extends Controller
             'attachments' => $invoice->attachments->map(
                 fn (Attachment $attachment) => $this->attachments->present($attachment)
             ),
+            // المرتجعات اللي اتعملت عليها — عشان الفاتورة تحكي قصتها كاملة
+            'returns' => $invoice->returns()
+                ->where('status', Invoice::STATUS_CONFIRMED)
+                ->latest('date')
+                ->get()
+                ->map(fn (Invoice $return) => [
+                    'id' => $return->id,
+                    'number' => $return->number,
+                    'date' => $return->date->toDateString(),
+                    'total' => (float) $return->total,
+                    'reason' => $return->returnReasonLabel(),
+                ])->all(),
         ];
     }
 }
