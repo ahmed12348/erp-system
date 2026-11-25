@@ -114,15 +114,17 @@ class ScanInvoiceTest extends TestCase
         $this->assertSame(Invoice::TYPE_PURCHASE, $draft->type);
         $this->assertSame($this->supplier->id, $form['supplier_id']);
         $this->assertSame('2026-11-10', $form['date']);
-        $this->assertSame('TRY', $form['currency']);
-        $this->assertSame(1.46, $form['exchange_rate']);
+        // العملة بتبدأ جنيه مهما كان المكتوب على الورق — المستخدم بيبدّل بإيده
+        $this->assertSame('EGP', $form['currency']);
+        $this->assertSame(1.0, (float) $form['exchange_rate']);
         $this->assertSame(1200.0, (float) $form['shipping_cost']);
         $this->assertSame($this->product->id, $form['items'][0]['product_id']);
         $this->assertSame(20.0, (float) $form['items'][0]['quantity']);
         $this->assertSame(95.5, $form['items'][0]['unit_price']);
 
         $this->assertSame(InvoiceScanService::MATCH_EXACT, $review['party']['confidence']);
-        $this->assertSame([], $review['fields']);
+        // الورق كاتب ليرة وإحنا حاطّين جنيه — الخانة لازم تتعلّم للمراجعة
+        $this->assertSame(['currency', 'exchange_rate'], $review['fields']);
 
         // رقم الفاتورة الأصلي بيتحفظ في الملاحظات
         $this->assertStringContainsString('INV-553', $form['notes']);
@@ -264,9 +266,9 @@ class ScanInvoiceTest extends TestCase
     }
 
     /**
-     * المسح مابيفترضش عملة أجنبية. الفورم الفاضي بيقترح دولار لأن معظم
-     * الاستيراد بيه، لكن ورقة من غير عملة مكتوبة غالبًا فاتورة محلية —
-     * وافتراض الدولار بيحوّل 500 جنيه لـ 500 دولار في صمت.
+     * المسح مابيفترضش عملة أجنبية — ولا الفورم العادي كمان. كل فورم
+     * فاتورة في النظام بيبدأ بالجنيه وسعر صرف ١، والمستخدم هو اللي
+     * يبدّل لدولار أو يورو بإيده.
      */
     public function test_a_scan_without_a_written_currency_defaults_to_egp(): void
     {
@@ -285,7 +287,11 @@ class ScanInvoiceTest extends TestCase
         $this->assertSame(1.0, (float) $form['exchange_rate']);
     }
 
-    public function test_a_written_currency_still_wins(): void
+    /**
+     * حتى العملة المكتوبة على الورق مابتغيّرش الفورم — بتتعلّم للمراجعة
+     * وخلاص. الفورم بيفضل جنيه لحد ما المستخدم يبدّل بإيده.
+     */
+    public function test_a_written_currency_is_flagged_not_applied(): void
     {
         $this->fakeExtraction([
             'party_name' => 'شركة النور للتجارة',
@@ -296,14 +302,20 @@ class ScanInvoiceTest extends TestCase
 
         $this->scan('purchase')->assertOk();
 
-        $form = Invoice::query()->drafts()->sole()->scan_payload['form'];
+        $draft = Invoice::query()->drafts()->sole();
 
-        $this->assertSame('USD', $form['currency']);
-        $this->assertSame(49.4, (float) $form['exchange_rate']);
+        $this->assertSame('EGP', $draft->scan_payload['form']['currency']);
+        $this->assertSame(1.0, (float) $draft->scan_payload['form']['exchange_rate']);
+        $this->assertContains('currency', $draft->scan_payload['review']['fields']);
     }
 
-    /** مفيش عملة على الورق، بس المورد اتطابق — بناخد عملته */
-    public function test_a_matched_supplier_lends_its_currency(): void
+    /**
+     * عملة المورد مابتتورّثش.
+     *
+     * مورد متسجّل بالليرة كان بيخلّي كل فاتورة ممسوحة ليه تطلع بالليرة،
+     * فورقة بـ 500 جنيه بتتحوّل 500 ليرة من غير ما حد ياخد باله.
+     */
+    public function test_a_matched_supplier_does_not_lend_its_currency(): void
     {
         $this->fakeExtraction([
             'party_name' => 'شركة النور للتجارة',
@@ -314,7 +326,7 @@ class ScanInvoiceTest extends TestCase
         $this->scan('purchase')->assertOk();
 
         $this->assertSame(
-            'TRY',
+            'EGP',
             Invoice::query()->drafts()->sole()->scan_payload['form']['currency'],
         );
     }

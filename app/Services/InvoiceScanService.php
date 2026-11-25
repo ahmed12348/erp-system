@@ -176,18 +176,14 @@ class InvoiceScanService
         $supplier = $party['model'];
 
         /*
-         * العملة: اللي على الورق أول حاجة، وإلا عملة المورد المطابق،
-         * وإلا الجنيه.
+         * العملة بتبدأ جنيه دايمًا — زي فورم الشراء العادي بالظبط.
          *
-         * الجنيه مش الدولار عن قصد: الفورم الفاضي بيقترح دولار لأن
-         * معظم الاستيراد بيه، لكن المسح حاجة تانية — لو الورق مش مكتوب
-         * فيه عملة يبقى غالبًا فاتورة محلية، وافتراض الدولار بيحوّل
-         * فاتورة بـ 500 جنيه لـ 500 دولار من غير ما حد ياخد باله.
+         * عملة المورد مابقتش بتتحط هنا: مورد متسجّل بالدولار كان بيحوّل
+         * فاتورة بـ 500 جنيه لـ 500 دولار من غير ما حد ياخد باله. حتى
+         * العملة اللي الموديل قراها على الورق بتتسجّل في `review` بس —
+         * بتتعلّم على الخانة إنها محتاجة مراجعة، والمستخدم هو اللي
+         * يبدّل لدولار أو يورو بإيده.
          */
-        $currency = $this->currency($data['currency'] ?? null)
-            ?? $supplier?->currency
-            ?? 'EGP';
-
         $items = $this->matchItems($data['items'] ?? [], fn (Product $product): float => (float) $product->purchase_price);
 
         return [
@@ -195,10 +191,9 @@ class InvoiceScanService
             'form' => [
                 'supplier_id' => $supplier?->id,
                 'date' => $this->date($data['date'] ?? null),
-                'currency' => $currency,
+                'currency' => 'EGP',
                 // الجنيه بالجنيه = 1، مفيش حاجة تتسأل عنها
-                'exchange_rate' => $this->positive($data['exchange_rate'] ?? null)
-                    ?? ($currency === 'EGP' ? 1.0 : null),
+                'exchange_rate' => 1.0,
                 'discount' => $this->amount($data['discount'] ?? null),
                 'shipping_cost' => $this->amount($data['shipping_cost'] ?? null),
                 'customs_cost' => $this->amount($data['customs_cost'] ?? null),
@@ -208,12 +203,33 @@ class InvoiceScanService
             ],
             'review' => [
                 'party' => $party['review'],
-                'fields' => $this->uncertainFields($data, [
-                    'date', 'currency', 'exchange_rate',
-                ]),
+                'fields' => [
+                    ...$this->uncertainFields($data, ['date']),
+                    /*
+                     * العملة دايمًا محتاجة مراجعة: الفورم حاطط الجنيه
+                     * كافتراضي، فلو الورق مكتوب عليه دولار إحنا بندوس
+                     * عليه — والخانة الصفرا هي اللي بتقول للمستخدم
+                     * «بُص هنا» قبل ما يأكّد.
+                     */
+                    ...($this->readsForeignCurrency($data)
+                        ? ['currency', 'exchange_rate']
+                        : $this->uncertainFields($data, ['currency', 'exchange_rate'])),
+                ],
                 'items' => array_map(fn (array $item): array => $item['review'], $items),
             ],
         ];
+    }
+
+    /**
+     * الورق مكتوب عليه عملة غير الجنيه؟
+     *
+     * @param  array<string, mixed>  $data
+     */
+    private function readsForeignCurrency(array $data): bool
+    {
+        $text = mb_strtoupper((string) $this->text($data['currency'] ?? null));
+
+        return in_array($text, ['USD', 'EUR', 'TRY'], true);
     }
 
     /**
@@ -495,13 +511,6 @@ class InvoiceScanService
 
         // الفورم بيرفض تاريخ في المستقبل، فما ينفعش نملاه بواحد
         return $date->isFuture() ? null : $date->toDateString();
-    }
-
-    private function currency(mixed $value): ?string
-    {
-        $text = mb_strtoupper((string) $this->text($value));
-
-        return in_array($text, ['EGP', 'USD', 'EUR', 'TRY'], true) ? $text : null;
     }
 
     /**

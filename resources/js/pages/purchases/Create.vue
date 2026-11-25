@@ -101,8 +101,8 @@ const form = useForm({
     warehouse_id: props.warehouses[0]?.id ?? ('' as number | ''),
     date: props.today,
     due_date: '',
-    currency: 'USD',
-    exchange_rate: props.rates.USD ?? 1,
+    currency: 'EGP',
+    exchange_rate: 1,
     shipping_cost: 0 as number | string,
     customs_cost: 0 as number | string,
     clearance_cost: 0 as number | string,
@@ -111,23 +111,21 @@ const form = useForm({
     items: [{ product_id: '', quantity: 1, unit_price: '' }] as Line[],
 });
 
-const selectedSupplier = computed(
-    () =>
-        props.suppliers.find((s) => s.id === Number(form.supplier_id)) ?? null,
-);
-
-// اختيار المورد بيجيب عملته وسعر الصرف المقترح
-watch(selectedSupplier, (supplier) => {
-    if (supplier) {
-        form.currency = supplier.currency;
-        form.exchange_rate = props.rates[supplier.currency] ?? 1;
-    }
-});
-
+/*
+ * اختيار المورد ما بيغيّرش العملة.
+ *
+ * كان بيغيّرها لعملة المورد، فالفورم كان بيقلب لدولار من ورا المستخدم
+ * وفواتير محلية كتير اتحفظت بعملة غلط. دلوقتي الفورم بيبدأ بالجنيه
+ * وسعر صرف ١ دايمًا، والتبديل لدولار أو يورو بإيد المستخدم — ولما
+ * يبدّل بإيده بس، بنقترح سعر الصرف المعروف للعملة دي.
+ */
 watch(
     () => form.currency,
     (currency) => {
-        form.exchange_rate = props.rates[currency] ?? form.exchange_rate;
+        form.exchange_rate =
+            currency === 'EGP'
+                ? 1
+                : (props.rates[currency] ?? form.exchange_rate);
     },
 );
 
@@ -349,10 +347,10 @@ const SELECT_CLASS =
                                 :class="SELECT_CLASS"
                                 data-test="purchase-currency"
                             >
+                                <option value="EGP">جنيه مصري</option>
                                 <option value="USD">دولار أمريكي</option>
                                 <option value="EUR">يورو</option>
                                 <option value="TRY">ليرة تركية</option>
-                                <option value="EGP">جنيه مصري</option>
                             </select>
                             <InputError :message="form.errors.currency" />
                         </div>
