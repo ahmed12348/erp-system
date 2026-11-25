@@ -65,16 +65,7 @@ class SaleInvoiceController extends Controller
     public function create(): Response
     {
         return Inertia::render('sales/Create', [
-            'customers' => Customer::active()->orderBy('name')->get([
-                'id', 'name', 'city', 'price_tier', 'credit_limit',
-            ])->map(fn (Customer $customer) => [
-                'id' => $customer->id,
-                'name' => $customer->name,
-                'city' => $customer->city,
-                'priceTier' => $customer->price_tier,
-                'creditLimit' => $customer->credit_limit ? (float) $customer->credit_limit : null,
-                'balance' => $this->customers->balanceFor($customer),
-            ]),
+            'customers' => $this->customers->invoiceOptions(),
             'warehouses' => Warehouse::where('is_active', true)->orderBy('name')->get(['id', 'name']),
             'products' => $this->inventory->catalogueWithStock(),
             'vatRate' => InvoiceService::VAT_RATE,

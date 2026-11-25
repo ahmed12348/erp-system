@@ -11,6 +11,7 @@ use App\Http\Controllers\Erp\EtaController;
 use App\Http\Controllers\Erp\ExportController;
 use App\Http\Controllers\Erp\InventoryController;
 use App\Http\Controllers\Erp\NotificationController;
+use App\Http\Controllers\Erp\PreparationOrderController;
 use App\Http\Controllers\Erp\ProductAliasController;
 use App\Http\Controllers\Erp\ProductController;
 use App\Http\Controllers\Erp\PurchaseInvoiceController;
@@ -65,6 +66,19 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::get('purchases/create', [PurchaseInvoiceController::class, 'create'])->name('purchases.create');
     Route::post('purchases', [PurchaseInvoiceController::class, 'store'])->name('purchases.store');
     Route::get('purchases/{purchase}', [PurchaseInvoiceController::class, 'show'])->name('purchases.show');
+
+    /*
+     * طلبات التحضير — ورقة بتروح للمخزن، مفيش أسعار فيها.
+     * قبل `{preparationOrder}` عشان «create» ما تتقراش كرقم طلب.
+     */
+    Route::get('preparation-orders', [PreparationOrderController::class, 'index'])->name('preparation-orders.index');
+    Route::get('preparation-orders/create', [PreparationOrderController::class, 'create'])->name('preparation-orders.create');
+    Route::post('preparation-orders', [PreparationOrderController::class, 'store'])->name('preparation-orders.store');
+    Route::get('preparation-orders/{preparationOrder}', [PreparationOrderController::class, 'show'])->name('preparation-orders.show');
+    Route::get('preparation-orders/{preparationOrder}/print', [PreparationOrderController::class, 'print'])->name('preparation-orders.print');
+    Route::get('preparation-orders/{preparationOrder}/convert', [PreparationOrderController::class, 'convert'])->name('preparation-orders.convert');
+    Route::post('preparation-orders/{preparationOrder}/prepare', [PreparationOrderController::class, 'prepare'])->name('preparation-orders.prepare');
+    Route::post('preparation-orders/{preparationOrder}/cancel', [PreparationOrderController::class, 'cancel'])->name('preparation-orders.cancel');
 
     // الموردون
     Route::get('suppliers', [SupplierController::class, 'index'])->name('suppliers.index');
@@ -150,3 +164,18 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::get('exports/suppliers/{supplier}', [ExportController::class, 'supplierStatement'])->name('exports.supplier');
     Route::get('exports/invoices/{invoice}', [ExportController::class, 'invoice'])->name('exports.invoice');
 });
+
+/*
+ * PDF طلب التحضير — بتوقيع، من غير تسجيل دخول.
+ *
+ * ده اللي بيخلّي مشاركة الواتساب تشتغل من غير أي API: الصفحة بتفتح
+ * `wa.me` برسالة فيها اللينك ده، والسواق أو التاجر بيفتحه من موبايله
+ * على طول. التوقيع هو اللي بيحميه — اللينك بيقع لوحده بعد أسبوع، وأي
+ * تغيير في حرف واحد فيه بيبطّله.
+ *
+ * ومفيش أسعار على الورقة أصلاً، فأسوأ حاجة ممكن تتكشف هي كميات طلب
+ * واحد.
+ */
+Route::middleware('signed')
+    ->get('preparation-orders/{preparationOrder}/pdf', [PreparationOrderController::class, 'pdf'])
+    ->name('preparation-orders.pdf');

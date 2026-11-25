@@ -18,6 +18,7 @@ export type ErpAbilities = {
     manageMasterData: boolean;
     quickAddProduct: boolean;
     manageUsers: boolean;
+    managePreparationOrders: boolean;
 };
 
 export type Auth = {

@@ -17,6 +17,14 @@ enum ErpAbility: string
     /** إضافة صنف سريع من جوه فاتورة الشراء — من غير باقي صلاحيات الأصناف */
     case QuickAddProduct = 'product:quick-add';
 
+    /**
+     * فتح طلبات التحضير وتحضيرها وإلغاؤها.
+     *
+     * المبيعات ليهم الصلاحية دي — الطلب بيتفتح وهو واقف مع التاجر،
+     * ومفيهوش أسعار أصلاً فمفيش حاجة حسّاسة بتتكشف.
+     */
+    case ManagePreparationOrders = 'preparation-orders:manage';
+
     /** إدارة المستخدمين وأدوارهم */
     case ManageUsers = 'users:manage';
 }

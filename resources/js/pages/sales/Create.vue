@@ -36,12 +36,28 @@ type ProductOption = {
     stock: Record<string, number>;
 };
 
+/**
+ * الفورم متملّي من طلب تحضير.
+ *
+ * نفس الشاشة بالظبط مش نسخة تانية منها — الفاتورة اللي جاية من طلب
+ * لازم تمشي بنفس قواعد أي فاتورة بيع (الضريبة، فحص المتاح، تحذير حد
+ * الائتمان)، ونسختين من الفورم كانوا هيفرقوا عن بعض مع أول تعديل.
+ */
+type Prefill = {
+    preparationOrderId: number;
+    orderNumber: string;
+    customerId: number;
+    warehouseId: number;
+    items: { product_id: number; quantity: number; unit_price: number }[];
+};
+
 const props = defineProps<{
     customers: CustomerOption[];
     warehouses: { id: number; name: string }[];
     products: ProductOption[];
     vatRate: number;
     today: string;
+    prefill?: Prefill;
     breadcrumbs: BreadcrumbItem[];
 }>();
 
@@ -86,15 +102,25 @@ type Line = {
 };
 
 const form = useForm({
-    customer_id: '' as number | '',
-    warehouse_id: props.warehouses[0]?.id ?? ('' as number | ''),
+    customer_id: props.prefill?.customerId ?? ('' as number | ''),
+    warehouse_id:
+        props.prefill?.warehouseId ??
+        props.warehouses[0]?.id ??
+        ('' as number | ''),
     date: props.today,
     due_date: '',
     discount: 0 as number | string,
     notes: '',
-    items: [
+    // بيتبعت مع الحفظ عشان الطلب يتعلّم «اتحوّل» والحجز يتفكّ
+    preparation_order_id: props.prefill?.preparationOrderId ?? null,
+    items: (props.prefill?.items.map((item) => ({
+        product_id: item.product_id,
+        quantity: item.quantity,
+        unit_price: item.unit_price,
+        discount: 0,
+    })) ?? [
         { product_id: '', quantity: 1, unit_price: '', discount: 0 },
-    ] as Line[],
+    ]) as Line[],
 });
 
 const selectedCustomer = computed(
@@ -252,10 +278,19 @@ const SELECT_CLASS =
         @submit.prevent="submit"
     >
         <PageHeader
-            title="فاتورة بيع جديدة"
-            description="اختر التاجر والمخزن وأضف الأصناف — الأسعار بتتملا حسب شريحة التاجر"
+            :title="
+                prefill
+                    ? `فاتورة بيع من طلب ${prefill.orderNumber}`
+                    : 'فاتورة بيع جديدة'
+            "
+            :description="
+                prefill
+                    ? 'البنود والأسعار متملّية من الطلب — الحفظ بيعلّمه إنه اتحوّل ويفكّ الحجز'
+                    : 'اختر التاجر والمخزن وأضف الأصناف — الأسعار بتتملا حسب شريحة التاجر'
+            "
         >
-            <template v-if="aiEnabled" #actions>
+            <!-- مسح فاتورة مالوش معنى لما الفورم جاي من طلب تحضير -->
+            <template v-if="aiEnabled && !prefill" #actions>
                 <ScanInvoiceDialog type="sale" />
             </template>
         </PageHeader>

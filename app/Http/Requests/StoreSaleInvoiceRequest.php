@@ -25,6 +25,9 @@ class StoreSaleInvoiceRequest extends FormRequest
             'discount' => ['nullable', 'numeric', 'min:0'],
             'notes' => ['nullable', 'string', 'max:1000'],
 
+            // طلب التحضير اللي الفاتورة دي بتنفّذه — بيتعلّم «اتحوّل» وقت الحفظ
+            'preparation_order_id' => ['nullable', 'integer', 'exists:preparation_orders,id'],
+
             // صورة الفاتورة الممسوحة — بتتعلّق على الفاتورة بعد الحفظ
             'attachment' => [
                 'nullable',

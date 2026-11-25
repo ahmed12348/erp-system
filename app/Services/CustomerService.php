@@ -293,6 +293,29 @@ class CustomerService
         return Customer::query()->selectRaw('customers.*, '.$this->balanceSql().' as balance');
     }
 
+    /**
+     * التجار جاهزين لمنتقي فورم فاتورة البيع — بالشريحة والرصيد والحد.
+     *
+     * مكان واحد عشان الفورم يطلع واحد سواء اتفتح من «فاتورة بيع
+     * جديدة» أو من تحويل طلب تحضير.
+     *
+     * @return Collection<int, array<string, mixed>>
+     */
+    public function invoiceOptions(): Collection
+    {
+        return Customer::active()
+            ->orderBy('name')
+            ->get(['id', 'name', 'city', 'price_tier', 'credit_limit'])
+            ->map(fn (Customer $customer) => [
+                'id' => $customer->id,
+                'name' => $customer->name,
+                'city' => $customer->city,
+                'priceTier' => $customer->price_tier,
+                'creditLimit' => $customer->credit_limit ? (float) $customer->credit_limit : null,
+                'balance' => $this->balanceFor($customer),
+            ]);
+    }
+
     public function balanceFor(Customer $customer): float
     {
         return (float) DB::table('customers')

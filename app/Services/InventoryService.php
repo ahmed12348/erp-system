@@ -3,6 +3,7 @@
 namespace App\Services;
 
 use App\Models\Invoice;
+use App\Models\PreparationOrder;
 use App\Models\Product;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Collection;
@@ -11,6 +12,12 @@ use Illuminate\Support\Facades\DB;
 /**
  * كل حسابات المخزون في مكان واحد.
  * الرصيد = مجموع stock_movements.quantity (موجب وارد، سالب منصرف).
+ *
+ * **الرصيد مش هو المتاح.** طلب التحضير المفتوح أو المحضّر بيحجز كميات
+ * لسه ما اتخصمتش من المخزن — البضاعة لسه على الرف بس محدش ينفع يبيعها.
+ * فالمتاح = الرصيد ناقص المحجوز، وده اللي بيتعرض في منتقي الأصناف
+ * وشاشة المخزون وفاتورة البيع، وده اللي الفاتورة بتتفحص عليه. من غير
+ * كده بضاعة محجوزة لتاجر بتتباع لتاجر تاني والمخزن بيلاقي نفسه ناقص.
  */
 class InventoryService
 {
@@ -63,17 +70,80 @@ class InventoryService
     }
 
     /**
-     * كتالوج الأصناف مع الرصيد في كل مخزن — بيغذّي شاشة إنشاء الفاتورة.
+     * الكمية المحجوزة بطلبات تحضير مفتوحة أو محضّرة.
+     *
+     * `$exceptOrderId` بيستثني طلب بعينه — بيتستعمل وقت تحويل الطلب
+     * لفاتورة: الفاتورة مالهاش تتمنع بحجز الطلب اللي هي نفسها بتنفّذه.
+     */
+    public function reservedFor(int $productId, ?int $warehouseId = null, ?int $exceptOrderId = null): float
+    {
+        return (float) $this->reservationQuery($exceptOrderId)
+            ->where('preparation_order_items.product_id', $productId)
+            ->when($warehouseId, fn ($query) => $query->where('preparation_orders.warehouse_id', $warehouseId))
+            ->sum(DB::raw('coalesce(preparation_order_items.prepared_quantity, preparation_order_items.quantity)'));
+    }
+
+    /**
+     * المتاح للبيع = الرصيد ناقص المحجوز.
+     *
+     * ممكن يرجع بالسالب نظريًا لو حد عدّل حركات المخزون من برّه
+     * النظام؛ بنقصّه عند الصفر عشان الواجهة ما تعرضش رقم سالب
+     * مالوش معنى.
+     */
+    public function availableFor(int $productId, ?int $warehouseId = null, ?int $exceptOrderId = null): float
+    {
+        $available = $this->stockFor($productId, $warehouseId)
+            - $this->reservedFor($productId, $warehouseId, $exceptOrderId);
+
+        return round(max($available, 0), 3);
+    }
+
+    /**
+     * المحجوز لكل (صنف، مخزن) — استعلام واحد لكل الشاشة.
+     *
+     * الشاشات بتعرض عشرات الأصناف؛ نداء `reservedFor` لكل صنف معناه
+     * استعلام لكل سطر.
+     *
+     * @return Collection<string, float> مفهرسة بـ "productId-warehouseId"
+     */
+    public function reservations(?int $exceptOrderId = null): Collection
+    {
+        return $this->reservationQuery($exceptOrderId)
+            ->selectRaw(
+                'preparation_order_items.product_id as product_id,'
+                .' preparation_orders.warehouse_id as warehouse_id,'
+                .' sum(coalesce(preparation_order_items.prepared_quantity, preparation_order_items.quantity)) as qty'
+            )
+            ->groupBy('preparation_order_items.product_id', 'preparation_orders.warehouse_id')
+            ->get()
+            ->mapWithKeys(fn ($row) => [
+                $row->product_id.'-'.$row->warehouse_id => (float) $row->qty,
+            ]);
+    }
+
+    /**
+     * كتالوج الأصناف مع المتاح في كل مخزن — بيغذّي شاشة إنشاء الفاتورة
+     * وشاشة طلب التحضير.
+     *
+     * `stock` هنا **المتاح** مش الرصيد الخام: الرصيد ناقص المحجوز
+     * بطلبات التحضير. الفورم بيمنع الكمية تعدّي الرقم ده، فلازم يكون
+     * هو نفسه اللي الحفظ بيتفحص عليه — وإلا الفورم يقول «تمام» والحفظ
+     * يرفض.
+     *
+     * `$exceptOrderId` بيستثني حجز طلب بعينه — وقت تعديل أو تحويل
+     * الطلب نفسه.
      *
      * @return Collection<int, array<string, mixed>>
      */
-    public function catalogueWithStock(): Collection
+    public function catalogueWithStock(?int $exceptOrderId = null): Collection
     {
         $balances = DB::table('stock_movements')
             ->selectRaw('product_id, warehouse_id, sum(quantity) as qty')
             ->groupBy('product_id', 'warehouse_id')
             ->get()
             ->groupBy('product_id');
+
+        $reserved = $this->reservations($exceptOrderId);
 
         return Product::query()
             ->where('is_active', true)
@@ -90,9 +160,19 @@ class InventoryService
                 'wholesalePrice' => $product->wholesale_price ? (float) $product->wholesale_price : null,
                 'purchasePrice' => (float) $product->purchase_price,
                 'minStock' => (float) $product->min_stock,
-                // الرصيد مفهرس بالمخزن عشان الواجهة تعرف المتاح فوراً
+                // المتاح مفهرس بالمخزن عشان الواجهة تعرفه فوراً من غير نداء
                 'stock' => $balances->get($product->id, collect())
-                    ->mapWithKeys(fn ($row) => [(string) $row->warehouse_id => (float) $row->qty]),
+                    ->mapWithKeys(fn ($row) => [
+                        (string) $row->warehouse_id => round(max(
+                            (float) $row->qty - $reserved->get($product->id.'-'.$row->warehouse_id, 0.0),
+                            0,
+                        ), 3),
+                    ]),
+                // المحجوز لوحده — الواجهة بتقوله للمستخدم عشان يفهم الفرق
+                'reserved' => $balances->get($product->id, collect())
+                    ->mapWithKeys(fn ($row) => [
+                        (string) $row->warehouse_id => $reserved->get($product->id.'-'.$row->warehouse_id, 0.0),
+                    ]),
             ]);
     }
 
@@ -111,6 +191,7 @@ class InventoryService
             ->groupBy('product_id');
 
         $warehouses = DB::table('warehouses')->pluck('name', 'id');
+        $reserved = $this->reservations();
 
         return Product::query()
             ->with('category:id,name')
@@ -120,16 +201,24 @@ class InventoryService
             })
             ->orderBy('name')
             ->get()
-            ->map(function (Product $product) use ($byProduct, $warehouses) {
+            ->map(function (Product $product) use ($byProduct, $warehouses, $reserved) {
                 $rows = $byProduct->get($product->id, collect());
 
-                $perWarehouse = $warehouses->map(fn ($name, $id) => [
-                    'id' => $id,
-                    'name' => $name,
-                    'qty' => (float) ($rows->firstWhere('warehouse_id', $id)->qty ?? 0),
-                ])->values();
+                $perWarehouse = $warehouses->map(function ($name, $id) use ($rows, $product, $reserved) {
+                    $qty = (float) ($rows->firstWhere('warehouse_id', $id)->qty ?? 0);
+                    $held = $reserved->get($product->id.'-'.$id, 0.0);
+
+                    return [
+                        'id' => $id,
+                        'name' => $name,
+                        'qty' => $qty,
+                        'reserved' => $held,
+                        'available' => round(max($qty - $held, 0), 3),
+                    ];
+                })->values();
 
                 $total = (float) $rows->sum('qty');
+                $held = (float) collect($perWarehouse)->sum('reserved');
 
                 return [
                     'id' => $product->id,
@@ -141,6 +230,9 @@ class InventoryService
                     'cost' => (float) $product->purchase_price,
                     'salePrice' => (float) $product->sale_price,
                     'total' => $total,
+                    // المحجوز بطلبات التحضير، والمتاح للبيع بعده
+                    'reserved' => $held,
+                    'available' => round(max($total - $held, 0), 3),
                     'value' => round($total * (float) $product->purchase_price, 2),
                     'isLow' => $total < (float) $product->min_stock,
                     'warehouses' => $perWarehouse,
@@ -210,6 +302,20 @@ class InventoryService
             ],
             'rows' => array_reverse($rows),
         ];
+    }
+
+    /** أساس استعلام الحجز — بنود طلبات لسه حاجزة */
+    private function reservationQuery(?int $exceptOrderId = null): \Illuminate\Database\Query\Builder
+    {
+        return DB::table('preparation_order_items')
+            ->join(
+                'preparation_orders',
+                'preparation_orders.id',
+                '=',
+                'preparation_order_items.preparation_order_id'
+            )
+            ->whereIn('preparation_orders.status', PreparationOrder::RESERVING)
+            ->when($exceptOrderId, fn ($query) => $query->where('preparation_orders.id', '!=', $exceptOrderId));
     }
 
     /** @return Builder<Product> */

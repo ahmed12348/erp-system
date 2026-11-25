@@ -42,10 +42,13 @@ enum ErpRole: string
             self::Accountant => [
                 ErpAbility::ManageMasterData,
                 ErpAbility::QuickAddProduct,
+                ErpAbility::ManagePreparationOrders,
             ],
             // المندوب محتاج يضيف صنف وهو بيكتب فاتورة، بس مش بيدير كتالوج الأصناف
             self::Sales => [
                 ErpAbility::QuickAddProduct,
+                // بيفتح طلب التحضير وهو واقف مع التاجر — ومفيش أسعار فيه
+                ErpAbility::ManagePreparationOrders,
             ],
         };
     }

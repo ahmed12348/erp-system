@@ -18,6 +18,7 @@ export function useAbilities() {
                 manageMasterData: false,
                 quickAddProduct: false,
                 manageUsers: false,
+                managePreparationOrders: false,
             },
     );
 
@@ -27,5 +28,8 @@ export function useAbilities() {
         manageMasterData: computed(() => can.value.manageMasterData),
         quickAddProduct: computed(() => can.value.quickAddProduct),
         manageUsers: computed(() => can.value.manageUsers),
+        managePreparationOrders: computed(
+            () => can.value.managePreparationOrders,
+        ),
     };
 }

@@ -3,6 +3,7 @@ import { Link } from '@inertiajs/vue3';
 import {
     Boxes,
     ChartNoAxesCombined,
+    ClipboardList,
     History,
     LayoutDashboard,
     Package,
@@ -33,7 +34,7 @@ import { useAbilities } from '@/composables/useAbilities';
 import { useActiveNav } from '@/composables/useActiveNav';
 import type { NavGroup } from '@/types';
 
-const { manageUsers } = useAbilities();
+const { manageUsers, managePreparationOrders } = useAbilities();
 
 /**
  * القائمة الجانبية مقسّمة لمجموعتين: الحركة اليومية، ثم البيانات والتقارير.
@@ -49,6 +50,15 @@ const navGroups = computed<NavGroup[]>(() => [
             { title: 'لوحة التحكم', href: '/dashboard', icon: LayoutDashboard },
             { title: 'المبيعات', href: '/sales', icon: ReceiptText },
             { title: 'المشتريات', href: '/purchases', icon: ShoppingCart },
+            ...(managePreparationOrders.value
+                ? [
+                      {
+                          title: 'طلبات التحضير',
+                          href: '/preparation-orders',
+                          icon: ClipboardList,
+                      },
+                  ]
+                : []),
             { title: 'المخزون', href: '/inventory', icon: Package },
         ],
     },

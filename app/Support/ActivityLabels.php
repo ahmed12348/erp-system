@@ -23,6 +23,7 @@ class ActivityLabels
         'user' => 'مستخدم',
         'category' => 'تصنيف',
         'rep' => 'مندوب',
+        'preparation_order' => 'طلب تحضير',
     ];
 
     /** الأفعال — نفس قيمة `event` */
@@ -31,6 +32,9 @@ class ActivityLabels
         'updated' => 'عدّل',
         'deleted' => 'حذف',
         'confirmed' => 'أكّد',
+        'prepared' => 'حضّر',
+        'cancelled' => 'ألغى',
+        'converted' => 'حوّل لفاتورة',
         'eta_sent' => 'أرسل للمنظومة',
         'login' => 'سجّل دخول',
         'login_failed' => 'محاولة دخول فاشلة',
@@ -83,6 +87,10 @@ class ActivityLabels
         'draft' => 'مسودة',
         'confirmed' => 'مؤكّدة',
         'cancelled' => 'ملغية',
+        // حالات طلب التحضير
+        'open' => 'مفتوح',
+        'prepared' => 'تم التحضير',
+        'converted' => 'تم التحويل لفاتورة',
         'sale' => 'بيع',
         'purchase' => 'شراء',
         'sale_return' => 'مرتجع بيع',

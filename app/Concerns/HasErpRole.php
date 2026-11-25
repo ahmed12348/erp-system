@@ -40,6 +40,7 @@ trait HasErpRole
             'manageMasterData' => $this->allows(ErpAbility::ManageMasterData),
             'quickAddProduct' => $this->allows(ErpAbility::QuickAddProduct),
             'manageUsers' => $this->allows(ErpAbility::ManageUsers),
+            'managePreparationOrders' => $this->allows(ErpAbility::ManagePreparationOrders),
         ];
     }
 }
