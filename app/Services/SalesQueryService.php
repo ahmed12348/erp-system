@@ -18,6 +18,20 @@ class SalesQueryService
      */
     public function paginate(array $filters, int $perPage = 20): LengthAwarePaginator
     {
+        return $this->query($filters)->paginate($perPage)->withQueryString();
+    }
+
+    /**
+     * كل الفواتير اللي الفلاتر دي بتجيبها — من غير ترقيم صفحات.
+     *
+     * التحميل بياخد منها، فالملف بيطلع بنفس فلاتر الشاشة بالظبط مش
+     * بالصفحة اللي المستخدم واقف عليها.
+     *
+     * @param  array<string, mixed>  $filters
+     * @return Builder<Invoice>
+     */
+    public function query(array $filters): Builder
+    {
         return Invoice::query()
             ->whereIn('type', [Invoice::TYPE_SALE, Invoice::TYPE_SALE_RETURN])
             ->with(['customer:id,name', 'warehouse:id,name'])
@@ -65,9 +79,7 @@ class SalesQueryService
                 fn (Builder $query) => $query->where('date', '<', Carbon::parse($filters['to'])->addDay()->toDateString())
             )
             ->latest('date')
-            ->latest('id')
-            ->paginate($perPage)
-            ->withQueryString();
+            ->latest('id');
     }
 
     /**
@@ -78,7 +90,7 @@ class SalesQueryService
      */
     public function totals(array $filters): array
     {
-        $base = $this->paginate($filters, 1)->total();
+        $base = $this->query($filters)->count();
 
         $query = Invoice::query()
             ->where('type', Invoice::TYPE_SALE)

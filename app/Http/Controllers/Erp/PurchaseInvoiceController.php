@@ -14,11 +14,10 @@ use App\Models\Warehouse;
 use App\Services\AttachmentService;
 use App\Services\CategoryService;
 use App\Services\ProductService;
+use App\Services\PurchaseQueryService;
 use App\Services\PurchaseService;
-use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
-use Illuminate\Support\Carbon;
 use Inertia\Inertia;
 use Inertia\Response;
 
@@ -31,6 +30,7 @@ class PurchaseInvoiceController extends Controller
 
     public function __construct(
         private readonly PurchaseService $purchases,
+        private readonly PurchaseQueryService $queries,
         private readonly AttachmentService $attachments,
         private readonly ProductService $products,
         private readonly CategoryService $categories,
@@ -40,38 +40,9 @@ class PurchaseInvoiceController extends Controller
     {
         $filters = $request->only(['search', 'supplier_id', 'currency', 'status', 'from', 'to']);
 
-        $query = Invoice::query()
-            ->where('type', Invoice::TYPE_PURCHASE)
-            ->with(['supplier:id,name,country', 'warehouse:id,name'])
-            ->when(filled($filters['search'] ?? null), fn (Builder $q) => $q->where(function (Builder $i) use ($filters) {
-                $term = '%'.$filters['search'].'%';
-                $i->where('number', 'like', $term)
-                    ->orWhereHas('supplier', fn (Builder $s) => $s->where('name', 'like', $term));
-            }))
-            ->when(filled($filters['supplier_id'] ?? null), fn (Builder $q) => $q->where('supplier_id', $filters['supplier_id']))
-            ->when(filled($filters['currency'] ?? null), fn (Builder $q) => $q->where('currency', $filters['currency']))
-            ->when(filled($filters['status'] ?? null), fn (Builder $q) => $q->where('status', $filters['status']))
-            ->when(filled($filters['from'] ?? null), fn (Builder $q) => $q->where('date', '>=', Carbon::parse($filters['from'])->toDateString()))
-            ->when(filled($filters['to'] ?? null), fn (Builder $q) => $q->where('date', '<', Carbon::parse($filters['to'])->addDay()->toDateString()))
-            ->latest('date')
-            ->latest('id');
-
         return Inertia::render('purchases/Index', [
-            'invoices' => $query->paginate(20)->withQueryString()->through(fn (Invoice $invoice) => [
-                'id' => $invoice->id,
-                'number' => $invoice->number,
-                'status' => $invoice->status,
-                'date' => $invoice->date->toDateString(),
-                'supplier' => $invoice->supplier?->name,
-                'country' => $invoice->supplier?->country,
-                'warehouse' => $invoice->warehouse?->name,
-                'currency' => $invoice->currency,
-                'exchangeRate' => (float) $invoice->exchange_rate,
-                'total' => (float) $invoice->total,
-                'totalEgp' => round((float) $invoice->total * (float) $invoice->exchange_rate, 2),
-                'landed' => (float) $invoice->shipping_cost + (float) $invoice->customs_cost + (float) $invoice->clearance_cost,
-                'remaining' => $invoice->remaining,
-            ]),
+            'invoices' => $this->queries->paginate($filters)
+                ->through(fn (Invoice $invoice) => $this->queries->row($invoice)),
             'hasAny' => Invoice::query()->purchases()->exists(),
             'filters' => $filters,
             'suppliers' => Supplier::orderBy('name')->get(['id', 'name']),

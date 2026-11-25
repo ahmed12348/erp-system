@@ -3,6 +3,7 @@ import { Head, Link, router, usePage } from '@inertiajs/vue3';
 import { Plus, Search, ShoppingCart } from '@lucide/vue';
 import { watchDebounced } from '@vueuse/core';
 import { computed, reactive } from 'vue';
+import DownloadMenu from '@/components/DownloadMenu.vue';
 import EmptyState from '@/components/EmptyState.vue';
 import PageHeader from '@/components/PageHeader.vue';
 import ScanInvoiceDialog from '@/components/ScanInvoiceDialog.vue';
@@ -69,6 +70,16 @@ function apply() {
 
 watchDebounced(() => filters.search, apply, { debounce: 350 });
 
+/*
+ * نفس الفلاتر بتمشي مع التحميل — والملف بياخد كل النتيجة مش الصفحة
+ * المعروضة.
+ */
+const query = computed(() =>
+    new URLSearchParams(
+        Object.entries(filters).filter(([, value]) => value !== ''),
+    ).toString(),
+);
+
 /** إجمالي الصفحة بالجنيه — العملات مختلفة فالجمع لازم يكون بعد التحويل */
 const pageTotalEgp = computed(() =>
     props.invoices.data.reduce((sum, row) => sum + row.totalEgp, 0),
@@ -88,6 +99,10 @@ const SELECT_CLASS =
         >
             <template #actions>
                 <ScanInvoiceDialog v-if="aiEnabled" type="purchase" />
+                <DownloadMenu
+                    :href="`/exports/purchases?${query}`"
+                    label="تحميل القائمة"
+                />
                 <Button as-child>
                     <Link href="/purchases/create">
                         <Plus class="size-4" />

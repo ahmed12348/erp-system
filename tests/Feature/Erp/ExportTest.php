@@ -310,6 +310,94 @@ class ExportTest extends TestCase
         );
     }
 
+    // ── قوايم الفواتير ────────────────────────────────────────────
+
+    public function test_the_sale_invoice_list_downloads_as_pdf_and_excel(): void
+    {
+        $this->actingAs($this->admin)
+            ->get('/exports/sales')
+            ->assertOk()
+            ->assertHeader('content-type', 'application/pdf');
+
+        $sheet = $this->sheetOf('/exports/sales?format=excel');
+
+        $this->assertStringContainsString('S-2026-00001', $sheet);
+        $this->assertStringContainsString('وليد عبد العظيم', $sheet);
+    }
+
+    public function test_the_purchase_invoice_list_downloads_as_pdf_and_excel(): void
+    {
+        $purchase = $this->purchaseInvoice();
+
+        $this->actingAs($this->admin)
+            ->get('/exports/purchases')
+            ->assertOk()
+            ->assertHeader('content-type', 'application/pdf');
+
+        $sheet = $this->sheetOf('/exports/purchases?format=excel');
+
+        $this->assertStringContainsString($purchase->number, $sheet);
+        $this->assertStringContainsString('شركة النور', $sheet);
+        // فاتورة استيراد — العملة والمعادل بالجنيه لازم يبقوا على الورق
+        $this->assertStringContainsString('TRY', $sheet);
+    }
+
+    /**
+     * القائمة بتتحمّل بفلاتر الشاشة.
+     *
+     * من غير كده المستخدم بيفلتر على تاجر، بيدوس تحميل، وبيستلم كل
+     * فواتير النظام.
+     */
+    public function test_an_invoice_list_export_follows_the_current_filters(): void
+    {
+        $other = Customer::create(['name' => 'تاجر تاني', 'price_tier' => 'sale']);
+
+        Invoice::create([
+            'type' => Invoice::TYPE_SALE,
+            'number' => 'S-2026-00002',
+            'customer_id' => $other->id,
+            'warehouse_id' => $this->invoice->warehouse_id,
+            'user_id' => $this->admin->id,
+            'date' => now()->toDateString(),
+            'status' => Invoice::STATUS_CONFIRMED,
+            'subtotal' => 500, 'total' => 500, 'paid' => 0,
+        ]);
+
+        $sheet = $this->sheetOf(
+            "/exports/sales?format=excel&customer_id={$this->customer->id}"
+        );
+
+        $this->assertStringContainsString('S-2026-00001', $sheet);
+        $this->assertStringNotContainsString('S-2026-00002', $sheet);
+    }
+
+    /**
+     * التحميل بياخد كل النتيجة مش الصفحة المعروضة.
+     *
+     * الشاشة بتعرض عشرين فاتورة في الصفحة؛ لو الملف وقف عندهم، أي
+     * تحميل لفترة فيها أكتر من كده بيطلع ناقص من غير ما حد ياخد باله.
+     */
+    public function test_an_invoice_list_export_is_not_capped_by_the_page_size(): void
+    {
+        for ($i = 2; $i <= 25; $i++) {
+            Invoice::create([
+                'type' => Invoice::TYPE_SALE,
+                'number' => 'S-2026-'.str_pad((string) $i, 5, '0', STR_PAD_LEFT),
+                'customer_id' => $this->customer->id,
+                'warehouse_id' => $this->invoice->warehouse_id,
+                'user_id' => $this->admin->id,
+                'date' => now()->toDateString(),
+                'status' => Invoice::STATUS_CONFIRMED,
+                'subtotal' => 100, 'total' => 100, 'paid' => 0,
+            ]);
+        }
+
+        $sheet = $this->sheetOf('/exports/sales?format=excel');
+
+        // آخر واحدة برّه الصفحة الأولى
+        $this->assertStringContainsString('S-2026-00025', $sheet);
+    }
+
     public function test_a_draft_cannot_be_downloaded(): void
     {
         $this->invoice->update(['status' => Invoice::STATUS_DRAFT]);

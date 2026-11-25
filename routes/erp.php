@@ -143,6 +143,9 @@ Route::middleware(['auth', 'verified'])->group(function () {
      * الطباعة للورق، والتحميل للإرسال والأرشفة.
      */
     Route::get('exports/report', [ExportController::class, 'report'])->name('exports.report');
+    // قوايم الفواتير — بتتحمّل بفلاتر الشاشة الحالية
+    Route::get('exports/sales', [ExportController::class, 'saleList'])->name('exports.sales');
+    Route::get('exports/purchases', [ExportController::class, 'purchaseList'])->name('exports.purchases');
     Route::get('exports/customers/{customer}', [ExportController::class, 'customerStatement'])->name('exports.customer');
     Route::get('exports/suppliers/{supplier}', [ExportController::class, 'supplierStatement'])->name('exports.supplier');
     Route::get('exports/invoices/{invoice}', [ExportController::class, 'invoice'])->name('exports.invoice');

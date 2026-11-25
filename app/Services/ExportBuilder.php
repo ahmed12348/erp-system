@@ -23,6 +23,21 @@ class ExportBuilder
         'inventory' => 'تقييم المخزون',
     ];
 
+    /** حالات الفاتورة بالعربي — زي ما الشاشة بتعرضها */
+    private const STATUSES = [
+        'draft' => 'مسودة',
+        'confirmed' => 'مؤكّدة',
+        'cancelled' => 'ملغية',
+    ];
+
+    /** أنواع الفواتير بالعربي */
+    private const INVOICE_TYPES = [
+        'sale' => 'بيع',
+        'sale_return' => 'مرتجع بيع',
+        'purchase' => 'شراء',
+        'purchase_return' => 'مرتجع شراء',
+    ];
+
     /**
      * جدول تقرير.
      *
@@ -122,6 +137,95 @@ class ExportBuilder
             'rows' => $rows,
             'numeric' => [2, 3, 4],
             'summary' => $summary,
+        ];
+    }
+
+    /**
+     * قائمة فواتير بيع — نفس أعمدة الشاشة.
+     *
+     * @param  iterable<int, array<string, mixed>>  $rows
+     * @param  array<string, float|int>  $totals
+     * @return array{headers: array<int, string>, rows: array<int, array<int, mixed>>, numeric: array<int, int>, summary: array<string, string>}
+     */
+    public function saleList(iterable $rows, array $totals, bool $raw = false): array
+    {
+        $output = [];
+
+        foreach ($rows as $row) {
+            $output[] = [
+                $row['number'],
+                $this->date($row['date']),
+                $row['customer'] ?? '—',
+                $row['warehouse'] ?? '—',
+                self::INVOICE_TYPES[$row['type']] ?? $row['type'],
+                self::STATUSES[$row['status']] ?? $row['status'],
+                $this->amount($row['total'], $raw),
+                $this->amount($row['paid'], $raw),
+                $this->amount($row['remaining'], $raw),
+            ];
+        }
+
+        return [
+            'headers' => [
+                'رقم الفاتورة', 'التاريخ', 'التاجر', 'المخزن',
+                'النوع', 'الحالة', 'الإجمالي', 'المحصّل', 'المتبقي',
+            ],
+            'rows' => $output,
+            'numeric' => [6, 7, 8],
+            'summary' => [
+                'عدد الفواتير' => $this->number($totals['count'] ?? 0),
+                'الإجمالي' => $this->money($totals['total'] ?? 0),
+                'المحصّل' => $this->money($totals['paid'] ?? 0),
+                'المتبقي' => $this->money($totals['outstanding'] ?? 0),
+            ],
+        ];
+    }
+
+    /**
+     * قائمة فواتير شراء.
+     *
+     * فيها عمودين زيادة عن البيع: العملة وسعر الصرف. فواتير الاستيراد
+     * بعملة المورد، وإجمالي بـ 900 من غير ما تعرف هي 900 إيه مالوش
+     * معنى — فالعملة والمعادل بالجنيه الاتنين لازم يبقوا على الورق.
+     *
+     * @param  iterable<int, array<string, mixed>>  $rows
+     * @return array{headers: array<int, string>, rows: array<int, array<int, mixed>>, numeric: array<int, int>, summary: array<string, string>}
+     */
+    public function purchaseList(iterable $rows, bool $raw = false): array
+    {
+        $output = [];
+        $totalEgp = 0.0;
+        $count = 0;
+
+        foreach ($rows as $row) {
+            $count++;
+            $totalEgp += (float) $row['totalEgp'];
+
+            $output[] = [
+                $row['number'],
+                $this->date($row['date']),
+                $row['supplier'] ?? '—',
+                $row['warehouse'] ?? '—',
+                self::STATUSES[$row['status']] ?? $row['status'],
+                $row['currency'],
+                $raw ? (float) $row['exchangeRate'] : $this->number($row['exchangeRate']),
+                $raw ? round((float) $row['total'], 2) : $this->money($row['total'], $row['currency']),
+                $this->amount($row['totalEgp'], $raw),
+                $this->amount($row['landed'], $raw),
+            ];
+        }
+
+        return [
+            'headers' => [
+                'رقم الفاتورة', 'التاريخ', 'المورد', 'المخزن', 'الحالة',
+                'العملة', 'سعر الصرف', 'الإجمالي', 'الإجمالي بالجنيه', 'مصاريف الوصول',
+            ],
+            'rows' => $output,
+            'numeric' => [6, 7, 8, 9],
+            'summary' => [
+                'عدد الفواتير' => $this->number($count),
+                'الإجمالي بالجنيه' => $this->money($totalEgp),
+            ],
         ];
     }
 

@@ -3,6 +3,7 @@ import { Head, Link, router, usePage } from '@inertiajs/vue3';
 import { Plus, Receipt, Search } from '@lucide/vue';
 import { watchDebounced } from '@vueuse/core';
 import { computed, reactive } from 'vue';
+import DownloadMenu from '@/components/DownloadMenu.vue';
 import EmptyState from '@/components/EmptyState.vue';
 import EtaBadge from '@/components/EtaBadge.vue';
 import PageHeader from '@/components/PageHeader.vue';
@@ -73,6 +74,18 @@ function apply() {
 
 watchDebounced(() => filters.search, apply, { debounce: 350 });
 
+/*
+ * نفس الفلاتر بتمشي مع التحميل.
+ *
+ * الملف بيتبني من كل النتيجة مش من الصفحة المعروضة، فلو المستخدم
+ * مفلتر على تاجر وفترة، بيستلم فواتيره كلها — مش العشرين اللي شايفهم.
+ */
+const query = computed(() =>
+    new URLSearchParams(
+        Object.entries(filters).filter(([, value]) => value !== ''),
+    ).toString(),
+);
+
 const SELECT_CLASS =
     'h-9 rounded-md border border-input bg-transparent px-3 text-sm';
 </script>
@@ -87,6 +100,10 @@ const SELECT_CLASS =
         >
             <template #actions>
                 <ScanInvoiceDialog v-if="aiEnabled" type="sale" />
+                <DownloadMenu
+                    :href="`/exports/sales?${query}`"
+                    label="تحميل القائمة"
+                />
                 <Button as-child>
                     <Link href="/sales/create">
                         <Plus class="size-4" />
