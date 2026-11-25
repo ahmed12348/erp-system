@@ -15,8 +15,21 @@ use Symfony\Component\HttpFoundation\Response;
  * الحروف وتظبّط اتجاه السطر. `dompdf` بيطلّع حروف مقطّعة، وده كان سبب
  * إن النظام فضل فترة بيطبع من المتصفح بس.
  *
- * الخط Cairo متضمّن في المشروع (`storage/fonts`) مش معتمد على خط
+ * الخط Tajawal متضمّن في المشروع (`storage/fonts`) مش معتمد على خط
  * موجود على السيرفر — استضافة مشتركة مش مضمون فيها أي خط عربي.
+ *
+ * **لازم يفضل خط ثابت (static)، مش متغيّر (variable).** قبل كده كان
+ * Cairo، وCairo فوق المنبع مابيتوزّعش غير كخط متغيّر — وmPDF
+ * مابيعرفش الخطوط المتغيّرة أصلاً: بيحاول يقرا جداول GSUB فيلاقي
+ * خاصية من غير lookups ويقع بـ «Undefined array key 0» جوه
+ * `TTFontFile::_getGSUBtables()`. يعني كل PDF في النظام كان بيرجّع
+ * 500 على سيرفر نضيف. ماكانش باين محليًا لأن mPDF بيخزّن تحليل الخط
+ * في `storage/app/mpdf`، والكاش الدافي كان بيعدّي على القراءة كلها.
+ *
+ * فلو حد فكّر يرجّع Cairo: لازم ينزّل منه نسخة ثابتة الأول
+ * (`fonttools varLib.instancer -o Cairo-Regular.ttf Cairo[slnt,wght].ttf
+ * wght=400`) ويعمل لها commit — مش ملف `Cairo[slnt,wght].ttf` نفسه.
+ * و`ExportTest` بيمسح الكاش قبل ما يرسم، فأي خط متغيّر هيقع فيه.
  *
  * **النص بيفضل نص**: مش صورة. يعني ينفع تحدّده وتنسخه وتدوّر فيه،
  * والأرقام لاتينية زي باقي النظام.
@@ -70,19 +83,17 @@ class PdfService
             'margin_right' => 12,
             'fontDir' => array_merge($fontDir, [storage_path(self::FONT_DIR)]),
             'fontdata' => $fontData + [
-                'cairo' => [
-                    'R' => 'Cairo-Variable.ttf',
-                    /*
-                     * تشكيل عربي كامل — وصل الحروف والتشكيل. أول مرة
-                     * بيتقرا فيها الخط بيطلّع تنبيه على خاصية GSUB
-                     * فاضية في الملف؛ مالهاش أثر على الشكل، وبعدها
-                     * mPDF بيخزّن تحليل الخط فما بتتكررش.
-                     */
+                'tajawal' => [
+                    'R' => 'Tajawal-Regular.ttf',
+                    // العريض ملف لوحده — من غيره mPDF بيزنق الحروف بنفسه
+                    // وبيخرّب وصل العربي في العناوين
+                    'B' => 'Tajawal-Bold.ttf',
+                    // تشكيل عربي كامل — وصل الحروف والتشكيل
                     'useOTL' => 0xFF,
                     'useKashida' => 75,
                 ],
             ],
-            'default_font' => 'cairo',
+            'default_font' => 'tajawal',
             'directionality' => 'rtl',
             // القرص الخاص — مش public
             'tempDir' => storage_path('app/mpdf'),
@@ -92,9 +103,20 @@ class PdfService
         $mpdf->SetAuthor(config('app.name'));
         $mpdf->SetCreator(config('app.name'));
 
-        // الأرقام لاتينية زي باقي النظام
+        /*
+         * بيعلّم كل مقطع عربي بلغته عشان تشكيل OTL يشتغل بنظام اللغة
+         * العربي مش بالافتراضي.
+         */
         $mpdf->autoScriptToLang = true;
-        $mpdf->autoLangToFont = true;
+
+        /*
+         * **مقفول عن قصد.** لما بيبقى مفتوح، mPDF بيقرا `lang="ar"` من
+         * القالب وبيستبدل خطنا بخطه هو (XB Riyaz) — يعني الخط اللي
+         * إحنا ضامّينه للمشروع ما بيتستعملش أصلاً، وكل الـ PDF بتطلع
+         * بخط تاني من غير ما حد ياخد باله. القالب كله عربي وإحنا
+         * محدّدين الخط بإيدنا، فمفيش حاجة تتخمّن هنا.
+         */
+        $mpdf->autoLangToFont = false;
 
         return $mpdf;
     }

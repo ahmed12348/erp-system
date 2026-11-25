@@ -14,7 +14,7 @@
     <title>{{ $title }}</title>
     <style>
         body {
-            font-family: cairo, sans-serif;
+            font-family: tajawal, sans-serif;
             font-size: 10pt;
             color: #1a1a1a;
             line-height: 1.6;
