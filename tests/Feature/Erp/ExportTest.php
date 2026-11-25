@@ -12,6 +12,7 @@ use App\Models\Supplier;
 use App\Models\User;
 use App\Models\Warehouse;
 use App\Services\ExportBuilder;
+use App\Services\ReportService;
 use App\Services\SpreadsheetService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
@@ -221,14 +222,76 @@ class ExportTest extends TestCase
         $this->assertStringContainsString(rawurlencode('تقرير المبيعات بالصنف'), $disposition);
     }
 
-    public function test_every_report_type_renders(): void
+    /**
+     * كل تقرير بيترسم فعلاً — PDF وإكسيل، والكاش بارد.
+     *
+     * ده الاختبار اللي كان ناقص لما تقرير الأصناف رجّع 500 على السيرفر:
+     * الأنواع كانت بتتفحص PDF بس، والإكسيل محدش جرّبه، والكاش كان دافي
+     * فالخط ماكانش بيتقرا من أصله.
+     */
+    public function test_every_report_type_renders_in_both_formats(): void
     {
+        $this->forgetFontCache();
+
         foreach (array_keys(ExportBuilder::REPORT_TITLES) as $report) {
-            $this->actingAs($this->admin)
+            $pdf = $this->actingAs($this->admin)
                 ->get("/exports/report?report={$report}")
                 ->assertOk()
-                ->assertHeader('content-type', 'application/pdf');
+                ->assertHeader('content-type', 'application/pdf')
+                ->getContent();
+
+            $this->assertStringStartsWith('%PDF-', $pdf, "تقرير {$report} ما اترسمش PDF");
+            $this->assertGreaterThan(3000, strlen($pdf), "PDF تقرير {$report} فاضي");
+
+            $sheet = $this->sheetOf("/exports/report?report={$report}&format=excel");
+
+            // الورقة فيها عناويننا العربية ومن اليمين للشمال
+            $this->assertStringContainsString('rightToLeft="1"', $sheet, "إكسيل {$report}");
+            $this->assertNotSame('', $sheet, "إكسيل تقرير {$report} فاضي");
         }
+    }
+
+    /**
+     * تقرير الأصناف بالذات — ده اللي رجّع 500 على السيرفر.
+     *
+     * بيتفحص بصفوف حقيقية مش بتقرير فاضي: التقرير الفاضي بيعدّي على أي
+     * غلط في بناء السطر.
+     */
+    public function test_the_product_report_downloads_with_real_rows(): void
+    {
+        $this->forgetFontCache();
+
+        $pdf = $this->actingAs($this->admin)
+            ->get('/exports/report?report=product&format=pdf')
+            ->assertOk()
+            ->assertHeader('content-type', 'application/pdf')
+            ->getContent();
+
+        $this->assertStringStartsWith('%PDF-', $pdf);
+
+        $sheet = $this->sheetOf('/exports/report?report=product&format=excel');
+
+        $this->assertStringContainsString('كبولي مجوز', $sheet);
+        $this->assertStringContainsString('KB-25', $sheet);
+    }
+
+    /**
+     * عمود «المباع» لازم يطلع الكمية الحقيقية.
+     *
+     * كان بيقرا `units` و`salesByProduct` بترجّع `quantity`، فالعمود كان
+     * بيطلع صفر في كل سطر — والتقرير على الشاشة مظبوط، فمحدش واخد باله.
+     * `??` كانت بتبلع الخانة الناقصة في صمت.
+     */
+    public function test_the_product_export_carries_the_real_quantity_sold(): void
+    {
+        $rows = app(ReportService::class)->salesByProduct(
+            now()->subDays(30)->toDateString(),
+            now()->toDateString(),
+        );
+
+        $table = app(ExportBuilder::class)->report('product', ['rows' => $rows], raw: true);
+
+        $this->assertSame(10.0, $table['rows'][0][2]);
     }
 
     public function test_a_customer_statement_downloads(): void
@@ -253,6 +316,47 @@ class ExportTest extends TestCase
      * من غيره الكشف مابينفعش يتطابق مع أي حاجة: اللي بيستلمه بيبص على
      * سطر «فاتورة بيع» بـ 1,710 ومعندوش حاجة يربطها بفاتورة بعينها.
      */
+    /** تقارير «بالفاتورة» بتتحمّل زي أي تقرير تاني */
+    public function test_the_invoice_reports_download_with_their_columns(): void
+    {
+        $sheet = $this->sheetOf('/exports/report?report=sale_invoices&format=excel');
+
+        $this->assertStringContainsString('رقم الفاتورة', $sheet);
+        $this->assertStringContainsString('المندوب', $sheet);
+        $this->assertStringContainsString('S-2026-00001', $sheet);
+
+        $this->actingAs($this->admin)
+            ->get('/exports/report?report=purchase_invoices')
+            ->assertOk()
+            ->assertHeader('content-type', 'application/pdf');
+    }
+
+    /** البحث بيوصل للملف — الملف لازم يطابق اللي على الشاشة */
+    public function test_a_report_export_honours_the_invoice_number_search(): void
+    {
+        $sheet = $this->sheetOf(
+            '/exports/report?report=sale_invoices&format=excel&search=S-2026-00001'
+        );
+
+        $this->assertStringContainsString('S-2026-00001', $sheet);
+
+        $empty = $this->sheetOf(
+            '/exports/report?report=sale_invoices&format=excel&search=S-2026-09999'
+        );
+
+        $this->assertStringNotContainsString('S-2026-00001', $empty);
+    }
+
+    /** والورقة بتقول إنها مفلترة، وإلا اللي بيستلمها يحسبها التقرير كامل */
+    public function test_a_filtered_report_pdf_says_so_in_its_header(): void
+    {
+        $response = $this->actingAs($this->admin)
+            ->get('/exports/report?report=sale_invoices&search=00001')
+            ->assertOk();
+
+        $this->assertStringStartsWith('%PDF-', $response->getContent());
+    }
+
     public function test_a_statement_carries_the_invoice_number_as_a_column(): void
     {
         $table = app(ExportBuilder::class)->statement([

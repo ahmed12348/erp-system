@@ -6,22 +6,40 @@ import { formatDate } from '@/lib/format';
 const props = defineProps<{
     company: string;
     report: string;
-    filters: { from: string; to: string; groupBy: string };
+    filters: {
+        from: string;
+        to: string;
+        groupBy: string;
+        search: string | null;
+    };
     data: Record<string, unknown>;
     printedAt: string;
 }>();
 
 const TITLES: Record<string, string> = {
     period: 'تقرير المبيعات على الفترة',
+    sale_invoices: 'تقرير المبيعات بالفاتورة',
+    purchase_invoices: 'تقرير المشتريات بالفاتورة',
     product: 'تقرير المبيعات حسب الصنف',
     customer: 'تقرير المبيعات حسب التاجر',
     inventory: 'تقرير تقييم المخزون',
 };
 
-const subtitle =
-    props.report === 'inventory'
-        ? 'الأرصدة كما هي بتاريخ الطباعة'
-        : `الفترة من ${formatDate(props.filters.from)} إلى ${formatDate(props.filters.to)}`;
+/*
+ * الورقة لازم تقول إنها مفلترة.
+ *
+ * من غير كده حد بيستلم تقرير فيه فاتورة واحدة بيحسبه كل مبيعات الفترة.
+ */
+const subtitle = (() => {
+    const period =
+        props.report === 'inventory'
+            ? 'الأرصدة كما هي بتاريخ الطباعة'
+            : `الفترة من ${formatDate(props.filters.from)} إلى ${formatDate(props.filters.to)}`;
+
+    return props.filters.search
+        ? `${period} · رقم الفاتورة: ${props.filters.search}`
+        : period;
+})();
 </script>
 
 <template>

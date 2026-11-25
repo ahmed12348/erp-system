@@ -3,6 +3,8 @@
 namespace App\Http\Controllers\Erp;
 
 use App\Http\Controllers\Controller;
+use App\Models\Invoice;
+use App\Services\ExportBuilder;
 use App\Services\ReportService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
@@ -11,19 +13,17 @@ use Inertia\Response;
 
 class ReportController extends Controller
 {
-    /** التقارير المتاحة */
-    private const REPORTS = ['period', 'product', 'customer', 'inventory'];
-
     public function __construct(private readonly ReportService $reports) {}
 
     public function index(Request $request): Response
     {
-        [$report, $from, $to, $groupBy] = $this->params($request);
+        $filters = $this->params($request);
 
         return Inertia::render('reports/Index', [
-            'report' => $report,
-            'filters' => ['from' => $from, 'to' => $to, 'groupBy' => $groupBy],
-            'data' => $this->build($report, $from, $to, $groupBy),
+            'report' => $filters['report'],
+            'filters' => $filters,
+            'data' => $this->build($filters),
+            'reports' => $this->reportOptions(),
             'breadcrumbs' => [
                 ['title' => 'لوحة التحكم', 'href' => route('erp.dashboard')],
                 ['title' => 'التقارير', 'href' => route('reports.index')],
@@ -34,46 +34,88 @@ class ReportController extends Controller
     /** نسخة للطباعة / الحفظ PDF */
     public function print(Request $request): Response
     {
-        [$report, $from, $to, $groupBy] = $this->params($request);
+        $filters = $this->params($request);
 
         return Inertia::render('print/Report', [
             'company' => config('app.name'),
-            'report' => $report,
-            'filters' => ['from' => $from, 'to' => $to, 'groupBy' => $groupBy],
-            'data' => $this->build($report, $from, $to, $groupBy),
+            'report' => $filters['report'],
+            'filters' => $filters,
+            'data' => $this->build($filters),
             'printedAt' => now()->toDateString(),
         ]);
     }
 
     /**
-     * @return array{0: string, 1: string, 2: string, 3: string}
+     * فلاتر التقرير بعد التحقق منها — بيقراها التحميل كمان.
+     *
+     * @return array{report: string, from: string, to: string, groupBy: string, search: string|null}
+     */
+    public function filtersFor(Request $request): array
+    {
+        return $this->params($request);
+    }
+
+    /**
+     * @return array{report: string, from: string, to: string, groupBy: string, search: string|null}
      */
     private function params(Request $request): array
     {
         $report = $request->query('report', 'period');
 
-        if (! in_array($report, self::REPORTS, true)) {
+        if (! array_key_exists($report, ExportBuilder::REPORT_TITLES)) {
             $report = 'period';
         }
 
+        $search = $request->query('search');
+
         return [
-            $report,
-            $request->query('from', Carbon::today()->subDays(89)->toDateString()),
-            $request->query('to', Carbon::today()->toDateString()),
-            $request->query('groupBy') === 'month' ? 'month' : 'day',
+            'report' => $report,
+            'from' => $request->query('from', Carbon::today()->subDays(89)->toDateString()),
+            'to' => $request->query('to', Carbon::today()->toDateString()),
+            'groupBy' => $request->query('groupBy') === 'month' ? 'month' : 'day',
+            'search' => filled($search) ? trim((string) $search) : null,
         ];
     }
 
     /**
+     * بيانات التقرير.
+     *
+     * مشتركة بين الشاشة وصفحة الطباعة والتحميل — نفس الخدمة ونفس
+     * الفلاتر، فالتلاتة بيقولوا نفس الأرقام.
+     *
+     * @param  array{report: string, from: string, to: string, groupBy: string, search: string|null}  $filters
      * @return array<string, mixed>
      */
-    private function build(string $report, string $from, string $to, string $groupBy): array
+    public function build(array $filters): array
     {
+        ['report' => $report, 'from' => $from, 'to' => $to, 'search' => $search] = $filters;
+
         return match ($report) {
-            'product' => ['rows' => $this->reports->salesByProduct($from, $to)],
-            'customer' => ['rows' => $this->reports->salesByCustomer($from, $to)],
-            'inventory' => $this->reports->inventoryValuation(),
-            default => $this->reports->salesByPeriod($from, $to, $groupBy),
+            'product' => ['rows' => $this->reports->salesByProduct($from, $to, 100, $search)],
+            'customer' => ['rows' => $this->reports->salesByCustomer($from, $to, $search)],
+            'inventory' => $this->reports->inventoryValuation($search),
+            'sale_invoices' => $this->reports->invoiceRows(Invoice::TYPE_SALE, $from, $to, $search),
+            'purchase_invoices' => $this->reports->invoiceRows(Invoice::TYPE_PURCHASE, $from, $to, $search),
+            default => $this->reports->salesByPeriod($from, $to, $filters['groupBy'], $search),
         };
+    }
+
+    /**
+     * قايمة التقارير للمنتقي — من مصدر واحد مع التحميل.
+     *
+     * @return array<int, array{value: string, label: string, snapshot: bool}>
+     */
+    private function reportOptions(): array
+    {
+        return array_map(
+            fn (string $value, string $label): array => [
+                'value' => $value,
+                'label' => $label,
+                // تقييم المخزون مالوش فترة، فخانات التاريخ بتختفي معاه
+                'snapshot' => in_array($value, ExportBuilder::SNAPSHOT_REPORTS, true),
+            ],
+            array_keys(ExportBuilder::REPORT_TITLES),
+            array_values(ExportBuilder::REPORT_TITLES),
+        );
     }
 }

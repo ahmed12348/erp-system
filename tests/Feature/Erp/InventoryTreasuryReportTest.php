@@ -9,6 +9,7 @@ use App\Models\Product;
 use App\Models\StockMovement;
 use App\Models\User;
 use App\Models\Warehouse;
+use App\Services\ExportBuilder;
 use App\Services\InventoryService;
 use App\Services\ReportService;
 use App\Services\TreasuryService;
@@ -219,7 +220,7 @@ class InventoryTreasuryReportTest extends TestCase
 
     public function test_every_report_and_its_print_view_render(): void
     {
-        foreach (['period', 'product', 'customer', 'inventory'] as $report) {
+        foreach (array_keys(ExportBuilder::REPORT_TITLES) as $report) {
             $this->actingAs($this->user)->get("/reports?report={$report}")
                 ->assertOk()
                 ->assertInertia(fn (AssertableInertia $page) => $page

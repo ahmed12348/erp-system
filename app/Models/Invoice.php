@@ -92,6 +92,12 @@ class Invoice extends Model
         return $this->belongsTo(User::class);
     }
 
+    /** المندوب — بتتورّث من التاجر وقت إنشاء الفاتورة */
+    public function salesRep(): BelongsTo
+    {
+        return $this->belongsTo(SalesRep::class);
+    }
+
     public function items(): HasMany
     {
         return $this->hasMany(InvoiceItem::class);

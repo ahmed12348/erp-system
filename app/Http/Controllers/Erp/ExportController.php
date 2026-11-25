@@ -10,12 +10,10 @@ use App\Services\CustomerService;
 use App\Services\ExportBuilder;
 use App\Services\PdfService;
 use App\Services\PurchaseQueryService;
-use App\Services\ReportService;
 use App\Services\SalesQueryService;
 use App\Services\SpreadsheetService;
 use App\Services\SupplierService;
 use Illuminate\Http\Request;
-use Illuminate\Support\Carbon;
 use Symfony\Component\HttpFoundation\Response;
 
 /**
@@ -27,10 +25,7 @@ use Symfony\Component\HttpFoundation\Response;
  */
 class ExportController extends Controller
 {
-    private const REPORTS = ['period', 'product', 'customer', 'inventory'];
-
     public function __construct(
-        private readonly ReportService $reports,
         private readonly CustomerService $customers,
         private readonly SupplierService $suppliers,
         private readonly SalesQueryService $sales,
@@ -40,29 +35,47 @@ class ExportController extends Controller
         private readonly SpreadsheetService $excel,
     ) {}
 
+    /**
+     * تحميل تقرير.
+     *
+     * الفلاتر والبيانات بتتبني بنفس كود الشاشة (`ReportController`) —
+     * نسختين من نفس التقرير كانوا هيفرقوا عن بعض مع أول تعديل، والمستخدم
+     * هو اللي يكتشف.
+     */
     public function report(Request $request): Response
     {
-        $report = in_array($request->query('report'), self::REPORTS, true)
-            ? $request->query('report')
-            : 'period';
+        $screen = app(ReportController::class);
 
-        $from = $request->query('from', Carbon::today()->subDays(89)->toDateString());
-        $to = $request->query('to', Carbon::today()->toDateString());
-        $groupBy = $request->query('groupBy') === 'month' ? 'month' : 'day';
+        $filters = $screen->filtersFor($request);
+        $data = $screen->build($filters);
+        $report = $filters['report'];
 
-        $data = match ($report) {
-            'product' => ['rows' => $this->reports->salesByProduct($from, $to)],
-            'customer' => ['rows' => $this->reports->salesByCustomer($from, $to)],
-            'inventory' => $this->reports->inventoryValuation(),
-            default => $this->reports->salesByPeriod($from, $to, $groupBy),
-        };
+        return $this->send(
+            $request,
+            ExportBuilder::REPORT_TITLES[$report],
+            $this->reportRange($filters),
+            fn (bool $raw): array => $this->builder->report($report, $data, $raw),
+        );
+    }
 
-        $title = ExportBuilder::REPORT_TITLES[$report];
+    /**
+     * سطر الفلاتر في ترويسة الملف.
+     *
+     * تقييم المخزون لقطة لحظية — الفترة مالهاش معنى فيه. والبحث برقم
+     * الفاتورة لازم يتكتب، وإلا اللي بيستلم الملف يحسبه التقرير كامل.
+     *
+     * @param  array{report: string, from: string, to: string, groupBy: string, search: string|null}  $filters
+     */
+    private function reportRange(array $filters): ?string
+    {
+        $parts = array_filter([
+            in_array($filters['report'], ExportBuilder::SNAPSHOT_REPORTS, true)
+                ? null
+                : $this->range($filters['from'], $filters['to']),
+            filled($filters['search']) ? 'رقم الفاتورة: '.$filters['search'] : null,
+        ]);
 
-        // تقييم المخزون لقطة لحظية — الفترة مالهاش معنى فيه
-        $range = $report === 'inventory' ? null : $this->range($from, $to);
-
-        return $this->send($request, $title, $range, fn (bool $raw): array => $this->builder->report($report, $data, $raw));
+        return $parts === [] ? null : implode(' · ', $parts);
     }
 
     public function customerStatement(Request $request, Customer $customer): Response

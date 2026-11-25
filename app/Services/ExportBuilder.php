@@ -15,13 +15,24 @@ use Illuminate\Support\Carbon;
  */
 class ExportBuilder
 {
-    /** أسماء التقارير العربية */
+    /**
+     * أسماء التقارير العربية.
+     *
+     * دي كمان قايمة التقارير المتاحة — `ReportController` و
+     * `ExportController` بيقروا منها، فتقرير جديد بيتزوّد هنا مرة واحدة
+     * بدل ما يتكتب في تلات أماكن ويتنسي في واحد.
+     */
     public const REPORT_TITLES = [
         'period' => 'تقرير المبيعات بالفترة',
+        'sale_invoices' => 'تقرير المبيعات بالفاتورة',
+        'purchase_invoices' => 'تقرير المشتريات بالفاتورة',
         'product' => 'تقرير المبيعات بالصنف',
         'customer' => 'تقرير المبيعات بالتاجر',
         'inventory' => 'تقييم المخزون',
     ];
+
+    /** التقارير اللي مالهاش فترة — لقطة لحظية */
+    public const SNAPSHOT_REPORTS = ['inventory'];
 
     /** حالات الفاتورة بالعربي — زي ما الشاشة بتعرضها */
     private const STATUSES = [
@@ -50,6 +61,8 @@ class ExportBuilder
             'product' => $this->byProduct($data, $raw),
             'customer' => $this->byCustomer($data, $raw),
             'inventory' => $this->inventory($data, $raw),
+            'sale_invoices' => $this->byInvoice($data, $raw, 'التاجر'),
+            'purchase_invoices' => $this->byInvoice($data, $raw, 'المورد'),
             default => $this->byPeriod($data, $raw),
         };
     }
@@ -307,6 +320,50 @@ class ExportBuilder
     }
 
     /**
+     * فاتورة في كل سطر.
+     *
+     * @param  array<string, mixed>  $data
+     * @return array{headers: array<int, string>, rows: array<int, array<int, mixed>>, numeric: array<int, int>, summary: array<string, string>}
+     */
+    private function byInvoice(array $data, bool $raw, string $partyLabel): array
+    {
+        $rows = [];
+
+        foreach ($data['rows'] ?? [] as $row) {
+            $rows[] = [
+                $row['number'],
+                $this->date($row['date']),
+                $row['party'] ?? '—',
+                $row['rep'] ?? '—',
+                $this->amount($row['net'] ?? 0, $raw),
+                $this->amount($row['tax'] ?? 0, $raw),
+                $this->amount($row['total'] ?? 0, $raw),
+                $this->amount($row['paid'] ?? 0, $raw),
+                $this->amount($row['remaining'] ?? 0, $raw),
+                $row['statusLabel'] ?? '—',
+            ];
+        }
+
+        $totals = $data['totals'] ?? [];
+
+        return [
+            'headers' => [
+                'رقم الفاتورة', 'التاريخ', $partyLabel, 'المندوب',
+                'الصافي', 'الضريبة', 'الإجمالي', 'المحصّل', 'المتبقي', 'الحالة',
+            ],
+            'rows' => $rows,
+            'numeric' => [4, 5, 6, 7, 8],
+            'summary' => [
+                'عدد الفواتير' => $this->number($totals['count'] ?? 0),
+                'الصافي' => $this->money($totals['net'] ?? 0),
+                'الإجمالي' => $this->money($totals['total'] ?? 0),
+                'المحصّل' => $this->money($totals['paid'] ?? 0),
+                'المتبقي' => $this->money($totals['remaining'] ?? 0),
+            ],
+        ];
+    }
+
+    /**
      * @param  array<string, mixed>  $data
      */
     private function byProduct(array $data, bool $raw): array
@@ -317,7 +374,15 @@ class ExportBuilder
             $rows[] = [
                 $row->sku ?? '—',
                 $row->name ?? '—',
-                $raw ? (float) ($row->units ?? 0) : $this->number($row->units ?? 0),
+                /*
+                 * `quantity` مش `units`.
+                 *
+                 * كان مكتوب `units`، و`salesByProduct` بترجّع `quantity` —
+                 * فعمود «المباع» كان بيطلع صفر في كل سطر في الـ PDF
+                 * والإكسيل، والتقرير على الشاشة كان مظبوط. `??` كانت
+                 * بتبلع الخانة الناقصة في صمت.
+                 */
+                $raw ? (float) ($row->quantity ?? 0) : $this->number($row->quantity ?? 0),
                 $this->amount($row->revenue ?? 0, $raw),
                 $this->amount($row->profit ?? 0, $raw),
             ];
