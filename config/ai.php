@@ -29,20 +29,38 @@ $provider = env('ERP_AI_PROVIDER', 'gemini');
  * (gemini-2.5-flash بقى بيرجّع 404 للحسابات الجديدة، فما ينفعش يبقى
  * افتراضي.) وHaiku أرخص موديلات Anthropic.
  */
+/*
+ * **البديل لازم يبقى موديل تاني غير الأساسي.**
+ *
+ * ده مش تفضيل، ده شرط. البديل بيتجرّب لما الأساسي يرجّع 503 (مزحوم)،
+ * ونفس الموديل المزحوم هيرجّع 503 تاني — فبديل بنفس اسم الأساسي معناه
+ * إن مفيش بديل أصلاً.
+ *
+ * وده اللي حصل على السيرفر: المحادثة والبديل الاتنين كانوا
+ * `gemini-3.5-flash-lite`، فلما الموديل اتزحم، التلات محاولات كلها
+ * راحت لنفس الموديل المزحوم ووقعت ورا بعض، والمستخدم شاف «المساعد مش
+ * متاح» من غير ما يكون فيه أي محاولة حقيقية على موديل تاني.
+ *
+ * `alternates` هي شبكة الأمان: لو البديل اتظبط من `.env` بنفس اسم
+ * الأساسي، `AiService` بياخد أول واحد في القايمة دي مختلف عنه.
+ */
 $defaults = [
     'gemini' => [
         'chat' => 'gemini-3.5-flash-lite',
         'vision' => 'gemini-3.5-flash',
-        // موديل أخف وأسرع — بيتستعمل لما الأساسي يتأخر أو يرجّع 503 أو 404
-        'fallback' => 'gemini-3.5-flash-lite',
+        // جيل أقدم ومستقر — مش نفس الموديل اللي بيتزحم
+        'fallback' => 'gemini-3.1-flash-lite',
         // التوجيه: تصنيف كلمة واحدة، أخف حاجة موجودة
         'routing' => 'gemini-3.5-flash-lite',
+        'alternates' => ['gemini-3.1-flash-lite', 'gemini-3.5-flash'],
     ],
     'anthropic' => [
-        'chat' => 'claude-haiku-4-5-20251001',
-        'vision' => 'claude-haiku-4-5-20251001',
-        'fallback' => 'claude-haiku-4-5-20251001',
-        'routing' => 'claude-haiku-4-5-20251001',
+        'chat' => 'claude-haiku-4-5',
+        'vision' => 'claude-haiku-4-5',
+        // أكبر من Haiku، بس مابيتستعملش غير لما Haiku يزحم أو يتأخر
+        'fallback' => 'claude-sonnet-5',
+        'routing' => 'claude-haiku-4-5',
+        'alternates' => ['claude-sonnet-5', 'claude-haiku-4-5'],
     ],
 ];
 
@@ -63,6 +81,11 @@ return [
         'fallback' => env('ERP_AI_FALLBACK_MODEL', $default['fallback']),
         // التوجيه — نداء تصنيف صغير قبل الإجابة
         'routing' => env('ERP_AI_ROUTING_MODEL', $default['routing']),
+        /*
+         * بدائل احتياطية — بيتاخد منها أول واحد مختلف عن الأساسي لو
+         * `ERP_AI_FALLBACK_MODEL` اتظبط بنفس اسمه.
+         */
+        'alternates' => $default['alternates'],
     ],
 
     'max_tokens' => (int) env('ERP_AI_MAX_TOKENS', 2048),

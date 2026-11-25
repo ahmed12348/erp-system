@@ -236,10 +236,9 @@ class AiService
     private function attempt(string $operation, float $deadline, callable $call, array $context = []): mixed
     {
         $model = (string) config("ai.models.{$this->modelKey($operation)}");
-        $fallback = (string) config('ai.models.fallback');
+        $fallback = $this->fallbackFor($model);
 
-        // البديل مالوش لازمة لو هو نفسه الأساسي
-        $hasFallback = $fallback !== '' && $fallback !== $model;
+        $hasFallback = $fallback !== null;
 
         /*
          * الأساسي، وبعدين هو تاني (إعادة المحاولة على 503)، وبعدين
@@ -299,8 +298,49 @@ class AiService
         throw $this->logged(
             AiUnavailableException::from($last ?? new \RuntimeException('AI call failed.')),
             $operation,
-            [...$context, 'model' => $model, 'fallback' => $fallback],
+            [...$context, 'model' => $model, 'fallback' => $fallback ?? '—'],
         );
+    }
+
+    /**
+     * البديل المناسب لموديل معيّن — ومضمون إنه مش هو.
+     *
+     * بديل بنفس اسم الأساسي = مفيش بديل: الموديل المزحوم هيرجّع 503
+     * تاني مهما جرّبناه. وده اللي حصل فعلاً على السيرفر — المحادثة
+     * والبديل كانوا نفس `gemini-3.5-flash-lite`، فالتلات محاولات راحت
+     * لنفس الموديل ووقعت ورا بعض.
+     *
+     * الافتراضي في `config/ai.php` مختلف أصلاً، بس `.env` على السيرفر
+     * ممكن يظبّطهم زي بعض بالغلط — فبناخد من `alternates` أول موديل
+     * مختلف، وبنكتب تنبيه عشان اللي بيبص على اللوج يعرف إن الإعداد
+     * محتاج تصليح.
+     */
+    private function fallbackFor(string $model): ?string
+    {
+        $configured = trim((string) config('ai.models.fallback'));
+
+        if ($configured !== '' && $configured !== $model) {
+            return $configured;
+        }
+
+        /** @var array<int, string> $alternates */
+        $alternates = (array) config('ai.models.alternates', []);
+
+        foreach ($alternates as $alternate) {
+            if (trim((string) $alternate) !== '' && $alternate !== $model) {
+                if ($configured === $model) {
+                    Log::warning('AI fallback model is the same as the primary; using an alternate', [
+                        'primary' => $model,
+                        'configured_fallback' => $configured,
+                        'using' => $alternate,
+                    ]);
+                }
+
+                return $alternate;
+            }
+        }
+
+        return null;
     }
 
     /**

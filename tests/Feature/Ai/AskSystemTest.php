@@ -360,11 +360,18 @@ class AskSystemTest extends TestCase
             ->assertJson(['reason' => 'timeout']);
     }
 
+    /**
+     * **بإعدادات النظام زي ما هي متشحنة** — من غير أي تعديل على
+     * الموديلات.
+     *
+     * ده مقصود: على السيرفر كان المحادثة والبديل نفس
+     * `gemini-3.5-flash-lite`، فلما الموديل اتزحم التلات محاولات راحت
+     * لنفس الموديل المزحوم ووقعت ورا بعض. الاختبار القديم كان بيعدّل
+     * موديل المحادثة عشان «الرجوع يبان» — وبكده كان بيختبر إعداد محدش
+     * شغّال بيه، والإعداد الحقيقي فضل مكسور.
+     */
     public function test_an_overloaded_provider_is_retried_then_falls_back(): void
     {
-        // لازم يبقى فيه بديل مختلف عن الأساسي عشان الرجوع يبان
-        config()->set('ai.models.chat', 'gemini-3.5-flash');
-
         $fake = SequencedPrism::fake([
             // التوجيه بيعدّي عادي
             $this->routedTo('inventory'),
@@ -380,13 +387,80 @@ class AskSystemTest extends TestCase
             ->assertOk()
             ->assertJsonPath('reply.content', 'رد من الموديل البديل.');
 
-        // التوجيه على الخفيف، وبعده الإجابة بترجع للخفيف بعد محاولتين
+        $models = $fake->models();
+
+        // المحاولة الأخيرة لازم تكون على موديل تاني خالص
         $this->assertSame([
             'gemini-3.5-flash-lite',
-            'gemini-3.5-flash',
-            'gemini-3.5-flash',
             'gemini-3.5-flash-lite',
-        ], $fake->models());
+            'gemini-3.5-flash-lite',
+            'gemini-3.1-flash-lite',
+        ], $models);
+
+        $this->assertNotSame($models[1], $models[3]);
+    }
+
+    /**
+     * البديل المتشحن ماينفعش يبقى نفس الأساسي لأي عملية ولا أي مزوّد.
+     *
+     * الفحص على الإعداد نفسه مش على سلوك النداء — بيقول الغلط على طول
+     * بدل ما نستنى نداء حقيقي يقع على السيرفر.
+     */
+    public function test_the_shipped_fallback_is_never_the_primary_model(): void
+    {
+        foreach (['gemini', 'anthropic'] as $provider) {
+            // `config/ai.php` بيقرا المزوّد من البيئة وقت التحميل
+            putenv("ERP_AI_PROVIDER={$provider}");
+            $_ENV['ERP_AI_PROVIDER'] = $provider;
+
+            $config = require config_path('ai.php');
+            $models = $config['models'];
+
+            $this->assertSame($provider, $config['provider'], 'المزوّد ما اتبدّلش، فالفحص ده مابيفحصش حاجة.');
+
+            foreach (['chat', 'vision'] as $operation) {
+                $this->assertNotSame(
+                    $models[$operation],
+                    $models['fallback'],
+                    "البديل بتاع {$provider} هو نفسه موديل {$operation} — يعني مفيش بديل أصلاً.",
+                );
+            }
+
+            // وشبكة الأمان نفسها لازم يكون فيها موديل مختلف
+            $this->assertNotEmpty(array_diff($models['alternates'], [$models['chat']]));
+        }
+
+        putenv('ERP_AI_PROVIDER');
+        unset($_ENV['ERP_AI_PROVIDER']);
+    }
+
+    /**
+     * لو حد ظبّط `ERP_AI_FALLBACK_MODEL` بنفس الأساسي على السيرفر،
+     * الخدمة بتاخد بديل من `alternates` بدل ما تفضل تدق على نفس
+     * الموديل المزحوم.
+     */
+    public function test_a_fallback_set_to_the_primary_is_replaced_by_an_alternate(): void
+    {
+        config()->set('ai.models.chat', 'gemini-3.5-flash-lite');
+        // الغلط اللي كان على السيرفر بالظبط
+        config()->set('ai.models.fallback', 'gemini-3.5-flash-lite');
+
+        $fake = SequencedPrism::fake([
+            $this->routedTo('inventory'),
+            new PrismProviderOverloadedException('Gemini overloaded'),
+            new PrismProviderOverloadedException('Gemini overloaded'),
+            TextResponseFake::make()->withText('رد من البديل الاحتياطي.'),
+        ]);
+
+        $this->actingAs($this->admin())
+            ->postJson('/ai/chat', ['message' => 'سؤال'])
+            ->assertOk()
+            ->assertJsonPath('reply.content', 'رد من البديل الاحتياطي.');
+
+        $models = $fake->models();
+
+        $this->assertSame('gemini-3.1-flash-lite', $models[3]);
+        $this->assertNotSame($models[1], $models[3]);
     }
 
     /**
@@ -413,7 +487,7 @@ class AskSystemTest extends TestCase
         $this->assertSame([
             'gemini-3.5-flash-lite',
             'gemini-3.5-flash',
-            'gemini-3.5-flash-lite',
+            'gemini-3.1-flash-lite',
         ], $fake->models());
     }
 
@@ -457,7 +531,7 @@ class AskSystemTest extends TestCase
             ->postJson('/ai/chat', ['message' => 'سؤال'])
             ->assertOk();
 
-        $this->assertSame('gemini-3.5-flash-lite', $fake->models()[3]);
+        $this->assertSame('gemini-3.1-flash-lite', $fake->models()[3]);
     }
 
     public function test_a_quota_error_is_not_retried(): void
