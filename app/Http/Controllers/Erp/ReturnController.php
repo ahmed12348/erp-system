@@ -6,6 +6,7 @@ use App\Enums\ErpAbility;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\StoreReturnRequest;
 use App\Models\Attachment;
+use App\Models\CompanyProfile;
 use App\Models\Invoice;
 use App\Models\InvoiceItem;
 use App\Models\Warehouse;
@@ -214,7 +215,7 @@ class ReturnController extends Controller
         abort_unless($return->isReturn(), 404);
 
         return Inertia::render('print/Return', [
-            'company' => config('app.name'),
+            'company' => CompanyProfile::current()->present(),
             'doc' => $this->present($return),
             'printedAt' => now()->toDateString(),
         ]);

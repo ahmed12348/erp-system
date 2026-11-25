@@ -2,6 +2,7 @@
 import { Link } from '@inertiajs/vue3';
 import {
     Boxes,
+    Building2,
     ChartNoAxesCombined,
     ClipboardList,
     History,
@@ -77,6 +78,11 @@ const navGroups = computed<NavGroup[]>(() => [
             { title: 'التقارير', href: '/reports', icon: ChartNoAxesCombined },
             ...(manageUsers.value
                 ? [
+                      {
+                          title: 'بيانات الشركة',
+                          href: '/settings/company',
+                          icon: Building2,
+                      },
                       {
                           title: 'المستخدمين',
                           href: '/users',

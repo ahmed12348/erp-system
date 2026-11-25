@@ -307,7 +307,8 @@ class CustomerTest extends TestCase
             ->assertOk()
             ->assertInertia(fn (AssertableInertia $page) => $page
                 ->component('print/CustomerStatement')
-                ->where('company', config('app.name'))
+                // الترويسة بقت بيانات الشركة كاملة مش الاسم لوحده
+                ->where('company.name', config('app.name'))
                 ->has('statement.rows', 1)
             );
     }

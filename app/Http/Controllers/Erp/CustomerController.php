@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Erp;
 use App\Enums\ErpAbility;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\StoreCustomerRequest;
+use App\Models\CompanyProfile;
 use App\Models\Customer;
 use App\Models\Invoice;
 use App\Services\CustomerService;
@@ -101,7 +102,7 @@ class CustomerController extends Controller
         $search = $request->query('search');
 
         return Inertia::render('print/CustomerStatement', [
-            'company' => config('app.name'),
+            'company' => CompanyProfile::current()->present(),
             'customer' => [
                 'name' => $customer->name,
                 'phone' => $customer->phone,

@@ -87,13 +87,47 @@
 </head>
 <body>
 
-{{-- الهيدر: اسم الشركة واسم المستند والفترة --}}
+{{--
+    الهيدر: بيانات الشركة واسم المستند والفترة.
+
+    `$company` مصفوفة جاية من `CompanyProfile::present()`. بنقبل نص
+    كمان عشان أي نداء قديم ما يقعش بـ «Array to string conversion» —
+    الترويسة على كل PDF في النظام، فالتسامح هنا أرخص من 500.
+--}}
+@php
+    $co = array_merge([
+        'name' => '', 'logoFile' => null, 'address' => null, 'phones' => null,
+        'taxNumber' => null, 'commercialRegistry' => null, 'footerNote' => null,
+    ], is_array($company) ? $company : ['name' => $company]);
+@endphp
 <htmlpageheader name="page-header">
     <table style="border: none; margin: 0;">
         <tr>
+            @if (! empty($co['logoFile']))
+                {{-- mPDF بيقرا اللوجو من مسار محلي مش من رابط --}}
+                <td style="border: none; padding: 0; width: 52pt;">
+                    <img src="{{ $co['logoFile'] }}" style="max-width: 44pt; max-height: 44pt;">
+                </td>
+            @endif
             <td style="border: none; padding: 0;">
-                <div class="company">{{ $company }}</div>
+                <div class="company">{{ $co['name'] }}</div>
                 <div class="doc-title">{{ $title }}</div>
+                @if (! empty($co['address']) || ! empty($co['phones']))
+                    <div class="meta">
+                        {{ collect([$co['address'] ?? null, $co['phones'] ?? null])->filter()->implode(' · ') }}
+                    </div>
+                @endif
+                @if (! empty($co['taxNumber']) || ! empty($co['commercialRegistry']))
+                    <div class="meta">
+                        @if (! empty($co['taxNumber']))
+                            رقم ضريبي: {{ $co['taxNumber'] }}
+                        @endif
+                        @if (! empty($co['commercialRegistry']))
+                            @if (! empty($co['taxNumber'])) · @endif
+                            سجل تجاري: {{ $co['commercialRegistry'] }}
+                        @endif
+                    </div>
+                @endif
             </td>
             <td style="border: none; padding: 0; text-align: left;" class="num">
                 <div class="meta">
@@ -113,7 +147,9 @@
     <hr style="border: none; border-bottom: 0.4pt solid #dee2e6; margin: 0 0 3pt;">
     <table style="border: none; margin: 0;">
         <tr>
-            <td style="border: none; padding: 0;" class="meta">{{ $company }}</td>
+            <td style="border: none; padding: 0;" class="meta">
+                {{ $co['footerNote'] ?: $co['name'] }}
+            </td>
             <td style="border: none; padding: 0; text-align: left;" class="meta num">
                 صفحة {PAGENO} من {nbpg}
             </td>

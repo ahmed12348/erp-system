@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Erp;
 use App\Enums\ErpAbility;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\StorePreparationOrderRequest;
+use App\Models\CompanyProfile;
 use App\Models\Customer;
 use App\Models\PreparationOrder;
 use App\Models\PreparationOrderItem;
@@ -167,7 +168,7 @@ class PreparationOrderController extends Controller
         Gate::authorize(ErpAbility::ManagePreparationOrders->value);
 
         return Inertia::render('print/PreparationOrder', [
-            'company' => config('app.name'),
+            'company' => CompanyProfile::current()->present(),
             'order' => $this->present($preparationOrder),
             'printedAt' => now()->toDateString(),
         ]);
@@ -186,7 +187,7 @@ class PreparationOrderController extends Controller
 
         return $this->pdf->download('pdf.preparation-order', [
             'title' => 'طلب تحضير '.$order['number'],
-            'company' => config('app.name'),
+            'company' => CompanyProfile::current()->present(),
             'order' => $order,
             'printedAt' => now()->toDateString(),
         ], 'طلب تحضير '.$order['number']);

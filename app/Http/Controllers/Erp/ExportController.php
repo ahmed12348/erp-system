@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Erp;
 
 use App\Http\Controllers\Controller;
+use App\Models\CompanyProfile;
 use App\Models\Customer;
 use App\Models\Invoice;
 use App\Models\Supplier;
@@ -247,7 +248,7 @@ class ExportController extends Controller
 
         return $this->pdf->download('pdf.table', [
             'title' => $title,
-            'company' => config('app.name'),
+            'company' => CompanyProfile::current()->present(),
             'range' => $range,
             'printedAt' => now()->toDateString(),
             'headers' => $table['headers'],

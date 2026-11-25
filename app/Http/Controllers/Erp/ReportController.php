@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Erp;
 
 use App\Http\Controllers\Controller;
+use App\Models\CompanyProfile;
 use App\Models\Invoice;
 use App\Services\ExportBuilder;
 use App\Services\ReportService;
@@ -37,7 +38,7 @@ class ReportController extends Controller
         $filters = $this->params($request);
 
         return Inertia::render('print/Report', [
-            'company' => config('app.name'),
+            'company' => CompanyProfile::current()->present(),
             'report' => $filters['report'],
             'filters' => $filters,
             'data' => $this->build($filters),

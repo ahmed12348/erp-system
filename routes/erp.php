@@ -4,6 +4,7 @@ use App\Http\Controllers\Erp\ActivityController;
 use App\Http\Controllers\Erp\AttachmentController;
 use App\Http\Controllers\Erp\CategoryController;
 use App\Http\Controllers\Erp\CustomerController;
+use App\Http\Controllers\Erp\CompanyProfileController;
 use App\Http\Controllers\Erp\CustomerPaymentController;
 use App\Http\Controllers\Erp\DashboardController;
 use App\Http\Controllers\Erp\DraftInvoiceController;
@@ -158,6 +159,13 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::post('users', [UserController::class, 'store'])->name('users.store');
     Route::put('users/{user}', [UserController::class, 'update'])->name('users.update');
     Route::delete('users/{user}', [UserController::class, 'destroy'])->name('users.destroy');
+
+    /*
+     * بيانات الشركة — الترويسة على كل مستند.
+     * POST مش PUT لأن اللوجو بيترفع multipart.
+     */
+    Route::get('settings/company', [CompanyProfileController::class, 'edit'])->name('company.edit');
+    Route::post('settings/company', [CompanyProfileController::class, 'update'])->name('company.update');
 
     // الخزينة
     Route::get('treasury', [TreasuryController::class, 'index'])->name('treasury.index');

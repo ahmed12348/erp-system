@@ -6,6 +6,7 @@ use App\Concerns\AttachesScannedInvoice;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\StoreSaleInvoiceRequest;
 use App\Models\Attachment;
+use App\Models\CompanyProfile;
 use App\Models\Customer;
 use App\Models\Invoice;
 use App\Models\InvoiceItem;
@@ -114,7 +115,7 @@ class SaleInvoiceController extends Controller
         abort_unless(in_array($sale->type, [Invoice::TYPE_SALE, Invoice::TYPE_SALE_RETURN], true), 404);
 
         return Inertia::render('print/SaleInvoice', [
-            'company' => config('app.name'),
+            'company' => CompanyProfile::current()->present(),
             'invoice' => $this->present($sale),
             'printedAt' => now()->toDateString(),
         ]);

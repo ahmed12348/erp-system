@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Ai;
 
 use App\Http\Controllers\Controller;
+use App\Models\CompanyProfile;
 use App\Services\ExportBuilder;
 use App\Services\PdfService;
 use App\Services\SpreadsheetService;
@@ -51,7 +52,7 @@ class ExportAgentTableController extends Controller
 
         return $this->pdf->download('pdf.table', [
             'title' => $title,
-            'company' => config('app.name'),
+            'company' => CompanyProfile::current()->present(),
             'range' => null,
             'printedAt' => now()->toDateString(),
             'headers' => $table['headers'],
