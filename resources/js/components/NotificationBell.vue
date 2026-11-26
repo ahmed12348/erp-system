@@ -1,6 +1,6 @@
 <script setup lang="ts">
-import { router } from '@inertiajs/vue3';
-import { Bell, Check, Settings } from '@lucide/vue';
+import { router, usePage } from '@inertiajs/vue3';
+import { Bell, Check, PackageX, Settings } from '@lucide/vue';
 import { computed, onMounted, ref } from 'vue';
 import { Button } from '@/components/ui/button';
 import {
@@ -9,9 +9,15 @@ import {
     DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { aiRequest } from '@/lib/ai';
+import { formatNumber } from '@/lib/format';
 
 /**
- * جرس التنبيهات.
+ * جرس التنبيهات — واحد بس.
+ *
+ * كان فيه جرسين جنب بعض: واحد للتنبيهات وواحد لنواقص المخزون. جرسين
+ * بنفس الأيقونة جنب بعض مابيقولوش للمستخدم أنهي واحد فيهم بيقول إيه،
+ * وأول حاجة بيعملها إنه يضغط الاتنين. بقى جرس واحد والنواقص سطر
+ * مثبّت فوق القايمة.
  *
  * غير المقروء فوق، والضغط على التنبيه بيفتح الصفحة بتاعته ويعلّمه
  * مقروء. العدّاد بيتحدّث لما اللوحة تتفتح — مش بـ polling، عشان
@@ -28,14 +34,27 @@ type Row = {
     at: string | null;
 };
 
+const page = usePage();
+
 const rows = ref<Row[]>([]);
 const unread = ref(0);
 const open = ref(false);
 const loading = ref(false);
 
-const label = computed(() =>
-    unread.value > 0 ? `${unread.value} تنبيه جديد` : 'التنبيهات',
+/** حالة قايمة مش حدث — بتيجي مع كل صفحة من السيرفر */
+const lowStock = computed(() => Number(page.props.lowStockCount ?? 0));
+
+const lowStockLabel = computed(
+    () => `${formatNumber(lowStock.value)} صنف تحت حد الطلب`,
 );
+
+const label = computed(() => {
+    if (unread.value > 0) {
+        return `${unread.value} تنبيه جديد`;
+    }
+
+    return lowStock.value > 0 ? lowStockLabel.value : 'التنبيهات';
+});
 
 async function load() {
     loading.value = true;
@@ -87,6 +106,11 @@ async function openRow(row: Row) {
         router.visit(row.url);
     }
 }
+
+function openInventory() {
+    open.value = false;
+    router.visit('/inventory');
+}
 </script>
 
 <template>
@@ -107,6 +131,16 @@ async function openRow(row: Row) {
                 >
                     {{ unread > 99 ? '99+' : unread }}
                 </span>
+                <!--
+                    نواقص المخزون من غير تنبيهات غير مقروءة: نقطة من غير
+                    رقم. العدّاد معناه «حاجة جديدة حصلت»، والنواقص حالة
+                    قايمة مش حدث — رقمين مختلفين على نفس الجرس بيلخبطوا.
+                -->
+                <span
+                    v-else-if="lowStock > 0"
+                    class="absolute -end-0.5 -top-0.5 size-2 rounded-full bg-status-warning ring-2 ring-background"
+                    data-test="low-stock-dot"
+                />
             </Button>
         </DropdownMenuTrigger>
 
@@ -134,9 +168,28 @@ async function openRow(row: Row) {
                 </div>
             </div>
 
+            <!-- النواقص مثبّتة فوق: دي الحاجة اللي محتاجة تصرّف دلوقتي -->
+            <button
+                v-if="lowStock > 0"
+                type="button"
+                class="flex w-full items-center gap-2 border-b border-border/60 bg-status-warning/10 px-3 py-2.5 text-start transition-colors hover:bg-status-warning/15"
+                data-test="low-stock-row"
+                @click="openInventory"
+            >
+                <PackageX class="size-4 shrink-0 text-status-warning" />
+                <span class="flex flex-col gap-0.5">
+                    <span class="text-sm font-medium">
+                        {{ lowStockLabel }}
+                    </span>
+                    <span class="text-xs text-muted-foreground">
+                        افتح المخزون وشوف اللي محتاج طلب
+                    </span>
+                </span>
+            </button>
+
             <div class="max-h-96 scrollbar-thin overflow-y-auto">
                 <p
-                    v-if="!rows.length && !loading"
+                    v-if="!rows.length && !loading && lowStock === 0"
                     class="px-3 py-8 text-center text-sm text-muted-foreground"
                 >
                     مفيش تنبيهات لسه.
