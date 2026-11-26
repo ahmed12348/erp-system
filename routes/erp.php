@@ -111,6 +111,18 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::post('notifications/read', [NotificationController::class, 'markRead'])->name('notifications.read');
     Route::get('settings/notifications', [NotificationController::class, 'settings'])->name('notifications.settings');
     Route::put('settings/notifications', [NotificationController::class, 'updateSettings'])->name('notifications.settings.update');
+    /*
+     * إيميلات التنبيهات — عناوين بتستقبل تنبيهات المخزون من غير ما
+     * تكون مستخدمين. للمدير بس.
+     */
+    Route::post('settings/alert-emails', [NotificationController::class, 'storeAlertEmail'])->name('alert-emails.store');
+    Route::put('settings/alert-emails/{alertEmail}', [NotificationController::class, 'updateAlertEmail'])->name('alert-emails.update');
+    Route::delete('settings/alert-emails/{alertEmail}', [NotificationController::class, 'destroyAlertEmail'])->name('alert-emails.destroy');
+    Route::post('settings/alert-emails/test', [NotificationController::class, 'sendTestEmail'])
+        // إرسال حقيقي — سقف عشان الزرار ما يتحوّلش لمرسال spam
+        ->middleware('throttle:6,1')
+        ->name('alert-emails.test');
+
     Route::post('notifications/push', [NotificationController::class, 'subscribePush'])->name('notifications.push.subscribe');
     Route::delete('notifications/push', [NotificationController::class, 'unsubscribePush'])->name('notifications.push.unsubscribe');
 

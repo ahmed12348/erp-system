@@ -3,6 +3,7 @@
 namespace App\Notifications\Erp;
 
 use App\Models\Product;
+use App\Models\User;
 use App\Notifications\Erp\Concerns\RestrictsChannels;
 use App\Services\NotificationPreferences;
 use Illuminate\Bus\Queueable;
@@ -32,6 +33,11 @@ class DailyStockDigest extends Notification implements ShouldQueue
      */
     public function via(object $notifiable): array
     {
+        // المستقبل اللي مش مستخدم (إيميل زيادة) بياخد الإيميل وخلاص
+        if (! $notifiable instanceof User) {
+            return $this->restrict(['mail']);
+        }
+
         return $this->restrict(
             app(NotificationPreferences::class)->channelsFor($notifiable, 'daily_digest')
         );
@@ -67,7 +73,9 @@ class DailyStockDigest extends Notification implements ShouldQueue
         return (new MailMessage)
             ->subject($this->title())
             ->view('mail.notification', [
-                'greeting' => 'صباح الخير '.$notifiable->name,
+                'greeting' => $notifiable instanceof User
+                    ? 'صباح الخير '.$notifiable->name
+                    : 'صباح الخير',
                 'title' => $this->title(),
                 'lines' => [$this->summary(), ...$lines],
                 'actionUrl' => url('/inventory'),

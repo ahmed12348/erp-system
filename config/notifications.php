@@ -20,19 +20,22 @@ return [
             'label' => 'صنف نزل تحت حد الطلب',
             'description' => 'أول ما رصيد صنف ينزل تحت الحد — مرة واحدة، مش مع كل بيعة.',
             'roles' => ['admin', 'accountant'],
-            'default' => ['database' => true],
+            // الجرس والإيميل — الإيميل بيتخطى لوحده لو MAIL_ مش متظبّط
+            'default' => ['database' => true, 'mail' => true],
         ],
         'out_of_stock' => [
             'label' => 'صنف خلص',
             'description' => 'لما الرصيد يوصل صفر.',
             'roles' => ['admin', 'accountant'],
-            'default' => ['database' => true],
+            // الجرس والإيميل — الإيميل بيتخطى لوحده لو MAIL_ مش متظبّط
+            'default' => ['database' => true, 'mail' => true],
         ],
         'daily_digest' => [
             'label' => 'ملخّص النواقص اليومي',
             'description' => 'كل يوم 9 الصبح — كل الأصناف تحت حد الطلب في رسالة واحدة.',
             'roles' => ['admin', 'accountant'],
-            'default' => ['database' => true],
+            // الجرس والإيميل — الإيميل بيتخطى لوحده لو MAIL_ مش متظبّط
+            'default' => ['database' => true, 'mail' => true],
         ],
     ],
 

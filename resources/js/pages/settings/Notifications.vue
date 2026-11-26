@@ -1,11 +1,15 @@
 <script setup lang="ts">
-import { Head, useForm } from '@inertiajs/vue3';
-import { BellRing, Check, X } from '@lucide/vue';
+import { Head, router, useForm } from '@inertiajs/vue3';
+import { BellRing, Check, Mail, Send, Trash2, X } from '@lucide/vue';
 import { ref } from 'vue';
 import PageHeader from '@/components/PageHeader.vue';
 import SectionCard from '@/components/SectionCard.vue';
 import { Button } from '@/components/ui/button';
+import InputError from '@/components/InputError.vue';
 import { Checkbox } from '@/components/ui/checkbox';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Spinner } from '@/components/ui/spinner';
 import { aiRequest } from '@/lib/ai';
 import type { BreadcrumbItem } from '@/types';
 
@@ -37,6 +41,16 @@ const props = defineProps<{
     matrix: Row[];
     push: { publicKey: string | null; subscribed: boolean };
     whatsapp: { number: string | null; verified: boolean; available: boolean };
+    alertEmails: {
+        manageable: boolean;
+        mailConfigured: boolean;
+        recipients: {
+            id: number;
+            email: string;
+            name: string | null;
+            isActive: boolean;
+        }[];
+    };
     breadcrumbs: BreadcrumbItem[];
 }>();
 
@@ -162,6 +176,46 @@ async function disablePush() {
     } finally {
         pushBusy.value = false;
     }
+}
+/*
+ * إيميلات التنبيهات — عناوين بتستقبل تنبيهات المخزون من غير ما تكون
+ * مستخدمين في النظام. صاحب المحل مش بالضرورة بيفتح النظام كل يوم.
+ */
+const emailForm = useForm({ email: '', name: '' });
+const testForm = useForm({ email: '' });
+
+function addEmail() {
+    emailForm.post('/settings/alert-emails', {
+        preserveScroll: true,
+        onSuccess: () => emailForm.reset(),
+    });
+}
+
+function toggleEmail(recipient: { id: number; isActive: boolean }) {
+    router.put(
+        `/settings/alert-emails/${recipient.id}`,
+        { is_active: !recipient.isActive },
+        { preserveScroll: true },
+    );
+}
+
+function removeEmail(recipient: { id: number; email: string }) {
+    if (
+        !window.confirm(
+            `هتشيل ${recipient.email} من إيميلات التنبيهات. تمام؟`,
+        )
+    ) {
+        return;
+    }
+
+    router.delete(`/settings/alert-emails/${recipient.id}`, {
+        preserveScroll: true,
+    });
+}
+
+/** إرسال فعلي فوري — عشان يتأكد إن SMTP شغّال */
+function sendTest() {
+    testForm.post('/settings/alert-emails/test', { preserveScroll: true });
 }
 </script>
 
@@ -296,6 +350,164 @@ async function disablePush() {
                 <Check class="size-4" />
                 الرقم {{ whatsapp.number }} متأكّد ومتصل.
             </p>
+        </SectionCard>
+
+        <!-- إيميلات التنبيهات — للمدير بس -->
+        <SectionCard
+            v-if="alertEmails.manageable"
+            title="إيميلات التنبيهات"
+            description="عناوين بتوصلها تنبيهات المخزون حتى لو مش مستخدمين في النظام"
+        >
+            <!-- من غير MAIL_ مفيش إيميل أصلاً — لازم يتقال بصراحة -->
+            <p
+                v-if="!alertEmails.mailConfigured"
+                class="mb-4 rounded-lg border border-status-warning/40 bg-status-warning/10 px-4 py-3 text-sm text-status-warning"
+                data-test="mail-not-configured"
+            >
+                إعدادات الإيميل (MAIL_) مش متظبّطة في .env — العناوين دي هتتحفظ
+                بس مش هيوصلها حاجة لحد ما تتظبّط.
+            </p>
+
+            <ul class="divide-y divide-border rounded-lg border border-border">
+                <li
+                    v-for="recipient in alertEmails.recipients"
+                    :key="recipient.id"
+                    class="flex flex-wrap items-center justify-between gap-3 px-4 py-3 text-sm"
+                >
+                    <span class="flex items-center gap-2">
+                        <Mail class="size-4 text-muted-foreground" />
+                        <span
+                            dir="ltr"
+                            :class="{ 'opacity-50': !recipient.isActive }"
+                        >
+                            {{ recipient.email }}
+                        </span>
+                        <span
+                            v-if="recipient.name"
+                            class="text-xs text-muted-foreground"
+                        >
+                            {{ recipient.name }}
+                        </span>
+                        <span
+                            v-if="!recipient.isActive"
+                            class="rounded-md bg-muted px-2 py-0.5 text-xs"
+                        >
+                            موقوف
+                        </span>
+                    </span>
+
+                    <span class="flex items-center gap-1">
+                        <Button
+                            variant="ghost"
+                            size="sm"
+                            :data-test="`toggle-email-${recipient.id}`"
+                            @click="toggleEmail(recipient)"
+                        >
+                            {{ recipient.isActive ? 'إيقاف' : 'تفعيل' }}
+                        </Button>
+                        <Button
+                            variant="ghost"
+                            size="icon"
+                            :data-test="`delete-email-${recipient.id}`"
+                            @click="removeEmail(recipient)"
+                        >
+                            <Trash2 class="size-4" />
+                        </Button>
+                    </span>
+                </li>
+
+                <li
+                    v-if="!alertEmails.recipients.length"
+                    class="px-4 py-6 text-center text-sm text-muted-foreground"
+                >
+                    مفيش إيميلات مضافة.
+                </li>
+            </ul>
+
+            <form
+                class="mt-4 grid gap-3 sm:grid-cols-[1fr_1fr_auto]"
+                @submit.prevent="addEmail"
+            >
+                <div class="space-y-1.5">
+                    <Label for="alert_email">الإيميل</Label>
+                    <Input
+                        id="alert_email"
+                        v-model="emailForm.email"
+                        type="email"
+                        dir="ltr"
+                        class="text-start"
+                        placeholder="name@example.com"
+                        data-test="alert-email-input"
+                    />
+                    <InputError :message="emailForm.errors.email" />
+                </div>
+                <div class="space-y-1.5">
+                    <Label for="alert_email_name">الاسم (اختياري)</Label>
+                    <Input
+                        id="alert_email_name"
+                        v-model="emailForm.name"
+                        placeholder="صاحب المحل"
+                    />
+                </div>
+                <div class="flex items-end">
+                    <Button
+                        type="submit"
+                        :disabled="emailForm.processing"
+                        data-test="add-alert-email"
+                    >
+                        <Spinner v-if="emailForm.processing" class="size-4" />
+                        إضافة
+                    </Button>
+                </div>
+            </form>
+
+            <!-- إرسال تجريبي — بيتبعت فورًا مش في الطابور -->
+            <div class="mt-6 border-t border-border pt-4">
+                <form
+                    class="grid gap-3 sm:grid-cols-[1fr_auto]"
+                    @submit.prevent="sendTest"
+                >
+                    <div class="space-y-1.5">
+                        <Label for="test_email">إرسال إيميل تجريبي</Label>
+                        <Input
+                            id="test_email"
+                            v-model="testForm.email"
+                            type="email"
+                            dir="ltr"
+                            class="text-start"
+                            placeholder="اكتب إيميل وجرّب"
+                            data-test="test-email-input"
+                        />
+                        <InputError :message="testForm.errors.email" />
+                        <!-- عطل SMTP بيرجع تحت المفتاح ده مش تحت email -->
+                        <InputError
+                            :message="
+                                (testForm.errors as Record<string, string>)
+                                    .test_email
+                            "
+                        />
+                    </div>
+                    <div class="flex items-end">
+                        <Button
+                            type="submit"
+                            variant="outline"
+                            :disabled="testForm.processing"
+                            data-test="send-test-email"
+                        >
+                            <Spinner
+                                v-if="testForm.processing"
+                                class="size-4"
+                            />
+                            <Send v-else class="size-4" />
+                            إرسال إيميل تجريبي
+                        </Button>
+                    </div>
+                </form>
+                <p class="mt-2 text-xs text-muted-foreground">
+                    بيتبعت على طول مش من خلال الطابور، عشان تعرف فورًا لو
+                    إعدادات SMTP فيها مشكلة.
+                </p>
+            </div>
         </SectionCard>
     </div>
 </template>

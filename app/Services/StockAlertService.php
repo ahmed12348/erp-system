@@ -2,6 +2,7 @@
 
 namespace App\Services;
 
+use App\Models\AlertEmailRecipient;
 use App\Models\Product;
 use App\Models\StockAlertState;
 use App\Models\User;
@@ -60,10 +61,11 @@ class StockAlertService
 
         $recipients = $this->preferences->recipientsFor('daily_digest');
 
-        if ($recipients->isEmpty()) {
-            return 0;
-        }
-
+        /*
+         * بيعدّي حتى لو مفيش مستخدم مشترك في الملخّص: الإيميلات الزيادة
+         * مش مستخدمين أصلاً، والخروج بدري هنا كان بيمنعهم من الملخّص
+         * من غير أي سبب.
+         */
         $this->deliver($recipients, new DailyStockDigest($products));
 
         return $recipients->count();
@@ -132,12 +134,43 @@ class StockAlertService
      */
     private function deliver(Collection $recipients, object $notification): void
     {
-        Notification::sendNow($recipients, $notification->only(['database']));
+        if ($recipients->isNotEmpty()) {
+            Notification::sendNow($recipients, $notification->only(['database']));
 
-        $external = $this->preferences->externalChannels();
+            $external = $this->preferences->externalChannels();
 
-        if ($external !== []) {
-            Notification::send($recipients, $notification->only($external));
+            if ($external !== []) {
+                Notification::send($recipients, $notification->only($external));
+            }
         }
+
+        $this->mailExtraRecipients($notification);
+    }
+
+    /**
+     * الإيميلات الزيادة — اللي مش مستخدمين في النظام.
+     *
+     * بتتبعت على القناة `mail` بس: المستقبل دا مالوش حساب، فمفيش جرس
+     * ولا تفضيلات يتقروا منها. ولو الإيميل مش متظبّط في `.env` الحتة
+     * دي بتتخطى بالكامل — زي باقي القنوات الخارجية.
+     */
+    private function mailExtraRecipients(object $notification): void
+    {
+        if (! $this->preferences->channelAvailable('mail')) {
+            return;
+        }
+
+        $emails = AlertEmailRecipient::query()->active()->pluck('email');
+
+        if ($emails->isEmpty()) {
+            return;
+        }
+
+        /*
+         * في الطابور زي أي إيميل — الكرون بيفرّغه كل دقيقة. المستخدم
+         * بيحفظ فاتورة، مش بيستنى SMTP يرد.
+         */
+        Notification::route('mail', $emails->all())
+            ->notify($notification->only(['mail']));
     }
 }

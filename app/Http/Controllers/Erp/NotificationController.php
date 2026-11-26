@@ -2,14 +2,20 @@
 
 namespace App\Http\Controllers\Erp;
 
+use App\Enums\ErpAbility;
 use App\Http\Controllers\Controller;
+use App\Mail\TestAlertMail;
+use App\Models\AlertEmailRecipient;
 use App\Models\PushSubscription;
 use App\Services\NotificationPreferences;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Gate;
+use Illuminate\Support\Facades\Mail;
 use Inertia\Inertia;
 use Inertia\Response;
+use Throwable;
 
 /**
  * جرس التنبيهات وإعداداتها.
@@ -77,6 +83,25 @@ class NotificationController extends Controller
                 'verified' => $request->user()->whatsapp_verified_at !== null,
                 'available' => $this->preferences->channelAvailable('whatsapp'),
             ],
+            /*
+             * إيميلات التنبيهات — للمدير بس.
+             *
+             * دي إعدادات نظام مش تفضيلات شخصية: الإيميلات دي بتوصلها
+             * تنبيهات المخزون حتى لو أصحابها مش مستخدمين في النظام.
+             */
+            'alertEmails' => [
+                'manageable' => $request->user()->allows(ErpAbility::ManageUsers),
+                'mailConfigured' => $this->preferences->channelAvailable('mail'),
+                'recipients' => AlertEmailRecipient::query()
+                    ->orderBy('email')
+                    ->get(['id', 'email', 'name', 'is_active'])
+                    ->map(fn (AlertEmailRecipient $recipient) => [
+                        'id' => $recipient->id,
+                        'email' => $recipient->email,
+                        'name' => $recipient->name,
+                        'isActive' => $recipient->is_active,
+                    ]),
+            ],
             'breadcrumbs' => [
                 ['title' => 'لوحة التحكم', 'href' => route('erp.dashboard')],
                 ['title' => 'إعدادات التنبيهات', 'href' => route('notifications.settings')],
@@ -133,5 +158,93 @@ class NotificationController extends Controller
             ->delete();
 
         return response()->json(['subscribed' => false]);
+    }
+
+    // ── إيميلات التنبيهات ─────────────────────────────────────────
+
+    public function storeAlertEmail(Request $request): RedirectResponse
+    {
+        Gate::authorize(ErpAbility::ManageUsers->value);
+
+        $data = $request->validate([
+            'email' => ['required', 'email', 'max:255', 'unique:alert_email_recipients,email'],
+            'name' => ['nullable', 'string', 'max:255'],
+        ], [
+            'email.required' => 'اكتب الإيميل.',
+            'email.email' => 'الإيميل ده شكله مش مظبوط.',
+            'email.unique' => 'الإيميل ده مضاف قبل كده.',
+        ]);
+
+        AlertEmailRecipient::create([...$data, 'is_active' => true]);
+
+        Inertia::flash('toast', [
+            'type' => 'success',
+            'message' => 'تم إضافة '.$data['email'].' لإيميلات التنبيهات.',
+        ]);
+
+        return back();
+    }
+
+    public function updateAlertEmail(Request $request, AlertEmailRecipient $alertEmail): RedirectResponse
+    {
+        Gate::authorize(ErpAbility::ManageUsers->value);
+
+        $alertEmail->update($request->validate([
+            'is_active' => ['required', 'boolean'],
+        ]));
+
+        return back();
+    }
+
+    public function destroyAlertEmail(AlertEmailRecipient $alertEmail): RedirectResponse
+    {
+        Gate::authorize(ErpAbility::ManageUsers->value);
+
+        $alertEmail->delete();
+
+        Inertia::flash('toast', ['type' => 'success', 'message' => 'تم حذف الإيميل.']);
+
+        return back();
+    }
+
+    /**
+     * إيميل تجريبي — بيتبعت **فورًا** مش في الطابور.
+     *
+     * الزرار ده موجود عشان يتأكد إن إعدادات SMTP شغّالة، فلو عدّى على
+     * الطابور المستخدم هيشوف «اتبعت» وهو مش متأكد إن حاجة وصلت. وأي
+     * عطل من السيرفر بيترجع كرسالة عربية بدل صفحة 500.
+     */
+    public function sendTestEmail(Request $request): RedirectResponse
+    {
+        Gate::authorize(ErpAbility::ManageUsers->value);
+
+        $data = $request->validate([
+            'email' => ['required', 'email'],
+        ], [
+            'email.required' => 'اكتب الإيميل اللي هيتبعتله.',
+        ]);
+
+        if (! $this->preferences->channelAvailable('mail')) {
+            return back()->withErrors([
+                'test_email' => 'إعدادات الإيميل (MAIL_) مش متظبّطة في .env — الإيميل مش هيتبعت.',
+            ]);
+        }
+
+        try {
+            Mail::to($data['email'])->sendNow(new TestAlertMail);
+        } catch (Throwable $exception) {
+            report($exception);
+
+            return back()->withErrors([
+                'test_email' => 'الإرسال فشل: '.$exception->getMessage(),
+            ]);
+        }
+
+        Inertia::flash('toast', [
+            'type' => 'success',
+            'message' => 'تم إرسال إيميل تجريبي لـ '.$data['email'].' — شوف صندوق الوارد والـ Spam.',
+        ]);
+
+        return back();
     }
 }
