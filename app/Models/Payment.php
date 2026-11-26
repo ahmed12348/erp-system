@@ -21,8 +21,16 @@ class Payment extends Model
 
     public const TYPE_DISBURSEMENT = 'disbursement'; // دفع لمورد
 
+    /**
+     * مصروف — بيطلع من الخزينة من غير طرف.
+     *
+     * نوع تالت مقصود إنه يفضل مميّز: عمولة المندوب بتتحسب على المحصّل
+     * ناقص المردود (`disbursement`)، والمصروف مالوش علاقة بيها.
+     */
+    public const TYPE_EXPENSE = 'expense';
+
     protected $fillable = [
-        'type', 'customer_id', 'supplier_id', 'invoice_id', 'amount', 'currency',
+        'type', 'customer_id', 'supplier_id', 'invoice_id', 'expense_id', 'amount', 'currency',
         'exchange_rate', 'method', 'date', 'reference', 'user_id', 'sales_rep_id', 'notes',
     ];
 
@@ -48,6 +56,11 @@ class Payment extends Model
     public function invoice(): BelongsTo
     {
         return $this->belongsTo(Invoice::class);
+    }
+
+    public function expense(): BelongsTo
+    {
+        return $this->belongsTo(Expense::class);
     }
 
     public function user(): BelongsTo

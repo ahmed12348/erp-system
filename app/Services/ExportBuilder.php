@@ -29,6 +29,7 @@ class ExportBuilder
         'product' => 'تقرير المبيعات بالصنف',
         'customer' => 'تقرير المبيعات بالتاجر',
         'inventory' => 'تقييم المخزون',
+        'expenses' => 'تقرير المصروفات بالتصنيف',
     ];
 
     /** التقارير اللي مالهاش فترة — لقطة لحظية */
@@ -61,6 +62,7 @@ class ExportBuilder
             'product' => $this->byProduct($data, $raw),
             'customer' => $this->byCustomer($data, $raw),
             'inventory' => $this->inventory($data, $raw),
+            'expenses' => $this->expenses($data, $raw),
             'sale_invoices' => $this->byInvoice($data, $raw, 'التاجر'),
             'purchase_invoices' => $this->byInvoice($data, $raw, 'المورد'),
             default => $this->byPeriod($data, $raw),
@@ -486,6 +488,47 @@ class ExportBuilder
             'numeric' => [2, 3, 4],
             'summary' => [
                 'قيمة المخزون' => $this->money($data['total'] ?? 0),
+            ],
+        ];
+    }
+
+    /**
+     * المصروفات بالتصنيف — المجموعة وبنودها تحتها.
+     *
+     * المجموعة بتتكتب في سطر لوحدها عشان الورقة تتقرا زي كشف حساب:
+     * عنوان وتحته بنوده، مش قايمة مسطّحة محدش عارف يجمعها.
+     *
+     * @param  array<string, mixed>  $data
+     */
+    private function expenses(array $data, bool $raw): array
+    {
+        $rows = [];
+
+        foreach ($data['rows'] ?? [] as $group) {
+            $rows[] = [
+                $group['code'] ?? '—',
+                $group['name'],
+                '',
+                $this->amount($group['total'], $raw),
+                '_total' => true,
+            ];
+
+            foreach ($group['children'] ?? [] as $child) {
+                $rows[] = [
+                    $child['code'] ?? '—',
+                    '— '.$child['name'],
+                    $raw ? (int) $child['entries'] : $this->number($child['entries']),
+                    $this->amount($child['total'], $raw),
+                ];
+            }
+        }
+
+        return [
+            'headers' => ['الكود', 'التصنيف', 'عدد المصروفات', 'الإجمالي'],
+            'rows' => $rows,
+            'numeric' => [2, 3],
+            'summary' => [
+                'إجمالي المصروفات' => $this->money($data['total'] ?? 0),
             ],
         ];
     }

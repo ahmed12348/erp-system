@@ -88,6 +88,53 @@ class DashboardService
             ],
             'inventoryValue' => ['value' => $this->inventory->inventoryValue()],
             'lowStock' => ['value' => $this->inventory->lowStockCount()],
+            /*
+             * صافي الربح = مجمل الربح ناقص المصروفات.
+             *
+             * من غير المصروفات، «الربح» على اللوحة بيقول إن الشهر كويس
+             * وصاحب المحل لسه مادفعش الإيجار ولا المرتبات — وده الرقم
+             * اللي بياخد عليه قرارات.
+             */
+            'profit' => $this->profitFor($monthStart, $today),
+        ];
+    }
+
+    /**
+     * مجمل الربح والمصروفات وصافي الربح لفترة.
+     *
+     * مجمل الربح = قيمة البيع ناقص تكلفة البضاعة المباعة. التكلفة
+     * بتتاخد من `products.purchase_price` زي تقرير الأصناف بالظبط عشان
+     * الرقمين ما يفرقوش.
+     *
+     * @return array<string, float>
+     */
+    public function profitFor(Carbon $from, Carbon $to): array
+    {
+        $revenue = (float) DB::table('invoice_items')
+            ->join('invoices', 'invoices.id', '=', 'invoice_items.invoice_id')
+            ->where('invoices.type', Invoice::TYPE_SALE)
+            ->where('invoices.status', Invoice::STATUS_CONFIRMED)
+            ->tap(fn ($query) => $this->whereDateBetween($query, $from, $to, 'invoices.date'))
+            ->sum('invoice_items.total');
+
+        $cost = (float) DB::table('invoice_items')
+            ->join('invoices', 'invoices.id', '=', 'invoice_items.invoice_id')
+            ->join('products', 'products.id', '=', 'invoice_items.product_id')
+            ->where('invoices.type', Invoice::TYPE_SALE)
+            ->where('invoices.status', Invoice::STATUS_CONFIRMED)
+            ->tap(fn ($query) => $this->whereDateBetween($query, $from, $to, 'invoices.date'))
+            ->sum(DB::raw('invoice_items.quantity * products.purchase_price'));
+
+        $gross = round($revenue - $cost, 2);
+        $expenses = app(ExpenseService::class)->totalBetween(
+            $from->toDateString(),
+            $to->toDateString(),
+        );
+
+        return [
+            'gross' => $gross,
+            'expenses' => $expenses,
+            'net' => round($gross - $expenses, 2),
         ];
     }
 
@@ -223,10 +270,10 @@ class DashboardService
      *
      * @param  Builder  $query
      */
-    private function whereDateBetween($query, Carbon $from, Carbon $to): void
+    private function whereDateBetween($query, Carbon $from, Carbon $to, string $column = 'date'): void
     {
-        $query->where('date', '>=', $from->toDateString())
-            ->where('date', '<', $to->copy()->addDay()->toDateString());
+        $query->where($column, '>=', $from->toDateString())
+            ->where($column, '<', $to->copy()->addDay()->toDateString());
     }
 
     /** نسبة التغيّر؛ null لو مفيش أساس نقارن عليه */

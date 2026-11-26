@@ -9,6 +9,7 @@ import {
     History,
     LayoutDashboard,
     Package,
+    Receipt,
     ReceiptText,
     ScanBarcode,
     ShieldCheck,
@@ -91,6 +92,7 @@ const navGroups = computed<NavGroup[]>(() => [
             { title: 'التجار', href: '/customers', icon: Users },
             { title: 'الموردون', href: '/suppliers', icon: Truck },
             { title: 'المندوبين', href: '/reps', icon: UserRound },
+            { title: 'المصروفات', href: '/expenses', icon: Receipt },
             { title: 'الخزينة', href: '/treasury', icon: Wallet },
             { title: 'التقارير', href: '/reports', icon: ChartNoAxesCombined },
             ...(manageUsers.value

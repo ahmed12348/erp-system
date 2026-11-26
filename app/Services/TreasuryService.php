@@ -29,6 +29,7 @@ class TreasuryService
         $payments = Payment::query()
             ->with([
                 'customer:id,name', 'supplier:id,name', 'invoice:id,number,type',
+                'expense:id,number,expense_category_id', 'expense.category:id,name',
                 'attachments.user:id,name',
             ])
             ->when(
@@ -59,7 +60,10 @@ class TreasuryService
                 'id' => $payment->id,
                 'date' => $payment->date->toDateString(),
                 'type' => $payment->type,
-                'party' => $payment->customer?->name ?? $payment->supplier?->name,
+                // المصروف مالوش طرف — بنعرض تصنيفه مكانه
+                'party' => $payment->customer?->name
+                    ?? $payment->supplier?->name
+                    ?? $payment->expense?->category?->name,
                 'partyLink' => $payment->customer_id
                     ? "/customers/{$payment->customer_id}"
                     : ($payment->supplier_id ? "/suppliers/{$payment->supplier_id}" : null),
@@ -109,7 +113,14 @@ class TreasuryService
         $in = (float) $base()->where('type', Payment::TYPE_RECEIPT)
             ->sum(DB::raw('amount * exchange_rate'));
 
-        $out = (float) $base()->where('type', Payment::TYPE_DISBURSEMENT)
+        /*
+         * الخارج = مدفوعات الموردين + المصروفات.
+         *
+         * المصروف نوع لوحده عشان عمولة المندوب ما تتأثرش بيه، لكنه فلوس
+         * خارجة زيه زي أي دفعة — فلازم يدخل في صافي الخزينة.
+         */
+        $out = (float) $base()
+            ->whereIn('type', [Payment::TYPE_DISBURSEMENT, Payment::TYPE_EXPENSE])
             ->sum(DB::raw('amount * exchange_rate'));
 
         return [

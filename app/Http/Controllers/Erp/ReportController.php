@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Erp;
 use App\Http\Controllers\Controller;
 use App\Models\CompanyProfile;
 use App\Models\Invoice;
+use App\Services\ExpenseService;
 use App\Services\ExportBuilder;
 use App\Services\ReportService;
 use Illuminate\Http\Request;
@@ -14,7 +15,10 @@ use Inertia\Response;
 
 class ReportController extends Controller
 {
-    public function __construct(private readonly ReportService $reports) {}
+    public function __construct(
+        private readonly ReportService $reports,
+        private readonly ExpenseService $expenses,
+    ) {}
 
     public function index(Request $request): Response
     {
@@ -95,6 +99,8 @@ class ReportController extends Controller
             'product' => ['rows' => $this->reports->salesByProduct($from, $to, 100, $search)],
             'customer' => ['rows' => $this->reports->salesByCustomer($from, $to, $search)],
             'inventory' => $this->reports->inventoryValuation($search),
+            // المصروفات مالهاش علاقة برقم فاتورة — الفترة هي الفلتر الوحيد
+            'expenses' => $this->expenses->byCategory($from, $to),
             'sale_invoices' => $this->reports->invoiceRows(Invoice::TYPE_SALE, $from, $to, $search),
             'purchase_invoices' => $this->reports->invoiceRows(Invoice::TYPE_PURCHASE, $from, $to, $search),
             default => $this->reports->salesByPeriod($from, $to, $filters['groupBy'], $search),

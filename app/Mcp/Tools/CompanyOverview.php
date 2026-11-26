@@ -63,6 +63,27 @@ class CompanyOverview extends Tool
                 $this->money($kpis['inventoryValue']['value']),
                 '—',
             ],
+            /*
+             * الربح لازم يتقال بمصروفاته.
+             *
+             * «مجمل الربح» لوحده بيقول إن الشهر كويس وصاحب المحل لسه
+             * مادفعش الإيجار ولا المرتبات.
+             */
+            [
+                'مجمل الربح',
+                $this->money($kpis['profit']['gross']),
+                'المبيعات ناقص تكلفة البضاعة المباعة',
+            ],
+            [
+                'المصروفات',
+                $this->money($kpis['profit']['expenses']),
+                'إيجار ومرتبات وغيرها',
+            ],
+            [
+                'صافي الربح',
+                $this->money($kpis['profit']['net']),
+                'مجمل الربح ناقص المصروفات',
+            ],
             [
                 'أصناف تحت حد الطلب',
                 $this->quantity($kpis['lowStock']['value']),

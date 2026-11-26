@@ -25,6 +25,12 @@ class DatabaseSeeder extends Seeder
     {
         $this->call([
             ErpUserSeeder::class,
+            /*
+             * شجرة تصنيفات المصروفات — دي بيانات نظام مش بيانات عميل.
+             * من غيرها شاشة المصروفات بتفتح على قايمة فاضية وأول مصروف
+             * محتاج المستخدم يعمل تصنيف الأول.
+             */
+            ExpenseCategorySeeder::class,
         ]);
     }
 }

@@ -9,6 +9,7 @@ use App\Http\Controllers\Erp\CustomerPaymentController;
 use App\Http\Controllers\Erp\DashboardController;
 use App\Http\Controllers\Erp\DraftInvoiceController;
 use App\Http\Controllers\Erp\EtaController;
+use App\Http\Controllers\Erp\ExpenseController;
 use App\Http\Controllers\Erp\ExportController;
 use App\Http\Controllers\Erp\InventoryController;
 use App\Http\Controllers\Erp\NotificationController;
@@ -190,6 +191,17 @@ Route::middleware(['auth', 'verified'])->group(function () {
      */
     Route::get('settings/company', [CompanyProfileController::class, 'edit'])->name('company.edit');
     Route::post('settings/company', [CompanyProfileController::class, 'update'])->name('company.update');
+
+    /*
+     * المصروفات وشجرة تصنيفاتها.
+     * «categories» قبل أي باراميتر عشان ما تتقراش كرقم مصروف.
+     */
+    Route::get('expenses', [ExpenseController::class, 'index'])->name('expenses.index');
+    Route::post('expenses', [ExpenseController::class, 'store'])->name('expenses.store');
+    Route::get('expenses/categories', [ExpenseController::class, 'categories'])->name('expense-categories.index');
+    Route::post('expenses/categories', [ExpenseController::class, 'storeCategory'])->name('expense-categories.store');
+    Route::put('expenses/categories/{expenseCategory}', [ExpenseController::class, 'updateCategory'])->name('expense-categories.update');
+    Route::delete('expenses/categories/{expenseCategory}', [ExpenseController::class, 'destroyCategory'])->name('expense-categories.destroy');
 
     // الخزينة
     Route::get('treasury', [TreasuryController::class, 'index'])->name('treasury.index');
