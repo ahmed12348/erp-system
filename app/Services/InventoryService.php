@@ -5,6 +5,8 @@ namespace App\Services;
 use App\Models\Invoice;
 use App\Models\PreparationOrder;
 use App\Models\Product;
+use App\Models\StockAdjustment;
+use App\Models\StockMovement;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
@@ -281,11 +283,8 @@ class InventoryService
                 'unitCost' => $movement->unit_cost ? (float) $movement->unit_cost : null,
                 'notes' => $movement->notes,
                 'balance' => round($balance, 3),
-                'link' => $movement->reference instanceof Invoice
-                    ? ($movement->reference->type === Invoice::TYPE_PURCHASE
-                        ? "/purchases/{$movement->reference->id}"
-                        : "/sales/{$movement->reference->id}")
-                    : null,
+                // الفاتورة والمرتجع وإذن الإضافة/الخصم — كلهم بيفتحوا من هنا
+                'link' => $this->movementLink($movement),
                 'reference' => $movement->reference?->number ?? null,
             ];
         }
@@ -302,6 +301,31 @@ class InventoryService
             ],
             'rows' => array_reverse($rows),
         ];
+    }
+
+    /**
+     * رابط المستند اللي عمل الحركة.
+     *
+     * الحركة ممكن تكون من فاتورة أو مرتجع أو إذن مخزني — واللي بيبص
+     * على سجل الصنف عايز يفتح الورقة اللي حرّكته، أيًا كانت.
+     */
+    private function movementLink(StockMovement $movement): ?string
+    {
+        $reference = $movement->reference;
+
+        if ($reference instanceof StockAdjustment) {
+            return "/stock-adjustments/{$reference->id}";
+        }
+
+        if (! $reference instanceof Invoice) {
+            return null;
+        }
+
+        return match ($reference->type) {
+            Invoice::TYPE_PURCHASE => "/purchases/{$reference->id}",
+            Invoice::TYPE_SALE_RETURN, Invoice::TYPE_PURCHASE_RETURN => "/returns/{$reference->id}",
+            default => "/sales/{$reference->id}",
+        };
     }
 
     /** أساس استعلام الحجز — بنود طلبات لسه حاجزة */

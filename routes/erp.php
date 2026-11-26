@@ -3,8 +3,8 @@
 use App\Http\Controllers\Erp\ActivityController;
 use App\Http\Controllers\Erp\AttachmentController;
 use App\Http\Controllers\Erp\CategoryController;
-use App\Http\Controllers\Erp\CustomerController;
 use App\Http\Controllers\Erp\CompanyProfileController;
+use App\Http\Controllers\Erp\CustomerController;
 use App\Http\Controllers\Erp\CustomerPaymentController;
 use App\Http\Controllers\Erp\DashboardController;
 use App\Http\Controllers\Erp\DraftInvoiceController;
@@ -20,6 +20,8 @@ use App\Http\Controllers\Erp\ReportController;
 use App\Http\Controllers\Erp\ReturnController;
 use App\Http\Controllers\Erp\SaleInvoiceController;
 use App\Http\Controllers\Erp\SalesRepController;
+use App\Http\Controllers\Erp\StockAdjustmentController;
+use App\Http\Controllers\Erp\StockCountController;
 use App\Http\Controllers\Erp\SupplierController;
 use App\Http\Controllers\Erp\TreasuryController;
 use App\Http\Controllers\Erp\UserController;
@@ -110,6 +112,28 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::put('settings/notifications', [NotificationController::class, 'updateSettings'])->name('notifications.settings.update');
     Route::post('notifications/push', [NotificationController::class, 'subscribePush'])->name('notifications.push.subscribe');
     Route::delete('notifications/push', [NotificationController::class, 'unsubscribePush'])->name('notifications.push.unsubscribe');
+
+    /*
+     * أذون المخزن والجرد.
+     *
+     * الكتابة لأي حد عنده الصلاحية، والاعتماد للمدير والمحاسب —
+     * والاعتماد هو اللي بيحرّك البضاعة.
+     */
+    Route::get('stock-adjustments', [StockAdjustmentController::class, 'index'])->name('stock-adjustments.index');
+    Route::get('stock-adjustments/create', [StockAdjustmentController::class, 'create'])->name('stock-adjustments.create');
+    Route::post('stock-adjustments', [StockAdjustmentController::class, 'store'])->name('stock-adjustments.store');
+    Route::get('stock-adjustments/{stockAdjustment}', [StockAdjustmentController::class, 'show'])->name('stock-adjustments.show');
+    Route::get('stock-adjustments/{stockAdjustment}/print', [StockAdjustmentController::class, 'print'])->name('stock-adjustments.print');
+    Route::post('stock-adjustments/{stockAdjustment}/approve', [StockAdjustmentController::class, 'approve'])->name('stock-adjustments.approve');
+
+    Route::get('stock-counts', [StockCountController::class, 'index'])->name('stock-counts.index');
+    Route::get('stock-counts/create', [StockCountController::class, 'create'])->name('stock-counts.create');
+    Route::post('stock-counts', [StockCountController::class, 'store'])->name('stock-counts.store');
+    Route::get('stock-counts/{stockCount}', [StockCountController::class, 'show'])->name('stock-counts.show');
+    Route::get('stock-counts/{stockCount}/print', [StockCountController::class, 'print'])->name('stock-counts.print');
+    Route::put('stock-counts/{stockCount}', [StockCountController::class, 'saveCounted'])->name('stock-counts.save');
+    Route::post('stock-counts/{stockCount}/approve', [StockCountController::class, 'approve'])->name('stock-counts.approve');
+    Route::post('stock-counts/{stockCount}/cancel', [StockCountController::class, 'cancel'])->name('stock-counts.cancel');
 
     // المخزون
     Route::get('inventory', [InventoryController::class, 'index'])->name('inventory.index');

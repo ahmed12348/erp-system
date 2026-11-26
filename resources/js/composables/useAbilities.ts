@@ -19,6 +19,7 @@ export function useAbilities() {
                 quickAddProduct: false,
                 manageUsers: false,
                 managePreparationOrders: false,
+                writeStockDocuments: false,
             },
     );
 
@@ -31,5 +32,6 @@ export function useAbilities() {
         managePreparationOrders: computed(
             () => can.value.managePreparationOrders,
         ),
+        writeStockDocuments: computed(() => can.value.writeStockDocuments),
     };
 }

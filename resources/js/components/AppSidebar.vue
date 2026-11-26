@@ -4,11 +4,13 @@ import {
     Boxes,
     Building2,
     ChartNoAxesCombined,
+    ClipboardCheck,
     ClipboardList,
     History,
     LayoutDashboard,
     Package,
     ReceiptText,
+    ScanBarcode,
     ShieldCheck,
     ShoppingCart,
     Tags,
@@ -36,7 +38,8 @@ import { useAbilities } from '@/composables/useAbilities';
 import { useActiveNav } from '@/composables/useActiveNav';
 import type { NavGroup } from '@/types';
 
-const { manageUsers, managePreparationOrders } = useAbilities();
+const { manageUsers, managePreparationOrders, writeStockDocuments } =
+    useAbilities();
 
 /**
  * القائمة الجانبية مقسّمة لمجموعتين: الحركة اليومية، ثم البيانات والتقارير.
@@ -63,6 +66,20 @@ const navGroups = computed<NavGroup[]>(() => [
                 : []),
             { title: 'المرتجعات', href: '/returns', icon: Undo2 },
             { title: 'المخزون', href: '/inventory', icon: Package },
+            ...(writeStockDocuments.value
+                ? [
+                      {
+                          title: 'أذون المخزن',
+                          href: '/stock-adjustments',
+                          icon: ClipboardCheck,
+                      },
+                      {
+                          title: 'الجرد',
+                          href: '/stock-counts',
+                          icon: ScanBarcode,
+                      },
+                  ]
+                : []),
         ],
     },
     {

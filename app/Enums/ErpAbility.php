@@ -25,6 +25,15 @@ enum ErpAbility: string
      */
     case ManagePreparationOrders = 'preparation-orders:manage';
 
+    /**
+     * كتابة أذون الإضافة والخصم وورقة الجرد.
+     *
+     * الكتابة متاحة للتلاتة — اللي واقف في المخزن بيكتب الورقة.
+     * **الاعتماد** حاجة تانية: `ManageMasterData` (مدير أو محاسب)،
+     * وهو لوحده اللي بيحرّك البضاعة.
+     */
+    case WriteStockDocuments = 'stock-documents:write';
+
     /** إدارة المستخدمين وأدوارهم */
     case ManageUsers = 'users:manage';
 }

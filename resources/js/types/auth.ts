@@ -19,6 +19,7 @@ export type ErpAbilities = {
     quickAddProduct: boolean;
     manageUsers: boolean;
     managePreparationOrders: boolean;
+    writeStockDocuments: boolean;
 };
 
 export type Auth = {
