@@ -100,6 +100,13 @@ return [
         'templates' => [
             'low_stock' => env('WHATSAPP_TEMPLATE_LOW_STOCK', 'low_stock_alert'),
             'daily_digest' => env('WHATSAPP_TEMPLATE_DIGEST', 'daily_stock_digest'),
+            /*
+             * مشاركة مستند (طلب تحضير / فاتورة) مع التاجر.
+             *
+             * متغيّراته بالترتيب: اسم الشركة، نوع المستند ورقمه،
+             * ولينك الـ PDF الموقّع.
+             */
+            'document' => env('WHATSAPP_TEMPLATE_DOCUMENT', 'document_share'),
         ],
         'language' => env('WHATSAPP_TEMPLATE_LANG', 'ar'),
     ],

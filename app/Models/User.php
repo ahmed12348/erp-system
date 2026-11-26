@@ -42,7 +42,7 @@ use Spatie\Permission\Traits\HasRoles;
  * @property-read Collection<int, Membership> $teamMemberships
  * @property-read Collection<int, Team> $teams
  */
-#[Fillable(['name', 'email', 'password', 'current_team_id'])]
+#[Fillable(['name', 'email', 'password', 'current_team_id', 'whatsapp_target'])]
 #[Hidden(['password', 'two_factor_secret', 'two_factor_recovery_codes', 'remember_token'])]
 class User extends Authenticatable implements MustVerifyEmail, OAuthenticatable, PasskeyUser
 {
@@ -51,6 +51,14 @@ class User extends Authenticatable implements MustVerifyEmail, OAuthenticatable,
         // فرق التطبيق (team_members) لها الأولوية على خاصية الفرق في spatie/permission المعطّلة
         HasTeams::teams insteadof HasRoles;
     }
+
+    /** «فتح واتساب على»: التطبيق المنصّب على الجهاز */
+    public const WHATSAPP_APP = 'app';
+
+    /** «فتح واتساب على»: واتساب ويب في تبويب */
+    public const WHATSAPP_WEB = 'web';
+
+    public const WHATSAPP_TARGETS = [self::WHATSAPP_APP, self::WHATSAPP_WEB];
 
     /** اسم السجل في سجل النشاط */
     protected $activityLog = 'user';

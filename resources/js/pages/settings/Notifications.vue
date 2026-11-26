@@ -41,6 +41,7 @@ const props = defineProps<{
     matrix: Row[];
     push: { publicKey: string | null; subscribed: boolean };
     whatsapp: { number: string | null; verified: boolean; available: boolean };
+    whatsappShare: { target: 'app' | 'web'; directAvailable: boolean };
     alertEmails: {
         manageable: boolean;
         mailConfigured: boolean;
@@ -178,6 +179,26 @@ async function disablePush() {
     }
 }
 /*
+ * «فتح واتساب على» — تفضيل شخصي مش إعداد نظام.
+ *
+ * بيظهر دايمًا: فتح شات `wa.me` شغّال من غير أي مفاتيح، والسؤال هنا
+ * هو التطبيق ولا الويب. الموبايل بياخد التطبيق دايمًا مهما كان
+ * المحفوظ هنا، لأن واتساب ويب على الموبايل بيقول لك «افتح على
+ * الكمبيوتر» وخلاص.
+ */
+const whatsappTarget = ref<'app' | 'web'>(props.whatsappShare.target);
+
+function saveWhatsappTarget(value: 'app' | 'web') {
+    whatsappTarget.value = value;
+
+    router.put(
+        '/settings/whatsapp-target',
+        { target: value },
+        { preserveScroll: true },
+    );
+}
+
+/*
  * إيميلات التنبيهات — عناوين بتستقبل تنبيهات المخزون من غير ما تكون
  * مستخدمين في النظام. صاحب المحل مش بالضرورة بيفتح النظام كل يوم.
  */
@@ -201,9 +222,7 @@ function toggleEmail(recipient: { id: number; isActive: boolean }) {
 
 function removeEmail(recipient: { id: number; email: string }) {
     if (
-        !window.confirm(
-            `هتشيل ${recipient.email} من إيميلات التنبيهات. تمام؟`,
-        )
+        !window.confirm(`هتشيل ${recipient.email} من إيميلات التنبيهات. تمام؟`)
     ) {
         return;
     }
@@ -349,6 +368,66 @@ function sendTest() {
             >
                 <Check class="size-4" />
                 الرقم {{ whatsapp.number }} متأكّد ومتصل.
+            </p>
+        </SectionCard>
+
+        <!-- مشاركة الواتساب — تفضيل شخصي، شغّال من غير أي مفاتيح -->
+        <SectionCard
+            title="مشاركة على واتساب"
+            description="زرار «واتساب» على الفواتير وطلبات التحضير بيفتح الشات فين"
+        >
+            <div class="grid gap-3 sm:grid-cols-2">
+                <button
+                    v-for="option in [
+                        {
+                            value: 'app' as const,
+                            label: 'التطبيق',
+                            hint: 'بيفتح واتساب المنصّب على الجهاز',
+                        },
+                        {
+                            value: 'web' as const,
+                            label: 'واتساب ويب',
+                            hint: 'بيفتح تبويب على web.whatsapp.com',
+                        },
+                    ]"
+                    :key="option.value"
+                    type="button"
+                    class="flex flex-col items-start gap-1 rounded-lg border px-4 py-3 text-start transition-colors"
+                    :class="
+                        whatsappTarget === option.value
+                            ? 'border-primary bg-primary/5'
+                            : 'border-border hover:bg-accent'
+                    "
+                    :data-test="`whatsapp-target-${option.value}`"
+                    :aria-pressed="whatsappTarget === option.value"
+                    @click="saveWhatsappTarget(option.value)"
+                >
+                    <span class="flex items-center gap-1.5 text-sm font-medium">
+                        <Check
+                            v-if="whatsappTarget === option.value"
+                            class="size-4 text-primary"
+                        />
+                        {{ option.label }}
+                    </span>
+                    <span class="text-xs text-muted-foreground">
+                        {{ option.hint }}
+                    </span>
+                </button>
+            </div>
+
+            <p class="mt-3 text-xs text-muted-foreground">
+                على الموبايل بيفتح التطبيق دايمًا — واتساب ويب على الموبايل
+                بيقول لك «افتح على الكمبيوتر» وخلاص.
+            </p>
+
+            <p
+                v-if="whatsappShare.directAvailable"
+                class="mt-2 flex items-center gap-1.5 text-xs text-status-good"
+                data-test="whatsapp-direct-available"
+            >
+                <Check class="size-3.5" />
+                الـ Cloud API متظبّط، فزرار «إرسال مباشر» ظاهر كمان على
+                المستندات.
             </p>
         </SectionCard>
 

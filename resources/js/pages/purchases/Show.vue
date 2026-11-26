@@ -1,11 +1,13 @@
 <script setup lang="ts">
 import { Head, Link } from '@inertiajs/vue3';
 import { Undo2 } from '@lucide/vue';
+import { computed } from 'vue';
 import type { AttachmentItem } from '@/components/AttachmentPanel.vue';
 import AttachmentPanel from '@/components/AttachmentPanel.vue';
 import DownloadMenu from '@/components/DownloadMenu.vue';
 import PageHeader from '@/components/PageHeader.vue';
 import SectionCard from '@/components/SectionCard.vue';
+import ShareOnWhatsApp from '@/components/ShareOnWhatsApp.vue';
 import { Button } from '@/components/ui/button';
 import {
     formatDate,
@@ -16,7 +18,7 @@ import {
 } from '@/lib/format';
 import type { BreadcrumbItem } from '@/types';
 
-defineProps<{
+const props = defineProps<{
     invoice: {
         id: number;
         number: string;
@@ -72,6 +74,8 @@ defineProps<{
         }[];
         canReturn: boolean;
     };
+    /** رابط موقّع للـ PDF — بيتبعت للمورد على الواتساب */
+    pdfUrl: string;
     breadcrumbs: BreadcrumbItem[];
 }>();
 
@@ -80,6 +84,17 @@ defineOptions({
         breadcrumbs: page.breadcrumbs,
     }),
 });
+
+/** ملخّص عربي قصير للواتساب — الرقم والمورد والإجمالي والمتبقي */
+const whatsappText = computed(() =>
+    [
+        `فاتورة شراء ${props.invoice.number}`,
+        `المورد: ${props.invoice.supplier?.name ?? '—'}`,
+        `التاريخ: ${props.invoice.date}`,
+        `الإجمالي: ${formatMoney(props.invoice.total, props.invoice.currency)}`,
+        `المتبقي: ${formatMoney(props.invoice.remaining, props.invoice.currency)}`,
+    ].join('\n'),
+);
 
 const METHOD_LABELS: Record<string, string> = {
     cash: 'نقدي',
@@ -98,6 +113,19 @@ const METHOD_LABELS: Record<string, string> = {
         >
             <template #actions>
                 <DownloadMenu :href="`/exports/invoices/${invoice.id}`" />
+                <ShareOnWhatsApp
+                    :text="whatsappText"
+                    :file-url="pdfUrl"
+                    :file-name="`${invoice.number}.pdf`"
+                    :phone="invoice.supplier?.phone"
+                    :party-name="invoice.supplier?.name"
+                    :party="
+                        invoice.supplier
+                            ? { type: 'supplier', id: invoice.supplier.id }
+                            : null
+                    "
+                    :document="{ type: 'invoice', id: invoice.id }"
+                />
                 <!-- المرتجع بيتعمل من على الفاتورة نفسها -->
                 <Button
                     v-if="invoice.canReturn"

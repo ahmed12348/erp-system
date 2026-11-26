@@ -27,6 +27,7 @@ use App\Http\Controllers\Erp\SupplierController;
 use App\Http\Controllers\Erp\TreasuryController;
 use App\Http\Controllers\Erp\UserController;
 use App\Http\Controllers\Erp\WarehouseController;
+use App\Http\Controllers\Erp\WhatsAppShareController;
 use Illuminate\Support\Facades\Route;
 
 /*
@@ -111,6 +112,8 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::post('notifications/read', [NotificationController::class, 'markRead'])->name('notifications.read');
     Route::get('settings/notifications', [NotificationController::class, 'settings'])->name('notifications.settings');
     Route::put('settings/notifications', [NotificationController::class, 'updateSettings'])->name('notifications.settings.update');
+    Route::put('settings/whatsapp-target', [NotificationController::class, 'updateWhatsAppTarget'])
+        ->name('notifications.whatsapp-target');
     /*
      * إيميلات التنبيهات — عناوين بتستقبل تنبيهات المخزون من غير ما
      * تكون مستخدمين. للمدير بس.
@@ -201,6 +204,19 @@ Route::middleware(['auth', 'verified'])->group(function () {
      * بيانات الشركة — الترويسة على كل مستند.
      * POST مش PUT لأن اللوجو بيترفع multipart.
      */
+    /*
+     * مشاركة الواتساب.
+     *
+     * فتح شات `wa.me` كله في المتصفح ومش محتاج راوت. الاتنين دول
+     * للحاجتين اللي لازم يعدّوا على السيرفر: الإرسال المباشر بالـ
+     * Cloud API، وحفظ رقم التاجر لما يكون ناقص.
+     */
+    Route::post('whatsapp/send', [WhatsAppShareController::class, 'send'])
+        ->middleware('throttle:20,1')
+        ->name('whatsapp.share');
+    Route::post('whatsapp/phone', [WhatsAppShareController::class, 'storePhone'])
+        ->name('whatsapp.phone');
+
     Route::get('settings/company', [CompanyProfileController::class, 'edit'])->name('company.edit');
     Route::post('settings/company', [CompanyProfileController::class, 'update'])->name('company.update');
 
@@ -250,3 +266,14 @@ Route::middleware(['auth', 'verified'])->group(function () {
 Route::middleware('signed')
     ->get('preparation-orders/{preparationOrder}/pdf', [PreparationOrderController::class, 'pdf'])
     ->name('preparation-orders.pdf');
+
+/*
+ * PDF الفاتورة — بتوقيع كمان، عشان تتبعت للتاجر على الواتساب.
+ *
+ * الفرق عن طلب التحضير إن **فيها أسعار**: اللينك ده بيكشف فاتورة
+ * واحدة لأي حد يوصله. وده الغرض منه — بيروح لصاحبها — بس الصلاحية
+ * أسبوع مش مفتوحة، والمسودّة مابتتفتحش أصلاً.
+ */
+Route::middleware('signed')
+    ->get('invoices/{invoice}/pdf', [ExportController::class, 'signedInvoice'])
+    ->name('invoices.pdf');

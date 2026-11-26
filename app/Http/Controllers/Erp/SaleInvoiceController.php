@@ -18,6 +18,7 @@ use App\Services\InvoiceService;
 use App\Services\SalesQueryService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\URL;
 use Inertia\Inertia;
 use Inertia\Response;
 
@@ -102,6 +103,8 @@ class SaleInvoiceController extends Controller
 
         return Inertia::render('sales/Show', [
             'invoice' => $this->present($sale),
+            // رابط موقّع — بيتبعت للتاجر على الواتساب وبيفتح من غير تسجيل دخول
+            'pdfUrl' => $this->signedPdfUrl($sale),
             'breadcrumbs' => [
                 ['title' => 'لوحة التحكم', 'href' => route('erp.dashboard')],
                 ['title' => 'المبيعات', 'href' => route('sales.index')],
@@ -190,5 +193,15 @@ class SaleInvoiceController extends Controller
                     'reason' => $return->returnReasonLabel(),
                 ])->all(),
         ];
+    }
+
+    /** رابط PDF موقّع للفاتورة — صالح أسبوع */
+    private function signedPdfUrl(Invoice $invoice): string
+    {
+        return URL::temporarySignedRoute(
+            'invoices.pdf',
+            now()->addWeek(),
+            ['invoice' => $invoice->id],
+        );
     }
 }

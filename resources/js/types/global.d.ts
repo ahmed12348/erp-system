@@ -25,6 +25,8 @@ declare module '@inertiajs/core' {
             teams: Team[];
             lowStockCount: number;
             aiEnabled: boolean;
+            /** تفضيل «فتح واتساب على» وحالة الـ Cloud API */
+            whatsapp: { target: 'app' | 'web'; direct: boolean };
             today: string;
             [key: string]: unknown;
         };

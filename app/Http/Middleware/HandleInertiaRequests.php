@@ -2,8 +2,10 @@
 
 namespace App\Http\Middleware;
 
+use App\Models\User;
 use App\Services\AiService;
 use App\Services\InventoryService;
+use App\Services\WhatsAppService;
 use Illuminate\Http\Request;
 use Inertia\Middleware;
 
@@ -58,6 +60,15 @@ class HandleInertiaRequests extends Middleware
             'sidebarOpen' => ! $request->hasCookie('sidebar_state') || $request->cookie('sidebar_state') === 'true',
             // بيغذّي عدّاد الجرس في الشريط العلوي — lazy عشان ما يتحسبش لو مفيش مستخدم
             'lowStockCount' => fn () => $user ? app(InventoryService::class)->lowStockCount() : 0,
+            /*
+             * «فتح واتساب على» — بيتقرا في كل صفحة فيها زرار مشاركة،
+             * فأرخص إنه ييجي مع الصفحة من إنه يتسأل عنه بنداء منفصل.
+             */
+            'whatsapp' => [
+                'target' => $user?->whatsapp_target ?? User::WHATSAPP_APP,
+                'direct' => fn (): bool => $user !== null
+                    && app(WhatsAppService::class)->enabled(),
+            ],
             'today' => now()->toDateString(),
             'currentTeam' => fn () => $user?->currentTeam ? $user->toUserTeam($user->currentTeam) : null,
             'teams' => fn () => $user?->toUserTeams(includeCurrent: true) ?? [],

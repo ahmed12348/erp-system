@@ -103,6 +103,68 @@ class WhatsAppService
         );
     }
 
+    /**
+     * إرسال مستند للتاجر بقالب معتمد.
+     *
+     * **قالب مش رسالة حرة**: واتساب مابيسمحش تبعت لحد مابدأش محادثة
+     * معاك في آخر 24 ساعة، والتاجر بطبعه مش بيبدأ. فالقالب لازم يكون
+     * متسجّل ومعتمد من Meta بنفس عدد المتغيّرات — وإلا الـ API بيرفض.
+     *
+     * بيرجّع رسالة العطل بالعربي بدل `false` الصامتة: اللي ضغط الزرار
+     * واقف مستني، ولازم يعرف لو الرسالة مامشيتش وليه.
+     *
+     * @param  array<int, string>  $parameters  متغيّرات القالب بالترتيب
+     * @return array{sent: bool, error?: string}
+     */
+    public function sendTemplate(string $to, string $template, array $parameters): array
+    {
+        if (! $this->enabled()) {
+            return ['sent' => false, 'error' => 'واتساب API مش متظبّط على السيرفر.'];
+        }
+
+        $version = config('notifications.whatsapp.api_version');
+        $phoneId = config('notifications.whatsapp.phone_number_id');
+
+        try {
+            $response = Http::withToken(config('notifications.whatsapp.token'))
+                ->timeout(15)
+                ->post("https://graph.facebook.com/{$version}/{$phoneId}/messages", [
+                    'messaging_product' => 'whatsapp',
+                    'to' => $to,
+                    'type' => 'template',
+                    'template' => [
+                        'name' => $template,
+                        'language' => ['code' => config('notifications.whatsapp.language')],
+                        'components' => [[
+                            'type' => 'body',
+                            'parameters' => array_map(
+                                fn (string $value): array => ['type' => 'text', 'text' => $value],
+                                array_values($parameters),
+                            ),
+                        ]],
+                    ],
+                ]);
+
+            if ($response->failed()) {
+                $error = $response->json('error.message') ?? $response->body();
+
+                Log::error('WhatsApp template failed', [
+                    'status' => $response->status(),
+                    'template' => $template,
+                    'body' => $error,
+                ]);
+
+                return ['sent' => false, 'error' => 'واتساب رفض الرسالة: '.$error];
+            }
+
+            return ['sent' => true];
+        } catch (\Throwable $e) {
+            Log::error('WhatsApp template errored', ['message' => $e->getMessage()]);
+
+            return ['sent' => false, 'error' => 'الاتصال بواتساب وقع: '.$e->getMessage()];
+        }
+    }
+
     private function company(): string
     {
         return (string) config('app.name');

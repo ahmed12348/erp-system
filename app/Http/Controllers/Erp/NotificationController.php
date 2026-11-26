@@ -7,12 +7,15 @@ use App\Http\Controllers\Controller;
 use App\Mail\TestAlertMail;
 use App\Models\AlertEmailRecipient;
 use App\Models\PushSubscription;
+use App\Models\User;
 use App\Services\NotificationPreferences;
+use App\Services\WhatsAppService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Facades\Mail;
+use Illuminate\Validation\Rule;
 use Inertia\Inertia;
 use Inertia\Response;
 use Throwable;
@@ -25,7 +28,10 @@ use Throwable;
  */
 class NotificationController extends Controller
 {
-    public function __construct(private readonly NotificationPreferences $preferences) {}
+    public function __construct(
+        private readonly NotificationPreferences $preferences,
+        private readonly WhatsAppService $whatsapp,
+    ) {}
 
     /** قايمة التنبيهات للجرس — اللي مش مقروء الأول */
     public function index(Request $request): JsonResponse
@@ -89,6 +95,17 @@ class NotificationController extends Controller
              * دي إعدادات نظام مش تفضيلات شخصية: الإيميلات دي بتوصلها
              * تنبيهات المخزون حتى لو أصحابها مش مستخدمين في النظام.
              */
+            /*
+             * «فتح واتساب على» — تفضيل شخصي، مش إعداد نظام.
+             *
+             * بيظهر دايمًا مش بس لما الـ Cloud API متظبّط: فتح شات
+             * `wa.me` شغّال من غير أي مفاتيح، والسؤال هنا هو التطبيق
+             * ولا الويب.
+             */
+            'whatsappShare' => [
+                'target' => $request->user()->whatsapp_target ?? User::WHATSAPP_APP,
+                'directAvailable' => $this->whatsapp->enabled(),
+            ],
             'alertEmails' => [
                 'manageable' => $request->user()->allows(ErpAbility::ManageUsers),
                 'mailConfigured' => $this->preferences->channelAvailable('mail'),
@@ -120,6 +137,25 @@ class NotificationController extends Controller
         Inertia::flash('toast', [
             'type' => 'success',
             'message' => 'اتحفظت إعدادات التنبيهات.',
+        ]);
+
+        return back();
+    }
+
+    /** «فتح واتساب على»: التطبيق ولا الويب */
+    public function updateWhatsAppTarget(Request $request): RedirectResponse
+    {
+        $data = $request->validate([
+            'target' => ['required', Rule::in(User::WHATSAPP_TARGETS)],
+        ]);
+
+        $request->user()->update(['whatsapp_target' => $data['target']]);
+
+        Inertia::flash('toast', [
+            'type' => 'success',
+            'message' => $data['target'] === User::WHATSAPP_WEB
+                ? 'واتساب هيفتح على الويب.'
+                : 'واتساب هيفتح على التطبيق.',
         ]);
 
         return back();

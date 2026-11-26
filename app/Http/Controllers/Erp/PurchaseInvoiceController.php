@@ -18,6 +18,7 @@ use App\Services\PurchaseQueryService;
 use App\Services\PurchaseService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\URL;
 use Inertia\Inertia;
 use Inertia\Response;
 
@@ -93,6 +94,8 @@ class PurchaseInvoiceController extends Controller
 
         return Inertia::render('purchases/Show', [
             'invoice' => $this->present($purchase),
+            // رابط موقّع — بيتبعت للمورد على الواتساب وبيفتح من غير تسجيل دخول
+            'pdfUrl' => $this->signedPdfUrl($purchase),
             'breadcrumbs' => [
                 ['title' => 'لوحة التحكم', 'href' => route('erp.dashboard')],
                 ['title' => 'المشتريات', 'href' => route('purchases.index')],
@@ -177,5 +180,15 @@ class PurchaseInvoiceController extends Controller
                 ])->all(),
             'canReturn' => $invoice->status === Invoice::STATUS_CONFIRMED,
         ];
+    }
+
+    /** رابط PDF موقّع للفاتورة — صالح أسبوع */
+    private function signedPdfUrl(Invoice $invoice): string
+    {
+        return URL::temporarySignedRoute(
+            'invoices.pdf',
+            now()->addWeek(),
+            ['invoice' => $invoice->id],
+        );
     }
 }

@@ -192,6 +192,24 @@ class ExportController extends Controller
         );
     }
 
+    /**
+     * نفس الفاتورة بـ PDF، بس من رابط **موقّع** من غير تسجيل دخول.
+     *
+     * ده اللي بيتبعت للتاجر على الواتساب: الرابط مربوط بالفاتورة دي
+     * وبمدة صلاحية، وأي تغيير في حرف فيه بيبطّله.
+     *
+     * الفرق عن طلب التحضير إن الفاتورة **فيها أسعار**، فاللينك ده
+     * بيكشف فاتورة واحدة لأي حد يوصله. وده بالظبط الغرض منه — بيروح
+     * لصاحبها — بس الصلاحية أسبوع مش مفتوحة.
+     */
+    public function signedInvoice(Request $request, Invoice $invoice): Response
+    {
+        // الصيغة مقفولة على PDF: اللينك ده للتاجر، مش لتصدير داخلي
+        $request->query->set('format', 'pdf');
+
+        return $this->invoice($request, $invoice);
+    }
+
     public function invoice(Request $request, Invoice $invoice): Response
     {
         abort_if($invoice->isDraft(), 404);

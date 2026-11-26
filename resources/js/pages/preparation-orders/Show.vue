@@ -160,6 +160,14 @@ const fileName = computed(() => `طلب تحضير ${props.order.number}.pdf`);
                     :text="whatsappText"
                     :file-url="pdfUrl"
                     :file-name="fileName"
+                    :phone="order.customer?.phone"
+                    :party-name="order.customer?.name"
+                    :party="
+                        order.customer
+                            ? { type: 'customer', id: order.customer.id }
+                            : null
+                    "
+                    :document="{ type: 'preparation-order', id: order.id }"
                 />
                 <Button
                     v-if="order.isEditable"

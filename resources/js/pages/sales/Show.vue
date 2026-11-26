@@ -8,6 +8,7 @@ import EtaBadge from '@/components/EtaBadge.vue';
 import DownloadMenu from '@/components/DownloadMenu.vue';
 import PageHeader from '@/components/PageHeader.vue';
 import SectionCard from '@/components/SectionCard.vue';
+import ShareOnWhatsApp from '@/components/ShareOnWhatsApp.vue';
 import { Button } from '@/components/ui/button';
 import { Spinner } from '@/components/ui/spinner';
 import {
@@ -73,6 +74,8 @@ type Invoice = {
 
 const props = defineProps<{
     invoice: Invoice;
+    /** رابط موقّع للـ PDF — بيتبعت للتاجر على الواتساب */
+    pdfUrl: string;
     breadcrumbs: BreadcrumbItem[];
 }>();
 
@@ -111,6 +114,19 @@ function sendToEta() {
     );
 }
 
+const isReturn = computed(() => props.invoice.type !== 'sale');
+
+/** ملخّص عربي قصير للواتساب — الرقم والتاجر والإجمالي والمتبقي */
+const whatsappText = computed(() =>
+    [
+        `${isReturn.value ? 'مرتجع مبيعات' : 'فاتورة'} ${props.invoice.number}`,
+        `التاجر: ${props.invoice.customer?.name ?? '—'}`,
+        `التاريخ: ${props.invoice.date}`,
+        `الإجمالي: ${formatMoney(props.invoice.total, props.invoice.currency)}`,
+        `المتبقي: ${formatMoney(props.invoice.remaining, props.invoice.currency)}`,
+    ].join('\n'),
+);
+
 const METHOD_LABELS: Record<string, string> = {
     cash: 'نقدي',
     bank: 'تحويل بنكي',
@@ -134,6 +150,19 @@ const METHOD_LABELS: Record<string, string> = {
                     </a>
                 </Button>
                 <DownloadMenu :href="`/exports/invoices/${invoice.id}`" />
+                <ShareOnWhatsApp
+                    :text="whatsappText"
+                    :file-url="pdfUrl"
+                    :file-name="`${invoice.number}.pdf`"
+                    :phone="invoice.customer?.phone"
+                    :party-name="invoice.customer?.name"
+                    :party="
+                        invoice.customer
+                            ? { type: 'customer', id: invoice.customer.id }
+                            : null
+                    "
+                    :document="{ type: 'invoice', id: invoice.id }"
+                />
                 <!-- المرتجع بيتعمل من على الفاتورة نفسها -->
                 <Button
                     v-if="canReturn"
