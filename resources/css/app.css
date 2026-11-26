@@ -179,6 +179,29 @@
         font-variant-numeric: lining-nums tabular-nums;
     }
 
+    /*
+     * القوايم المنسدلة في الوضع الليلي.
+     *
+     * الـ `select` عندنا `bg-transparent`، فالقايمة اللي بتفتح من
+     * المتصفح كانت بتطلع بخلفية بيضا من المتصفح وخط فاتح من الثيم —
+     * أبيض على أبيض، مش بيتقرا. `color-scheme` بيقول للمتصفح يرسم
+     * عناصره هو بالوضع الصح، والقاعدة اللي تحتيها بتظبّط الخيارات
+     * على المتصفحات اللي بتسمح بتلوينها (كروم وفايرفوكس على ويندوز).
+     */
+    :root {
+        color-scheme: light;
+    }
+
+    .dark {
+        color-scheme: dark;
+    }
+
+    select option,
+    select optgroup {
+        background-color: var(--popover);
+        color: var(--popover-foreground);
+    }
+
     /* الأرقام والعملات تفضل LTR جوه النص العربي */
     .num {
         direction: ltr;
@@ -199,6 +222,8 @@
 
     html,
     body {
+        /* الطباعة دايمًا فاتحة — حتى لو الشاشة ليلي */
+        color-scheme: light;
         background: #fff !important;
         color: #000 !important;
     }

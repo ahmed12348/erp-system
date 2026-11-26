@@ -19,7 +19,10 @@ class Product extends Model
     protected $activityFields = ['sku', 'name', 'unit', 'category_id', 'purchase_price', 'sale_price', 'wholesale_price', 'min_stock', 'is_active'];
 
     /** الوحدات الجاهزة في فورم الصنف — المستخدم يقدر يكتب غيرها */
-    public const UNITS = ['قطعة', 'كرتونة', 'كيلو', 'طن', 'متر', 'لتر', 'علبة', 'شيكارة'];
+    public const UNITS = [
+        'قطعة', 'كرتونة', 'علبة', 'دستة', 'طقم', 'شيكارة',
+        'رول', 'بكرة', 'متر', 'لتر', 'كيلو', 'طن',
+    ];
 
     /** @param  Builder<self>  $query */
     public function scopeActive(Builder $query): void

@@ -25,9 +25,6 @@ class PurchaseInvoiceController extends Controller
 {
     use AttachesScannedInvoice;
 
-    /** أسعار صرف تقريبية بتتقترح في الفورم، والمستخدم يقدر يعدّلها */
-    private const SUGGESTED_RATES = ['EGP' => 1, 'USD' => 49.4, 'EUR' => 53.8, 'TRY' => 1.46];
-
     public function __construct(
         private readonly PurchaseService $purchases,
         private readonly PurchaseQueryService $queries,
@@ -63,7 +60,7 @@ class PurchaseInvoiceController extends Controller
             'categories' => $this->categories->options(),
             'units' => Product::UNITS,
             'suggestedSku' => $this->products->suggestSku(),
-            'rates' => self::SUGGESTED_RATES,
+            'rates' => Invoice::SUGGESTED_RATES,
             'today' => now()->toDateString(),
             'breadcrumbs' => [
                 ['title' => 'لوحة التحكم', 'href' => route('erp.dashboard')],

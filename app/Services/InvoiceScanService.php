@@ -176,14 +176,21 @@ class InvoiceScanService
         $supplier = $party['model'];
 
         /*
-         * العملة بتبدأ جنيه دايمًا — زي فورم الشراء العادي بالظبط.
+         * العملة بتيجي من الورق لو مكتوبة عليه، وإلا جنيه.
          *
-         * عملة المورد مابقتش بتتحط هنا: مورد متسجّل بالدولار كان بيحوّل
-         * فاتورة بـ 500 جنيه لـ 500 دولار من غير ما حد ياخد باله. حتى
-         * العملة اللي الموديل قراها على الورق بتتسجّل في `review` بس —
-         * بتتعلّم على الخانة إنها محتاجة مراجعة، والمستخدم هو اللي
-         * يبدّل لدولار أو يورو بإيده.
+         * الورق هو المصدر: فاتورة مستورد مكتوب عليها USD المفروض تفتح
+         * بالدولار، مش يضطر المستخدم يبدّلها كل مرة. وسعر الصرف بياخد
+         * الاقتراح اللي الفورم نفسه بيحطه لما تبدّل العملة بإيدك.
+         *
+         * الاتنين بيتعلّموا في `review` عشان الواجهة تلوّنهم أصفر —
+         * «دي اتقرت من الورق، راجعها» — وبالذات سعر الصرف، لأنه تقريبي
+         * مش سعر اليوم.
+         *
+         * عملة **المورد** لسه مابتتحطش هنا: مورد متسجّل بالدولار كان
+         * بيحوّل فاتورة بـ 500 جنيه لـ 500 دولار من غير ما حد ياخد باله.
          */
+        $currency = $this->readCurrency($data);
+
         $items = $this->matchItems($data['items'] ?? [], fn (Product $product): float => (float) $product->purchase_price);
 
         return [
@@ -191,9 +198,8 @@ class InvoiceScanService
             'form' => [
                 'supplier_id' => $supplier?->id,
                 'date' => $this->date($data['date'] ?? null),
-                'currency' => 'EGP',
-                // الجنيه بالجنيه = 1، مفيش حاجة تتسأل عنها
-                'exchange_rate' => 1.0,
+                'currency' => $currency ?? 'EGP',
+                'exchange_rate' => (float) (Invoice::SUGGESTED_RATES[$currency] ?? 1),
                 'discount' => $this->amount($data['discount'] ?? null),
                 'shipping_cost' => $this->amount($data['shipping_cost'] ?? null),
                 'customs_cost' => $this->amount($data['customs_cost'] ?? null),
@@ -206,14 +212,15 @@ class InvoiceScanService
                 'fields' => [
                     ...$this->uncertainFields($data, ['date']),
                     /*
-                     * العملة دايمًا محتاجة مراجعة: الفورم حاطط الجنيه
-                     * كافتراضي، فلو الورق مكتوب عليه دولار إحنا بندوس
-                     * عليه — والخانة الصفرا هي اللي بتقول للمستخدم
-                     * «بُص هنا» قبل ما يأكّد.
+                     * عملة أجنبية اتقرت من الورق = مراجعة لازمة: دي
+                     * بتغيّر معنى كل رقم في الفاتورة، وسعر الصرف اللي
+                     * جنبها تقريبي مش سعر اليوم.
+                     *
+                     * ومفيش عملة على الورق = مفيش علامة: الجنيه هو
+                     * الافتراضي أصلاً، والتعليم من غير سبب بيعلّم
+                     * المستخدم إنه يعدّي على الأصفر من غير ما يبصّله.
                      */
-                    ...($this->readsForeignCurrency($data)
-                        ? ['currency', 'exchange_rate']
-                        : $this->uncertainFields($data, ['currency', 'exchange_rate'])),
+                    ...($currency !== null ? ['currency', 'exchange_rate'] : []),
                 ],
                 'items' => array_map(fn (array $item): array => $item['review'], $items),
             ],
@@ -221,15 +228,26 @@ class InvoiceScanService
     }
 
     /**
-     * الورق مكتوب عليه عملة غير الجنيه؟
+     * العملة الأجنبية المكتوبة على الورق — أو null.
+     *
+     * الجنيه بيرجع null عن قصد: هو الافتراضي أصلاً، ومفيش داعي نعلّم
+     * الخانة للمراجعة لما الورق بيقول نفس اللي الفورم حاطه.
      *
      * @param  array<string, mixed>  $data
      */
-    private function readsForeignCurrency(array $data): bool
+    private function readCurrency(array $data): ?string
     {
         $text = mb_strtoupper((string) $this->text($data['currency'] ?? null));
 
-        return in_array($text, ['USD', 'EUR', 'TRY'], true);
+        // رموز بتتكتب على الفواتير بدل الاختصار
+        $text = match ($text) {
+            '$', 'US$', 'USD$', 'DOLLAR', 'دولار' => 'USD',
+            '€', 'EURO', 'يورو' => 'EUR',
+            '₺', 'TL', 'LIRA' => 'TRY',
+            default => $text,
+        };
+
+        return in_array($text, ['USD', 'EUR', 'TRY'], true) ? $text : null;
     }
 
     /**

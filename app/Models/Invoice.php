@@ -53,6 +53,15 @@ class Invoice extends Model
         'scan_payload', 'scanned_at',
     ];
 
+    /**
+     * أسعار صرف تقريبية بتتقترح في الفورم، والمستخدم يقدر يعدّلها.
+     *
+     * قاعدة هنا عشان الماسح والفورم يتكلموا بنفس الأرقام: لما الورق
+     * مكتوب عليه دولار، الماسح بيحط سعر الصرف اللي الفورم كان هيحطه
+     * لو المستخدم بدّل العملة بإيده.
+     */
+    public const SUGGESTED_RATES = ['EGP' => 1, 'USD' => 49.4, 'EUR' => 53.8, 'TRY' => 1.46];
+
     /** أنواع المرتجعات */
     public const RETURN_TYPES = [self::TYPE_SALE_RETURN, self::TYPE_PURCHASE_RETURN];
 
